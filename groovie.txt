@@ -43,22 +43,19 @@ IDEA: you could have a long drop-down menu to select the samples
 
 We have enough samples to get started
 https://github.com/tidalcycles/sounds-tr808-fischer
-https://opengameart.org/art-search-advanced?keys=&title=&field_art_tags_tid_op=or&field_art_tags_tid=&name=&field_art_type_tid%5B%5D=13&field_art_licenses_tid%5B%5D=4&sort_by=count&sort_order=DESC&items_per_page=24&Collection=
-=> lots of usable CC0 samples on opengameart
+=> also lots more usable CC0 samples on opengameart
 
 TODO: up the volume on the weak samples
-TOOD: install audacity
-
-Note again that we don't need much samples to get started.
-Don't spend too much time collecting samples.
-We just need a mechanism so we can easily add new ones
-=> It's always tempting to get more samples, but delay that
-=> naming doesn't need to be perfect either
-
-TODO: check if we have access to copilot free?
 
 TODO: try to create html/js template with claude/grok
-TODO: sketch your UI
+=> can ask for drop-down menu to select beats per step
+=> try to iterate on the prompt
+
+TODO: zap01 is much too faint, amplify
+TOOD: install audacity
+
+TODO: ask Grok for script to convert non-wav to wav, 44.1KHz, mono
+
 
 
 
