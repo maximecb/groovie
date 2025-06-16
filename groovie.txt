@@ -1,0 +1,85 @@
+We should try to make a browser-based beatbox...
+Except that we have an arranger view. This view is itself simply a grid.
+We can start simple, and gradually expand a lot. We could allow sub-beat alignment of samples.
+We want to allow selecting samples, for example between 8-12 samples per pattern.
+Up to N patterns. Can start small/simple, gradually add more controls.
+
+Might seem challenging but:
+- This can be 100% serverless
+- Claude/Grok can help us a lot
+- Sub-beat alignment can be a very cool differentiating factor
+- None of the online drum machines let you select samples, or arrange patterns!
+
+Controls:
+We need a tempo at the top, probably 120 by default
+Slightly rounded squares
+Different rainbow colors for each sample
+
+Super simple UI:
+https://blog.omgmog.net/beatmaker/
+https://splice.com/sounds/beatmaker
+
+Make it open source on GitHub!
+
+Later on:
+- Rotary button or slider for sample volume
+- Rotary or slider for sample panning
+Donate
+Hire me!
+
+IDEA: for the arranger, we can compress the bit patterns with RLE.
+Many bits off, then some bits on.
+One hex number can encode the number of bits on or off.
+Otherwise, directly encode an index and a length using 4 chars.
+Then we can encode 4 on times using 16 chars?
+=> not that important initially
+
+IDEA: Checkbox, I agree to share this as public domain
+IDEA: you could have a long drop-down menu to select the samples
+- Very easy to do
+- Number the samples, 000, 001, 002, ...
+
+-----------------------------------------------------------------------------
+
+We have enough samples to get started
+https://github.com/tidalcycles/sounds-tr808-fischer
+https://opengameart.org/art-search-advanced?keys=&title=&field_art_tags_tid_op=or&field_art_tags_tid=&name=&field_art_type_tid%5B%5D=13&field_art_licenses_tid%5B%5D=4&sort_by=count&sort_order=DESC&items_per_page=24&Collection=
+=> lots of usable CC0 samples on opengameart
+
+TODO: up the volume on the weak samples
+TOOD: install audacity
+
+Note again that we don't need much samples to get started.
+Don't spend too much time collecting samples.
+We just need a mechanism so we can easily add new ones
+=> It's always tempting to get more samples, but delay that
+=> naming doesn't need to be perfect either
+
+TODO: check if we have access to copilot free?
+
+TODO: try to create html/js template with claude/grok
+TODO: sketch your UI
+
+
+
+
+
+[DONE] TODO: create todo for groovie, groovie.txt
+=> move notes there
+
+[DONE] TODO: rename samples
+
+[DONE] TODO: create repo to save our nice samples
+
+[DONE] TODO: look at freesound a bit
+TODO: this has a bunch of CC0 sounds
+https://freesound.org/search/?q=cc0&f=category%3A%22Sound+effects%22&page=3#sound
+https://freesound.org/people/dmyra/sounds/631640/
+https://freesound.org/people/mikobuntu/sounds/150399/
+
+[DONE] TODO: try to look for audio samples on github
+=> those stargate samples are really nice!
+  definitely enough to get us started!
+=> clear out the shitter ones, or the ones that use too much space
+
+[DONE] TODO: try to come up with name, create dir under projects
