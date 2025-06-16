@@ -39,6 +39,9 @@ IDEA: you could have a long drop-down menu to select the samples
 - Very easy to do
 - Number the samples, 000, 001, 002, ...
 
+TODO: download these
+https://opengameart.org/content/chiptune-sfx-pack
+
 -----------------------------------------------------------------------------
 
 We have enough samples to get started
@@ -48,7 +51,8 @@ https://github.com/tidalcycles/sounds-tr808-fischer
 TODO: up the volume on the weak samples
 
 TODO: try to create html/js template with claude/grok
-=> can ask for drop-down menu to select beats per step
+=> can ask for drop-down menu to select beats per bar
+=> buttons to increase or decrease pattern length by one bar
 => try to iterate on the prompt
 
 TODO: zap01 is much too faint, amplify
