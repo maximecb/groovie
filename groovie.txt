@@ -39,16 +39,13 @@ IDEA: you could have a long drop-down menu to select the samples
 - Very easy to do
 - Number the samples, 000, 001, 002, ...
 
-TODO: download these
-https://opengameart.org/content/chiptune-sfx-pack
-
 NOTE: this app should work well on mobile, which is another big plus!
-
------------------------------------------------------------------------------
 
 We have enough samples to get started
 https://github.com/tidalcycles/sounds-tr808-fischer
 => also lots more usable CC0 samples on opengameart
+
+-----------------------------------------------------------------------------
 
 TODO: ask Grok for script to convert non-wav to wav, 44.1KHz, mono
 
@@ -60,6 +57,10 @@ TODO: try to create html/js template with claude/grok
 => First focus on just drawing the grids and controls, not the audio rendering
 
 TODO: rename .mp3.flac to just .flac
+
+TODO: download these
+https://opengameart.org/content/chiptune-sfx-pack
+
 
 
 
