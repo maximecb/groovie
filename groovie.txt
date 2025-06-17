@@ -51,9 +51,6 @@ TODO: copy over a select subset of the 808 samples
 
 -----------------------------------------------------------------------------
 
-TODO: ask Grok for script to convert non-wav to wav, 44.1KHz, mono
-=> maybe start by just identifying them?
-
 People use the terms "song mode", and "pattern chains"
 
 IDEA: you could prompt grok for code to draw just the grid
@@ -63,11 +60,15 @@ TODO: try to create html/js template with claude/grok
 => try to iterate on the prompt
 => First focus on just drawing the grids and controls, not the audio rendering
 
-TODO: convert last twang samples to wav
+TODO: create a style.css, make the background black
 
 
 
 
+
+[DONE] TODO: ask Grok for script to convert non-wav to wav, 44.1KHz, mono
+
+[DONE] TODO: convert last twang samples to wav
 
 [DONE] TODO: convert flac samples to wav
 
