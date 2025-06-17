@@ -28,6 +28,9 @@ fi
 # Check for non-WAV files in the directory
 find "$directory" -maxdepth 1 -type f ! -iname "*.wav" | while read -r file; do
     filename=$(basename "$file")
+    if [ "$filename" = ".DS_Store" ]; then
+        continue
+    fi
     echo "Error: '$filename' is not a WAV file."
 done
 
@@ -39,26 +42,23 @@ find "$directory" -maxdepth 1 -type f -iname "*.wav" | while read -r file; do
     # Get file properties using ffprobe
     channels=$(ffprobe -v error -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 "$file" 2>/dev/null)
     sample_rate=$(ffprobe -v error -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$file" 2>/dev/null)
-    bit_depth=$(ffprobe -v error -show_entries stream=bits_per_raw_sample -of default=noprint_wrappers=1:nokey=1 "$file" 2>/dev/null)
-
-    # Handle cases where ffprobe fails to get bit depth (e.g., some WAV files)
-    if [ -z "$bit_depth" ]; then
-        bit_depth=$(ffprobe -v error -show_entries stream=bits_per_sample -of default=noprint_wrappers=1:nokey=1 "$file" 2>/dev/null)
-    fi
+    sample_fmt=$(ffprobe -v error -show_entries stream=sample_fmt -of default=noprint_wrappers=1:nokey=1 "$file" 2>/dev/null)
 
     # Check if ffprobe failed to get properties (e.g., corrupted file)
-    if [ -z "$channels" ] || [ -z "$sample_rate" ] || [ -z "$bit_depth" ]; then
+    if [ -z "$channels" ] || [ -z "$sample_rate" ] || [ -z "$sample_fmt" ]; then
         echo "Error: Failed to read properties for '$filename'. It may be corrupted."
         continue
     fi
 
-    # Check if file already matches desired format (mono, 44.1 kHz, 16-bit)
-    if [ "$channels" = "1" ] && [ "$sample_rate" = "44100" ] && [ "$bit_depth" = "16" ]; then
-        echo "$filename is already mono, 44.1 kHz, 16-bit. Skipping."
+    # Check if file already matches desired format (mono, 44.1 kHz, 16-bit PCM)
+    if [ "$channels" = "1" ] && [ "$sample_rate" = "44100" ] && [ "$sample_fmt" = "s16" ]; then
+        #echo "$filename is already mono, 44.1 kHz, 16-bit PCM. Skipping."
         continue
     fi
 
-    echo "Converting $filename to mono, 44.1 kHz, 16-bit..."
+    # Debug output to show detected properties
+    echo "  Detected: Channels=$channels, SampleRate=$sample_rate Hz, SampleFormat=$sample_fmt"
+    echo "Converting $filename to mono, 44.1 kHz, 16-bit PCM..."
 
     # Convert to temporary file first
     temp_file="${file%.wav}_temp.wav"
