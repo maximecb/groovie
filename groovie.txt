@@ -42,28 +42,35 @@ IDEA: you could have a long drop-down menu to select the samples
 TODO: download these
 https://opengameart.org/content/chiptune-sfx-pack
 
+NOTE: this app should work well on mobile, which is another big plus!
+
 -----------------------------------------------------------------------------
 
 We have enough samples to get started
 https://github.com/tidalcycles/sounds-tr808-fischer
 => also lots more usable CC0 samples on opengameart
 
-TODO: up the volume on the weak samples
+TODO: ask Grok for script to convert non-wav to wav, 44.1KHz, mono
 
+IDEA: you could prompt grok for code to draw just the grid
 TODO: try to create html/js template with claude/grok
 => can ask for drop-down menu to select beats per bar
 => buttons to increase or decrease pattern length by one bar
 => try to iterate on the prompt
+=> First focus on just drawing the grids and controls, not the audio rendering
 
-TODO: zap01 is much too faint, amplify
-TOOD: install audacity
-
-TODO: ask Grok for script to convert non-wav to wav, 44.1KHz, mono
+TODO: rename .mp3.flac to just .flac
 
 
 
 
+[DONE] TODO: up the volume on the weak samples
 
+[DONE] TODO: try to separate out a female what sample
+
+[DONE] TODO: zap01 is much too faint, amplify
+
+[DONE] TOOD: install audacity
 
 [DONE] TODO: create todo for groovie, groovie.txt
 => move notes there

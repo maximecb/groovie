@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step Sequencer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        .sequencer {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            gap: 5px;
+            margin: 20px 0;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            background-color: #ddd;
+            border: 1px solid #999;
+            cursor: pointer;
+        }
+        .cell.active {
+            background-color: #4caf50;
+        }
+        .cell.playing {
+            background-color: #ff9800;
+        }
+        .controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .labels {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 10px;
+        }
+        .label {
+            height: 50px;
+            line-height: 50px;
+            font-size: 14px;
+            color: #333;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input[type="range"] {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Step Sequencer</h1>
+    <div style="display: flex;">
+        <div class="labels">
+            <div class="label">Kick</div>
+            <div class="label">Snare</div>
+            <div class="label">Hi-Hat</div>
+            <div class="label">Clap</div>
+        </div>
+        <div class="sequencer" id="sequencer"></div>
+    </div>
+    <div class="controls">
+        <button id="playPause">Play</button>
+        <label>Tempo: <span id="tempoValue">120</span> BPM</label>
+        <input type="range" id="tempo" min="60" max="180" value="120">
+    </div>
+
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const sequencer = document.getElementById('sequencer');
+        const playPauseButton = document.getElementById('playPause');
+        const tempoSlider = document.getElementById('tempo');
+        const tempoValue = document.getElementById('tempoValue');
+
+        const sounds = ['kick', 'snare', 'hihat', 'clap'];
+        const steps = 8;
+        let grid = sounds.map(() => Array(steps).fill(false));
+        let currentStep = 0;
+        let isPlaying = false;
+        let tempo = 120;
+        let intervalId = null;
+
+        // Create sequencer grid
+        function createGrid() {
+            sequencer.innerHTML = '';
+            grid.forEach((row, rowIndex) => {
+                for (let col = 0; col < steps; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (grid[rowIndex][col]) cell.classList.add('active');
+                    cell.addEventListener('click', () => {
+                        grid[rowIndex][col] = !grid[rowIndex][col];
+                        cell.classList.toggle('active');
+                    });
+                    sequencer.appendChild(cell);
+                }
+            });
+        }
+
+        // Generate drum sounds
+        function playSound(sound, time) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            if (sound === 'kick') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(150, time);
+                oscillator.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+                gainNode.gain.setValueAtTime(1, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+            } else if (sound === 'snare') {
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(200, time);
+                gainNode.gain.setValueAtTime(0.7, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+            } else if (sound === 'hihat') {
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(1000, time);
+                gainNode.gain.setValueAtTime(0.3, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            } else if (sound === 'clap') {
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(500, time);
+                gainNode.gain.setValueAtTime(0.5, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+            }
+
+            oscillator.start(time);
+            oscillator.stop(time + 0.5);
+        }
+
+        // Play sequence
+        function playStep() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => cell.classList.remove('playing'));
+            for (let row = 0; row < sounds.length; row++) {
+                if (grid[row][currentStep]) {
+                    playSound(sounds[row], audioContext.currentTime);
+                    cells[row * steps + currentStep].classList.add('playing');
+                }
+            }
+            currentStep = (currentStep + 1) % steps;
+        }
+
+        // Start/stop sequencer
+        function togglePlay() {
+            if (isPlaying) {
+                clearInterval(intervalId);
+                playPauseButton.textContent = 'Play';
+                isPlaying = false;
+                currentStep = 0;
+                document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('playing'));
+            } else {
+                intervalId = setInterval(playStep, (60 / tempo) * 1000 / 4);
+                playPauseButton.textContent = 'Pause';
+                isPlaying = true;
+            }
+        }
+
+        // Update tempo
+        tempoSlider.addEventListener('input', () => {
+            tempo = tempoSlider.value;
+            tempoValue.textContent = tempo;
+            if (isPlaying) {
+                clearInterval(intervalId);
+                intervalId = setInterval(playStep, (60 / tempo) * 1000 / 4);
+            }
+        });
+
+        // Initialize
+        createGrid();
+        playPauseButton.addEventListener('click', togglePlay);
+    </script>
+</body>
+</html>
