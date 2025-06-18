@@ -60,11 +60,19 @@ TODO: try to create html/js template with claude/grok
 => try to iterate on the prompt
 => First focus on just drawing the grids and controls, not the audio rendering
 
-TODO: create a style.css, make the background black
+TODO: figure out how we can center the controls
+
+TODO: create a main.js script
 
 
 
 
+[DONE] TODO: headings, Patterns, Song View
+- outline both parts with a grey outline
+
+[DONE] TODO: make the background black
+
+[DONE] TODO: create a style.css
 
 [DONE] TODO: ask Grok for script to convert non-wav to wav, 44.1KHz, mono
 
