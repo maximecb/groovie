@@ -60,12 +60,14 @@ TODO: try to create html/js template with claude/grok
 => try to iterate on the prompt
 => First focus on just drawing the grids and controls, not the audio rendering
 
-TODO: figure out how we can center the controls
-
 TODO: create a main.js script
 
 
 
+
+[DONE] TODO: add steps per bar dropdown menu
+
+[DONE] TODO: figure out how we can center the controls
 
 [DONE] TODO: try to position editor labels on top of border
 
