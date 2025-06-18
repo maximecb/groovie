@@ -10,20 +10,34 @@ body {
 }
 
 .editor {
+    position: relative;
     width: 800px;
     border: 1px solid #444;
-    margin: 4px;
+    margin: 8px;
     padding: 8px;
     font-size: 12px;
     font-family: monospace;
     font-weight: normal;
 }
 
-h2 {
+.editor .label {
     text-align: left;
+
+    position: absolute;
+    top: -0.6em;
+    left: 20px;
+
     margin: 0px;
     padding: 0px;
+
+    color: #999;
+    font-size: 1.2em;
+    background: #111;
+    padding-left: 2px;
+    padding-right: 2px;
 }
+
+
 
 .cell {
     width: 50px;
@@ -43,6 +57,7 @@ h2 {
 
 
 .controls {
+    margin: 4px;
     display: flex;
     gap: 20px;
     align-items: center;

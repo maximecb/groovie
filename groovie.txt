@@ -67,6 +67,8 @@ TODO: create a main.js script
 
 
 
+[DONE] TODO: try to position editor labels on top of border
+
 [DONE] TODO: headings, Patterns, Song View
 - outline both parts with a grey outline
 
