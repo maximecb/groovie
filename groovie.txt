@@ -58,10 +58,12 @@ TODO: write code to generate pattern cells in step_seq div
 TODO: look at model.js code from NoiseCraft
 => do we want to replicate this structure?
 
-TODO: create a main.js script, load it in index.html
+TODO: need script to start dev server
 
 
 
+
+[DONE] TODO: create a main.js script, load it in index.html
 
 [DONE] TODO: separate play/stop button for patterns vs song
 - Need to be able to listen to patterns without playing the song
