@@ -10,10 +10,23 @@
 
     <h1>Groovie</h1>
 
-    <div class="editor">
+    <div class="group">
+        <div class="label">Controls</div>
+        <div class="controls">
+            <button id="btn_play">Play</button>
+            <label>Tempo: <span id="tempoValue">120</span> BPM</label>
+            <input type="range" id="tempo" min="60" max="180" value="120">
+            <label>Volume: <span id="tempoValue">50</span>%</label>
+            <input type="range" id="volume" min="0" max="100" value="50">
+        </div>
+    </div>
+
+    <div class="group">
         <div class="label">Patterns</div>
 
         <div class="controls">
+            <div>
+            Steps ber bar
             <select id="steps_per_bar">
                 <option value="12">12</option>
                 <option value="14">14</option>
@@ -23,28 +36,29 @@
                 <option value="32">32</option>
                 <option value="36">36</option>
             </select>
+            </div>
         </div>
 
-        <div class="sequencer" id="sequencer"></div>
-    </div>
-
-
-
-    <div class="editor">
-        <div class="label">Song</div>
+        <div class="sequencer" id="step_seq">
+        </div>
 
         <div class="controls">
-            <button id="btn_play">Play</button>
-            <label>Tempo: <span id="tempoValue">120</span> BPM</label>
-            <input type="range" id="tempo" min="60" max="180" value="120">
+            <button id="play_pat">Play</button>
         </div>
 
-
+        <!-- TODO: pattern select buttons -->
     </div>
 
+    <div class="group">
+        <div class="label">Song</div>
 
+        <div class="sequencer" id="pat_seq">
+        </div>
 
-
+        <div class="controls">
+            <button id="play_song">Play</button>
+        </div>
+    </div>
 
 </body>
 </html>

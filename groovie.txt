@@ -53,17 +53,23 @@ TODO: copy over a select subset of the 808 samples
 
 People use the terms "song mode", and "pattern chains"
 
-IDEA: you could prompt grok for code to draw just the grid
-TODO: try to create html/js template with claude/grok
-=> can ask for drop-down menu to select beats per bar
-=> buttons to increase or decrease pattern length by one bar
-=> try to iterate on the prompt
-=> First focus on just drawing the grids and controls, not the audio rendering
+TODO: write code to generate pattern cells in step_seq div
 
-TODO: create a main.js script
+TODO: look at model.js code from NoiseCraft
+=> do we want to replicate this structure?
+
+TODO: create a main.js script, load it in index.html
 
 
 
+
+[DONE] TODO: separate play/stop button for patterns vs song
+- Need to be able to listen to patterns without playing the song
+=> later on we can have play/stop icons in the corner
+
+[DONE] TODO: look at those other step sequencer UIs you liked
+
+[DONE] TODO: separate out tempo and volume controls, put them at the top
 
 [DONE] TODO: add steps per bar dropdown menu
 

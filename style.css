@@ -9,7 +9,7 @@ body {
     padding: 20px;
 }
 
-.editor {
+.group {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -25,7 +25,7 @@ body {
     font-weight: normal;
 }
 
-.editor .label {
+.group .label {
     text-align: left;
 
     position: absolute;
