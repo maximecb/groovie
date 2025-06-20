@@ -76,16 +76,20 @@ If the main thread gets delayed, we could miss a bunch of steps.
 That's maybe fine?
 
 TODO: create a class to represent a song or project?
+=> split editor from project state?
 
-TODO: write Python script to produce a list of sample paths as a JS file
+TODO: import SAMPLE_PATHS from sample_list.js
+
+
+
+
+
+[DONE] TODO: write Python script to produce a list of sample paths as a JS file
 - update_samples.py
 => sort them alphabetically
 
-TODO: try to get some more very short snare samples
-- 808 samples?
-
-
-
+[DONE] TODO: try to get some more very short snare samples
+- 808 samples
 
 [DONE] TODO: try to get some thunder samples
 https://opengameart.org/content/100-cc0-sfx-2
