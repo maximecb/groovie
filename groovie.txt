@@ -56,10 +56,9 @@ TODO: copy over a select subset of the 808 samples
 
 People use the terms "song mode", and "pattern chains"
 
-TODO: write code to generate pattern cells in step_seq div
+TODO: sketch some pattern playback code?
 
-TODO: look at model.js code from NoiseCraft
-=> do we want to replicate this structure?
+TODO: write code to generate pattern cells in step_seq div
 
 We need the audio thread to control sample playback
 That means we need to send the pattern and song data over
@@ -75,14 +74,18 @@ to avoid getting out of sync.
 If the main thread gets delayed, we could miss a bunch of steps.
 That's maybe fine?
 
-TODO: create a class to represent a song or project?
-=> split editor from project state?
-
-TODO: import SAMPLE_PATHS from sample_list.js
+We could directly start with global variables?
+Although it would seem wise to have a project class with methods at least
 
 
 
 
+
+[DONE] TODO: look at model.js code from NoiseCraft
+=> do we want to replicate this structure?
+=> maybe not just yet, start simple
+
+[DONE] TODO: import SAMPLE_PATHS from sample_list.js
 
 [DONE] TODO: write Python script to produce a list of sample paths as a JS file
 - update_samples.py
