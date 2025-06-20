@@ -9,6 +9,9 @@ Might seem challenging but:
 - Claude/Grok can help us a lot
 - Sub-beat alignment can be a very cool differentiating factor
 - None of the online drum machines let you select samples, or arrange patterns!
+  - Lots of them have annoying ads too
+  - Or require signing up
+  - Or have shitty unintuitive UIs
 
 Controls:
 We need a tempo at the top, probably 120 by default
@@ -58,10 +61,38 @@ TODO: write code to generate pattern cells in step_seq div
 TODO: look at model.js code from NoiseCraft
 => do we want to replicate this structure?
 
-TODO: need script to start dev server
+We need the audio thread to control sample playback
+That means we need to send the pattern and song data over
+We also need to be able to send changes, including changing patterns etc.
+We may also need to change which samples are mapped in a pattern, load new samples.
+
+We may want to have some messages as plain JSON objects which we can send
+over to the audio thread.
+
+It seems like you could do the scheduling on the main thread, but you
+probably want to be careful with keeping track of audioContext.currentTime
+to avoid getting out of sync.
+If the main thread gets delayed, we could miss a bunch of steps.
+That's maybe fine?
+
+TODO: create a class to represent a song or project?
+
+TODO: write Python script to produce a list of sample paths as a JS file
+- update_samples.py
+=> sort them alphabetically
+
+TODO: try to get some more very short snare samples
+- 808 samples?
 
 
 
+
+[DONE] TODO: try to get some thunder samples
+https://opengameart.org/content/100-cc0-sfx-2
+
+-----------------------------------------------------------------------------
+
+[DONE] TODO: need script to start dev server
 
 [DONE] TODO: create a main.js script, load it in index.html
 
