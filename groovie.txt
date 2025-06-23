@@ -77,10 +77,21 @@ That's maybe fine?
 
 TODO: write code to generate pattern cells in step_seq div
 
-TODO: logic to get sample idx from sample name
+TODO: test that sample playback works
+
+TODO: function to play a sample at a given time
+samples.play_idx(sample_idx, time)
+
+
+
+
+
+[DONE] TODO: fetch the default samples
+
+[DONE] TODO: set some default samples when creating a pattern
+
+[DONE] TODO: logic to get sample idx from sample name
 - we can use this to load default samples
-
-
 
 [DONE] TODO: create first volume/gain node when initializing web audio
 
