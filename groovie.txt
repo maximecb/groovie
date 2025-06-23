@@ -80,11 +80,9 @@ TODO: write code to generate pattern cells in step_seq div
 TODO: logic to get sample idx from sample name
 - we can use this to load default samples
 
-TODO: create first volume/gain node when initializing web audio
 
 
-
-
+[DONE] TODO: create first volume/gain node when initializing web audio
 
 [DONE] TODO: code to init the web audio context
 

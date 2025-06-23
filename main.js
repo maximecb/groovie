@@ -73,11 +73,15 @@ class Pattern
 
 // Audio context
 let audio_ctx = null;
+let global_gain = null;
 
 const samples = new SampleManager();
 
 // Play pattern button
 const play_pat = document.getElementById('play_pat');
+
+// Volume slider
+const volume_slider = document.getElementById('volume_slider');
 
 // Tempo in beats per minute
 let tempo = 120;
@@ -103,6 +107,11 @@ async function init_web_audio()
     audio_ctx = new AudioContext({
         sampleRate: 44100,
     });
+
+    // Global volume node
+    global_gain = audio_ctx.createGain();
+    global_gain.gain.setValueAtTime(volume_slider.valueAsNumber, audio_ctx.currentTime);
+    global_gain.connect(audio_ctx.destination);
 
     await audio_ctx.resume();
 }
