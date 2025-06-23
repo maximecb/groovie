@@ -50,15 +50,16 @@ https://github.com/tidalcycles/sounds-tr808-fischer
 
 TODO: copy over a select subset of the 808 samples
 => we've already downloaded them
-=> start by broadly deleting the super short or bad sounding ones
+=> start by broadly deleting the bad sounding ones
+
+We could download and sample some public domain movies:
+https://publicdomainmovie.net/
 
 -----------------------------------------------------------------------------
 
 People use the terms "song mode", and "pattern chains"
 
 TODO: sketch some pattern playback code?
-
-TODO: write code to generate pattern cells in step_seq div
 
 We need the audio thread to control sample playback
 That means we need to send the pattern and song data over
@@ -74,12 +75,27 @@ to avoid getting out of sync.
 If the main thread gets delayed, we could miss a bunch of steps.
 That's maybe fine?
 
-We could directly start with global variables?
-Although it would seem wise to have a project class with methods at least
+TODO: write code to generate pattern cells in step_seq div
+
+TODO: logic to get sample idx from sample name
+- we can use this to load default samples
+
+TODO: create first volume/gain node when initializing web audio
 
 
 
 
+
+[DONE] TODO: code to init the web audio context
+
+[DONE] TODO: return a dummy audio buffer if the sample is not loaded
+
+[DONE] TODO: sample loading function
+- we might not want to load all the samples eagerly?
+- can we async load the samples we need?
+=> ideally we would keep a map from sample indices to resources, and flag the samples to be loaded
+
+-----------------------------------------------------------------------------
 
 [DONE] TODO: look at model.js code from NoiseCraft
 => do we want to replicate this structure?
