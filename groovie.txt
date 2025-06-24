@@ -57,34 +57,29 @@ https://publicdomainmovie.net/
 
 -----------------------------------------------------------------------------
 
-People use the terms "song mode", and "pattern chains"
-
-TODO: sketch some pattern playback code?
-
-We need the audio thread to control sample playback
-That means we need to send the pattern and song data over
-We also need to be able to send changes, including changing patterns etc.
-We may also need to change which samples are mapped in a pattern, load new samples.
-
-We may want to have some messages as plain JSON objects which we can send
-over to the audio thread.
-
 It seems like you could do the scheduling on the main thread, but you
 probably want to be careful with keeping track of audioContext.currentTime
 to avoid getting out of sync.
 If the main thread gets delayed, we could miss a bunch of steps.
 That's maybe fine?
 
+TODO: sketch pattern playback code. We should use setInterval to start.
+
+TODO: code to handle pattern cell clicks
+
 TODO: write code to generate pattern cells in step_seq div
-
-TODO: test that sample playback works
-
-TODO: function to play a sample at a given time
-samples.play_idx(sample_idx, time)
+=> start simple, just a plain grid
 
 
 
 
+
+[DONE] TODO: test that sample playback works
+
+[DONE] TODO: function to play a sample at a given time
+samples.play_sample(sample_idx, time, dst_node)
+
+-----------------------------------------------------------------------------
 
 [DONE] TODO: fetch the default samples
 

@@ -17,13 +17,6 @@ class SampleManager
 
         // Audio buffers for the samples
         this.sample_bufs = Array(SAMPLE_PATHS.length);
-
-        // Dummy empty buffer for not yet loaded samples
-        this.empty_buf = new AudioBuffer({
-            length: 1,
-            sampleRate: 44100,
-            numberOfChannels: 1
-        });
     }
 
     // Fetch/download a sample by index
@@ -45,17 +38,21 @@ class SampleManager
         .then(array_buffer => audio_ctx.decodeAudioData(array_buffer))
         .then(audio_buffer => this.sample_bufs[sample_idx] = audio_buffer)
         .catch(err => console.error(err));
+
+        //
+        // TODO: on failure, retry once or twice after a small delay?
+        // function retry(num_tries)
+        //
     }
 
     // Get the audio buffer for a sample
     get_buffer(sample_idx)
     {
-        let buf = this.sample_bufs[sample_idx];
+        console.assert(typeof sample_idx == 'number');
+        console.assert(sample_idx < SAMPLE_PATHS.length);
 
-        if (!buf)
-            return this.empty_buf;
-
-        return buf;
+        // This will return undefined if the sample is not yet loaded
+        return this.sample_bufs[sample_idx];
     }
 
     // Get the index for a given sample name
@@ -63,6 +60,24 @@ class SampleManager
     {
         console.assert(this.names_to_idxs.has(sample_name));
         return this.names_to_idxs.get(sample_name);
+    }
+
+    // Play a sample at a given time
+    play_sample(sample_idx, start_time, dst_node)
+    {
+        const buffer = this.get_buffer(sample_idx);
+
+        // If the sample is not yet loaded, do nothing
+        if (!buffer)
+            return;
+
+        // Create a buffer source
+        const source = audio_ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(dst_node);
+
+        // Start playback at the specified time index
+        source.start(0, start_time);
     }
 }
 
@@ -148,6 +163,9 @@ play_pat.onclick = function ()
 {
     init_web_audio();
 
+
+    let sample_idx = patterns[0].sample_idxs[0];
+    samples.play_sample(sample_idx, audio_ctx.currentTime, audio_ctx.destination);
 
 
 }
