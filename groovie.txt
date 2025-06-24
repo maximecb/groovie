@@ -63,16 +63,24 @@ to avoid getting out of sync.
 If the main thread gets delayed, we could miss a bunch of steps.
 That's maybe fine?
 
+TODO: pattern highlighting during playback
+
 TODO: sketch pattern playback code. We should use setInterval to start.
+=> send audio to the global_gain node, not audio ctx
+setInterval(code, delay)
+clearInterval(intervalID)
+setTimeout(code, delay)
 
-TODO: code to handle pattern cell clicks
 
-TODO: write code to generate pattern cells in step_seq div
+
+
+
+
+
+[DONE] TODO: code to handle pattern cell clicks
+
+[DONE] TODO: write code to generate pattern cells in step_seq div
 => start simple, just a plain grid
-
-
-
-
 
 [DONE] TODO: test that sample playback works
 

@@ -44,19 +44,28 @@ body {
 
 
 
+
+.sequencer {
+    border: 1px solid #444;
+    margin: 4px;
+    padding: 2px;
+}
+
 .cell {
-    width: 50px;
-    height: 50px;
-    background-color: #ddd;
-    border: 1px solid #F00;
+    width: 18px;
+    height: 18px;
+    margin: 2px;
     cursor: pointer;
+    border: 1px solid #FFF;
 }
 .cell.on {
-    background-color: #F00;
+    background-color: #FFF;
 }
 .cell.off {
     background-color: #000;
 }
+
+
 
 
 
