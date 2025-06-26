@@ -56,7 +56,7 @@ body {
     height: 16px;
     margin: 2px;
     cursor: pointer;
-    border: 1px solid #FFF;
+    border: 1px solid #CCC;
 }
 .cell.on {
     background-color: #FFF;

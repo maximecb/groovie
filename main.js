@@ -255,9 +255,13 @@ patterns[0].gen_grid(pat_div);
 // Currently selected pattern
 let cur_pat = 0;
 
+// Interval to update the audio playback
+let update_interv = null;
+
 // Initialize the web audio context
 async function init_web_audio()
 {
+    // If already initialized, stop
     if (global_gain)
         return;
 
@@ -275,16 +279,26 @@ async function init_web_audio()
 
 play_pat.onclick = function ()
 {
-    init_web_audio();
+    // If already playing, stop playback
+    if (update_interv)
+    {
+        console.log('Stopping playback');
+        clearInterval(update_interv);
+        update_interv = null;
+        return;
+    }
 
+    console.log('Starting pattern playback');
+
+    init_web_audio();
 
     //let sample_idx = patterns[0].sample_idxs[0];
     //samples.play_sample(sample_idx, audio_ctx.currentTime, audio_ctx.destination);
 
-
-
-
+    // Schedule update callback
+    update_interv = setInterval(update_playback, 1000 / 25)
 }
+
 
 
 
@@ -292,7 +306,9 @@ play_pat.onclick = function ()
 // Update playback
 function update_playback()
 {
+    // Get the current tempo in beats per minute
     let tempo_bpm = tempo_slider.valueAsNumber;
+
 
 
     // audio_ctx.currentTime

@@ -71,19 +71,17 @@ TODO: sketch pattern playback code.
 We need to keep track of the last time we saw?
 Current position in fractional bars?
 
-TODO: schedule setInterval to start
+
+
+
+
+
+
+
+[DONE] TODO: schedule setInterval to start
 setInterval(code, 1000 / 25)
 clearInterval(intervalID)
 let update_interv = null;
-
-
-
-
-
-
-
-
-
 
 [DONE] TODO: code to handle pattern cell clicks
 
