@@ -65,11 +65,19 @@ That's maybe fine?
 
 TODO: pattern highlighting during playback
 
-TODO: sketch pattern playback code. We should use setInterval to start.
-=> send audio to the global_gain node, not audio ctx
-setInterval(code, delay)
+TODO: sketch pattern playback code.
+=> send audio to the global_gain node, not audio_ctx
+
+We need to keep track of the last time we saw?
+Current position in fractional bars?
+
+TODO: schedule setInterval to start
+setInterval(code, 1000 / 25)
 clearInterval(intervalID)
-setTimeout(code, delay)
+let update_interv = null;
+
+
+
 
 
 

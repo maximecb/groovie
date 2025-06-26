@@ -206,7 +206,7 @@ class Pattern
             // If this is not the last bar, add a separator
             if (bar_idx < this.num_bars - 1)
             {
-                let bar_height = this.rows.length * 18;
+                let bar_height = this.rows.length * 16;
                 let sep = document.createElement('div');
                 sep.style['display'] = 'inline-block';
                 sep.style['width'] = '3px';
@@ -231,6 +231,9 @@ const samples = new SampleManager();
 
 // Play pattern button
 const play_pat = document.getElementById('play_pat');
+
+// Tempo slider
+const tempo_slider = document.getElementById('tempo_slider');
 
 // Volume slider
 const volume_slider = document.getElementById('volume_slider');
@@ -275,8 +278,10 @@ play_pat.onclick = function ()
     init_web_audio();
 
 
-    let sample_idx = patterns[0].sample_idxs[0];
-    samples.play_sample(sample_idx, audio_ctx.currentTime, audio_ctx.destination);
+    //let sample_idx = patterns[0].sample_idxs[0];
+    //samples.play_sample(sample_idx, audio_ctx.currentTime, audio_ctx.destination);
+
+
 
 
 }
@@ -287,6 +292,20 @@ play_pat.onclick = function ()
 // Update playback
 function update_playback()
 {
+    let tempo_bpm = tempo_slider.valueAsNumber;
+
+
+    // audio_ctx.currentTime
+
+
+
+    // For every step, we know what time they play at...
+    // This depends on the current tempo
+
+    // We can see what position the audio context time is at
+    // We should know how far we've triggered steps?
+
+
 
 
 
