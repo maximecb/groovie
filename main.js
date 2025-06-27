@@ -300,6 +300,11 @@ play_pat.onclick = function ()
 }
 
 
+// Time at the last playback update
+let last_time = 0;
+
+// Time we last queued until, in fractional bars
+let last_pos = 0;
 
 
 
@@ -307,19 +312,21 @@ play_pat.onclick = function ()
 function update_playback()
 {
     // Get the current tempo in beats per minute
+    // Convert it to bars per second
     let tempo_bpm = tempo_slider.valueAsNumber;
+    let bars_per_sec = tempo_bpm / (60 * 4);
+
+    // Time to queue until
+    let queue_until_t = audio_ctx.currentTime + 0.1;
+
+    // Compute how far to move ahead in bars
+    let delta_time = queue_until_t - last_time;
+    let delta_bars = delta_time * bars_per_sec;
+    let queue_until_pos = last_pos + delta_bars;
 
 
 
-    // audio_ctx.currentTime
-
-
-
-    // For every step, we know what time they play at...
-    // This depends on the current tempo
-
-    // We can see what position the audio context time is at
-    // We should know how far we've triggered steps?
+    // TODO: start by just scanning the current pattern
 
 
 
@@ -327,4 +334,9 @@ function update_playback()
 
 
 
+
+
+
+    last_time = queue_until_t;
+    last_pos = queue_until_pos;
 }

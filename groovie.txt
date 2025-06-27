@@ -68,20 +68,20 @@ TODO: pattern highlighting during playback
 TODO: sketch pattern playback code.
 => send audio to the global_gain node, not audio_ctx
 
-We need to keep track of the last time we saw?
-Current position in fractional bars?
 
 
 
 
+[DONE] TODO: sketch time update code
 
-
-
+[DONE] TODO: compute the tempo in bars per second
 
 [DONE] TODO: schedule setInterval to start
 setInterval(code, 1000 / 25)
 clearInterval(intervalID)
 let update_interv = null;
+
+-----------------------------------------------------------------------------
 
 [DONE] TODO: code to handle pattern cell clicks
 
