@@ -87,7 +87,6 @@ class Pattern
     {
         this.steps_per_bar = 16;
         this.num_bars = 1;
-        this.num_steps = this.steps_per_bar * this.num_bars;
 
         // Default samples
         this.sample_idxs = [
@@ -303,7 +302,8 @@ play_pat.onclick = function ()
 // Time at the last playback update
 let last_time = 0;
 
-// Time we last queued until, in fractional bars
+// Time we last queued until
+// Monotonically increasing position in fractional bars
 let last_pos = 0;
 
 
@@ -319,7 +319,8 @@ function update_playback()
     // Time to queue until
     let queue_until_t = audio_ctx.currentTime + 0.1;
 
-    // Compute how far to move ahead in bars
+    // Compute how far to queue until
+    // This is a monotonically increasing position in fractional bars
     let delta_time = queue_until_t - last_time;
     let delta_bars = delta_time * bars_per_sec;
     let queue_until_pos = last_pos + delta_bars;
@@ -328,8 +329,35 @@ function update_playback()
 
     // TODO: start by just scanning the current pattern
 
+    // NOTE: patterns can be multiple bars long...
+    // That means we need to maintain a position per pattern?
+    // Otherwise, maintain a global position in fractional bars
+
+    let pat = patterns[cur_pat];
 
 
+    // TODO: you need to be able to get the fractinal part of that pattern position...
+    // Or maybe convert it into a global step index first?
+
+    // Global step index we last queued until
+    let step_from = last_pos * pat.steps_per_bar;
+    let step_to = queue_until_pos * pat.steps_per_bar;
+
+
+    // For each step to queue
+    for (let step_idx = step_from + 1; step_idx <= step_to; ++step_idx)
+    {
+        let s_idx = step_idx % pat.num_steps;
+
+
+        // TODO: we need a time value to queue at
+
+
+
+
+
+
+    }
 
 
 
