@@ -1,6 +1,7 @@
 # Groovie
 
-Free, open source beat sequencer with no ads.
+Free, open source web-based beat sequencer with no ads. Implemented in pure JavaScript
+with no frameworks.
 
 
 

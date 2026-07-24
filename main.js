@@ -1,22 +1,29 @@
-import { SAMPLE_PATHS } from "./sample_list.js";
-console.assert(SAMPLE_PATHS.length > 0);
+import { SAMPLE_MAP } from "./sample_list.js";
+console.assert(Object.keys(SAMPLE_MAP).length > 0);
 
 class SampleManager
 {
     constructor()
     {
-        // Construct a mapping of sample names to indices
+        // SAMPLE_MAP maps sample paths to indices. Sample indices are stable
+        // over time (see update_samples.py), so a path may be missing from
+        // disk while its index stays reserved. We index paths by their fixed
+        // index rather than by position, leaving holes for any such gaps.
         this.names_to_idxs = new Map();
-        for (let sample_idx = 0; sample_idx < SAMPLE_PATHS.length; ++sample_idx)
+        this.paths_by_idx = [];
+        for (let [sample_path, sample_idx] of Object.entries(SAMPLE_MAP))
         {
-            let sample_path = SAMPLE_PATHS[sample_idx];
             let sample_name = sample_path.match(/samples\/(.+)\.wav/)[1];
             console.assert(typeof sample_name == 'string');
             this.names_to_idxs.set(sample_name, sample_idx);
+            this.paths_by_idx[sample_idx] = sample_path;
         }
 
+        // Number of sample slots (highest index + 1)
+        this.num_samples = this.paths_by_idx.length;
+
         // Audio buffers for the samples
-        this.sample_bufs = Array(SAMPLE_PATHS.length);
+        this.sample_bufs = Array(this.num_samples);
     }
 
     // Fetch/download a sample by index
@@ -24,13 +31,18 @@ class SampleManager
     // This function doesn't return anything
     fetch_sample(sample_idx)
     {
-        console.assert(sample_idx < SAMPLE_PATHS.length);
+        console.assert(sample_idx < this.num_samples);
 
         // Check if sample already loaded
         if (this.sample_bufs[sample_idx])
             return;
 
-        let sample_path = SAMPLE_PATHS[sample_idx];
+        let sample_path = this.paths_by_idx[sample_idx];
+
+        // The index may be reserved for a sample no longer on disk
+        if (!sample_path)
+            return;
+
         console.log(`Fetching ${sample_path}`);
 
         fetch(sample_path)
@@ -49,7 +61,7 @@ class SampleManager
     get_buffer(sample_idx)
     {
         console.assert(typeof sample_idx == 'number');
-        console.assert(sample_idx < SAMPLE_PATHS.length);
+        console.assert(sample_idx < this.num_samples);
 
         // This will return undefined if the sample is not yet loaded
         return this.sample_bufs[sample_idx];

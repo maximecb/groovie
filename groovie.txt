@@ -68,40 +68,19 @@ TODO: sketch pattern playback code.
 
 -----------------------------------------------------------------------------
 
-TODO: create design.md
-Beat sequencer
-- Pure JS with no frameworks
-- No backend. To be hosted on GitHub pages.
-- Encoding
-  - We can easily encode URLs up to 2000+ chars in the fragment portion of the URL
-  - Use base64url for encoding the hash/fragment portion
-  - You can use commas for separation if useful
-  - #my_piece_title_bla_bla_bla,...
-- Should have a responsive layout that works on desktop, phones and tablets
-- Main controls at the top
-  - Tempo from 40 to 220
-  - Master volume
-- Time signature?
-  - Is that useful in a step sequencer?
-- Patterns
-  - Can have an arbitrary number of steps? from 1 to 64?
-  - From 1 to 16 samples
-  - Selectable samples
-  - Stereo pan per sample
-- Arrangement/timeline view
-  - I like the term timeline
-  - Turn patterns on and off at different points?
-- Hit counter?
-  - Google analytics?
-- Future features:
-  - Export to wav
+TODO: answer design doc question, is specifying a time signature useful?
+- Want to keep this friendly to people without a music theory background as well
 
-TODO: assess current status
+
+
+
+[DONE] TODO: update the sample list format
+
+[DONE] TODO: create design.md
+
+[DONE] TODO: assess current status
 - Is the playback working?
 - What's implemented?
-
-
-
 
 [DONE] TODO: change groovie to MIT license
 
