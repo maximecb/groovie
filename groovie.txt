@@ -100,11 +100,10 @@ TODO: assess current status
 - Is the playback working?
 - What's implemented?
 
-TODO: change groovie to MIT license
 
 
 
-
+[DONE] TODO: change groovie to MIT license
 
 [DONE] TODO: survey the competition again
 This is pretty good:
