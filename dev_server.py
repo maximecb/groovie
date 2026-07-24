@@ -20,5 +20,5 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 # Start the server
 with socketserver.TCPServer(('', PORT_NO), MyHTTPRequestHandler) as server:
-    print('Serving at https://localhost:{}'.format(PORT_NO))
+    print('Serving at http://localhost:{}'.format(PORT_NO))
     server.serve_forever()

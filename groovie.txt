@@ -68,9 +68,74 @@ TODO: pattern highlighting during playback
 TODO: sketch pattern playback code.
 => send audio to the global_gain node, not audio_ctx
 
+-----------------------------------------------------------------------------
+
+TODO: assess current status
+- Is the playback working?
+- What's implemented?
+
+TODO: change groovie to MIT license
+
+TODO: create design.md
+Beat sequencer
+- Pure JS with no frameworks
+- No backend. To be hosted on GitHub pages.
+- Encoding
+  - We can easily encode URLs up to 2000+ chars in the fragment portion of the URL
+  - Use base64url for encoding the hash/fragment portion
+  - You can use commas for separation if useful
+  - #my_piece_title_bla_bla_bla,...
+- Should have a responsive layout that works on desktop, phones and tablets
+- Main controls at the top
+  - Tempo from 40 to 220
+  - Master volume
+- Time signature?
+  - Is that useful in a step sequencer?
+- Patterns
+  - Can have an arbitrary number of steps? from 1 to 64?
+  - From 1 to 16 samples
+  - Selectable samples
+  - Stereo pan per sample
+- Arrangement/timeline view
+  - I like the term timeline
+  - Turn patterns on and off at different points?
+- Hit counter?
+  - Google analytics?
+- Future features:
+  - Export to wav
 
 
 
+
+
+[DONE] TODO: survey the competition again
+This is pretty good:
+  https://www.drumbot.com/projects/sequence/
+- Most of them have huge ads
+- Most of them are very simple
+- If more complex, interface can be cryptic
+- Mostly only drum samples
+- No arrangement view
+
+[DONE] TODO: what's the proper name for groovie. Is it a groovebox? Drum sequencer?
+- It's not just drums
+- Beat sequencer sounds about right
+
+[DONE] TODO: find out, what's the max URL encoding length?
+- Chrome
+- Firefox
+- Reddit
+- Twitter
+=> We can easily do 2KB+ on browsers and Reddit/HN/X
+=> That's up to 6000bits+
+=> If we assume (6 tracks) * (16 steps + 16 bits), that's 192 bits,
+so easily 30 patterns in 6000bits, without even compressing anything
+=> We can probably reuse some single-instrument patterns
+Codebook for 12-16 bit patterns?
+Store the 256 most common ones
+NOTE: we can also have a private codebook in the app
+
+-----------------------------------------------------------------------------
 
 [DONE] TODO: sketch time update code
 
