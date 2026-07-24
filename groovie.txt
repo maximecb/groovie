@@ -22,8 +22,6 @@ Super simple UI:
 https://blog.omgmog.net/beatmaker/
 https://splice.com/sounds/beatmaker
 
-Make it open source on GitHub!
-
 Later on:
 - Rotary button or slider for sample volume
 - Rotary or slider for sample panning
@@ -70,12 +68,6 @@ TODO: sketch pattern playback code.
 
 -----------------------------------------------------------------------------
 
-TODO: assess current status
-- Is the playback working?
-- What's implemented?
-
-TODO: change groovie to MIT license
-
 TODO: create design.md
 Beat sequencer
 - Pure JS with no frameworks
@@ -103,6 +95,12 @@ Beat sequencer
   - Google analytics?
 - Future features:
   - Export to wav
+
+TODO: assess current status
+- Is the playback working?
+- What's implemented?
+
+TODO: change groovie to MIT license
 
 
 
