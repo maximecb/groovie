@@ -1,55 +1,15 @@
-import { SAMPLE_MAP } from "./sample_list.js";
-
-//============================================================================
-// Sample list
-//
-// The sample list is pure data: it maps sample names and indices to the paths
-// of the sample files. Actually loading and playing the samples is the job of
-// audio.js. The model only ever refers to samples by index, which is also how
-// they get encoded into URLs.
-//============================================================================
-
-// SAMPLE_MAP maps sample paths to indices. Sample indices are stable
-// over time (see update_samples.py), so a path may be missing from
-// disk while its index stays reserved. We index paths by their fixed
-// index rather than by position, leaving holes for any such gaps.
-const sample_paths = [];
-const sample_idxs = new Map();
-
-for (let [sample_path, sample_idx] of Object.entries(SAMPLE_MAP))
-{
-    let sample_name = sample_path.match(/samples\/(.+)\.wav/)[1];
-    console.assert(typeof sample_name == 'string');
-    sample_idxs.set(sample_name, sample_idx);
-    sample_paths[sample_idx] = sample_path;
-}
-
-console.assert(sample_paths.length > 0);
-
-// Number of sample slots (highest index + 1)
-export const NUM_SAMPLES = sample_paths.length;
-
-// Get the index for a given sample name
-export function get_sample_idx(sample_name)
-{
-    console.assert(sample_idxs.has(sample_name));
-    return sample_idxs.get(sample_name);
-}
-
-// Get the file path for a given sample index.
-// Returns undefined if the index is reserved but has no file on disk.
-export function get_sample_path(sample_idx)
-{
-    console.assert(typeof sample_idx == 'number');
-    console.assert(sample_idx < NUM_SAMPLES);
-    return sample_paths[sample_idx];
-}
+import { get_sample_idx } from "./audio.js";
 
 //============================================================================
 // Limits
 //
 // These bound what a project can contain, and so also determine how many bits
 // each field takes in the URL encoding below.
+//
+// The model refers to samples only by index, and never needs to know what a
+// given index means. The one thing that bounds a sample index is the width of
+// the field it's encoded in, which is a property of the format rather than of
+// whatever happens to be in the samples directory today.
 //============================================================================
 
 // A beat is 4 steps, so at 120 BPM there are 8 steps per second
@@ -70,7 +30,7 @@ export const MIN_PAT_ROWS = 1;
 export const MAX_PAT_ROWS = 16;
 
 // Number of patterns a project can hold
-export const MAX_PATTERNS = 32;
+export const MAX_PATTERNS = 64;
 
 // Samples used by a newly created pattern
 const DEFAULT_SAMPLES = [
@@ -157,7 +117,7 @@ export class Pattern
     set_row_sample(row_idx, sample_idx)
     {
         console.assert(row_idx < this.num_rows);
-        console.assert(sample_idx < NUM_SAMPLES);
+        console.assert(sample_idx < 2 ** SAMPLE_IDX_BITS);
         this.sample_idxs[row_idx] = sample_idx;
     }
 }
@@ -210,7 +170,7 @@ const ENCODING_VERSION = 0;
 // Number of bits used for each field
 const VERSION_BITS = 4;
 const TEMPO_BITS = 8;
-const NUM_PATTERNS_BITS = 5;
+const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
@@ -219,7 +179,6 @@ console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));
 console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
 console.assert(MAX_PAT_STEPS <= (1 << NUM_STEPS_BITS));
 console.assert(MAX_PAT_ROWS <= (1 << NUM_ROWS_BITS));
-console.assert(NUM_SAMPLES <= (1 << SAMPLE_IDX_BITS));
 
 // Writes unsigned integer fields into a bit string, most significant bit first
 class BitWriter
@@ -345,10 +304,10 @@ export function decode_project(b64_str)
 
         for (let row_idx = 0; row_idx < num_rows; ++row_idx)
         {
-            let sample_idx = reader.read(SAMPLE_IDX_BITS);
-            if (sample_idx >= NUM_SAMPLES)
-                throw RangeError(`unknown sample index ${sample_idx}`);
-            sample_idxs.push(sample_idx);
+            // An index with no sample behind it is not an error: indices are
+            // reserved permanently, so a project shared before a sample was
+            // removed must still load, minus the row that used it
+            sample_idxs.push(reader.read(SAMPLE_IDX_BITS));
 
             let row = [];
             for (let step_idx = 0; step_idx < num_steps; ++step_idx)
