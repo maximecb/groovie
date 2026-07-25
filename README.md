@@ -5,6 +5,8 @@ with no frameworks.
 
 
 
+Supports free-running polymeters.
+
 
 
 ## Contributing

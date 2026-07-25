@@ -68,11 +68,21 @@ TODO: sketch pattern playback code.
 
 -----------------------------------------------------------------------------
 
-TODO: answer design doc question, is specifying a time signature useful?
-- Want to keep this friendly to people without a music theory background as well
+"Your constant-bar-duration model gives something different — and also cool: polyrhythm over a fixed bar."
+Step-fixed (the classic model): two patterns of different lengths phase against each other instead of aligning
+
+Should we have a Pattern class?
+
+TODO: look at current sample playback code
 
 
 
+
+[DONE] TODO: answer design doc question wrt time signatures
+=> Want to keep this friendly to people without a music theory background as well
+=> We should probably go with the classic model, patterns phase against each other
+
+[DONE] TODO: mention responsive layout
 
 [DONE] TODO: update the sample list format
 

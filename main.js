@@ -74,7 +74,7 @@ class SampleManager
         return this.names_to_idxs.get(sample_name);
     }
 
-    // Play a sample at a given time
+    // Play a sample at a given time relative to the audio context clock
     play_sample(sample_idx, start_time, dst_node)
     {
         const buffer = this.get_buffer(sample_idx);
@@ -88,8 +88,8 @@ class SampleManager
         source.buffer = buffer;
         source.connect(dst_node);
 
-        // Start playback at the specified time index
-        source.start(0, start_time);
+        // Start playback at the specified time on the audio context clock
+        source.start(start_time);
     }
 }
 
@@ -314,6 +314,8 @@ play_pat.onclick = function ()
 // Time at the last playback update
 let last_time = 0;
 
+
+// FIXME: the position should probably be in terms of steps, not bars?
 // Time we last queued until
 // Monotonically increasing position in fractional bars
 let last_pos = 0;
