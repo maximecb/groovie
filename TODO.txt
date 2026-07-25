@@ -68,6 +68,8 @@ TODO: sketch pattern playback code.
 
 -----------------------------------------------------------------------------
 
+TODO: add the sample select dropbox
+
 TODO: In light of @design.md, let's do the following refactoring to try and make the code cleaner
 - Split into model.js (project state + actions + URL encode/decode)
 - audio.js (SampleManager + scheduler)

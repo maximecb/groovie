@@ -24,6 +24,11 @@ class SampleManager
 
         // Audio buffers for the samples
         this.sample_bufs = Array(this.num_samples);
+
+        // Fetches currently in flight, indexed by sample index. A buffer isn't
+        // stored until it finishes decoding, so we need this to know that a
+        // sample is already on its way and avoid downloading it twice.
+        this.pending_fetches = Array(this.num_samples);
     }
 
     // Fetch/download a sample by index
@@ -33,8 +38,8 @@ class SampleManager
     {
         console.assert(sample_idx < this.num_samples);
 
-        // Check if sample already loaded
-        if (this.sample_bufs[sample_idx])
+        // Check if the sample is already loaded, or already being loaded
+        if (this.sample_bufs[sample_idx] || this.pending_fetches[sample_idx])
             return;
 
         let sample_path = this.paths_by_idx[sample_idx];
@@ -45,11 +50,14 @@ class SampleManager
 
         console.log(`Fetching ${sample_path}`);
 
-        fetch(sample_path)
+        // Clearing the pending fetch once it settles means that a sample whose
+        // fetch failed will be retried the next time it's requested
+        this.pending_fetches[sample_idx] = fetch(sample_path)
         .then(response => response.arrayBuffer())
         .then(array_buffer => audio_ctx.decodeAudioData(array_buffer))
         .then(audio_buffer => this.sample_bufs[sample_idx] = audio_buffer)
-        .catch(err => console.error(err));
+        .catch(err => console.error(err))
+        .finally(() => this.pending_fetches[sample_idx] = null);
 
         //
         // TODO: on failure, retry once or twice after a small delay?
@@ -241,8 +249,24 @@ let update_interv = null;
 // Regenerate the DOM for the currently selected pattern
 function render_pattern()
 {
+    let pat = patterns[cur_pat];
+
+    num_steps_sel.value = pat.num_steps;
+
     pat_div.replaceChildren();
-    patterns[cur_pat].gen_grid(pat_div);
+    pat.gen_grid(pat_div);
+}
+
+// Populate the pattern length selector. Every length in the valid range is
+// selectable: steps have a fixed duration, so a pattern length isn't a
+// subdivision of anything, and the odd lengths are the ones that produce
+// interesting phasing against other patterns.
+for (let num_steps = MIN_PAT_STEPS; num_steps <= MAX_PAT_STEPS; ++num_steps)
+{
+    let option = document.createElement('option');
+    option.value = num_steps;
+    option.textContent = num_steps;
+    num_steps_sel.appendChild(option);
 }
 
 render_pattern();
