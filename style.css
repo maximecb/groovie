@@ -51,6 +51,24 @@ body {
     padding: 2px;
 }
 
+/* One row of steps, for one sample */
+.pat_row {
+    white-space: nowrap;
+}
+
+/* Click target around a cell, larger than the cell itself */
+.cell_box {
+    display: inline-block;
+}
+
+/* Beat separator, a beat is 4 steps */
+.cell_box:nth-child(4n+1) {
+    margin-left: 6px;
+}
+.cell_box:first-child {
+    margin-left: 0px;
+}
+
 .cell {
     width: 16px;
     height: 16px;

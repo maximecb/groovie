@@ -93,14 +93,21 @@ class SampleManager
     }
 }
 
+// Minimum and maximum pattern length, in steps
+const MIN_PAT_STEPS = 1;
+const MAX_PAT_STEPS = 64;
+
 class Pattern
 {
     constructor()
     {
-        this.steps_per_bar = 16;
-        this.num_bars = 1;
+        // Pattern length, in steps. Steps have a fixed duration, so a shorter
+        // pattern is shorter in time, not slower. Patterns of different lengths
+        // phase against each other (see design.md).
+        this.num_steps = 16;
 
-        // Default samples
+        // Sample associated with each row. A pattern has one row per sample,
+        // and the number of rows is variable.
         this.sample_idxs = [
             samples.get_idx('kick_01'),
             samples.get_idx('snare_01'),
@@ -115,36 +122,45 @@ class Pattern
             samples.fetch_sample(sample_idx);
         }
 
-        // Initialize grid cells
-        this.rows = Array(this.sample_idxs.length);
-        for (let i = 0; i < this.rows.length; ++i)
+        // Initialize grid cells, one row of steps per sample
+        this.rows = this.sample_idxs.map(() => Array(this.num_steps).fill(0));
+    }
+
+    // Number of rows in this pattern, i.e. the number of samples it plays
+    get num_rows()
+    {
+        return this.sample_idxs.length;
+    }
+
+    // Change the pattern length, preserving the cells that still fit
+    set_num_steps(num_steps)
+    {
+        console.assert(num_steps >= MIN_PAT_STEPS);
+        console.assert(num_steps <= MAX_PAT_STEPS);
+
+        for (let row of this.rows)
         {
-            this.rows[i] = Array(this.steps_per_bar * this.num_bars);
-            this.rows[i].fill(0);
+            let old_steps = row.length;
+            row.length = num_steps;
+
+            // Growing the pattern leaves the new cells empty
+            if (num_steps > old_steps)
+                row.fill(0, old_steps);
         }
+
+        this.num_steps = num_steps;
     }
 
     // Generate HTML DOM nodes for the pattern grid
     gen_grid(pat_div)
     {
         // Create a div representing one cell
-        function make_cell(row_idx, step_idx)
+        let make_cell = (row_idx, step_idx) =>
         {
             // The outer cell div is the element reacting to clicks
             // It's larger and therefore easier to click
-            var cell = document.createElement('div');
-            cell.style['display'] = 'inline-block';
-
-            /*
-            // 4-step beat separator
-            if (i % 4 == 0)
-            {
-                let sep = document.createElement('div');
-                sep.style['display'] = 'inline-block';
-                sep.style['width'] = '1px';
-                cell.appendChild(sep);
-            }
-            */
+            let cell = document.createElement('div');
+            cell.className = 'cell_box';
 
             // The inner div is the colored/highlighted element
             let inner = document.createElement('div');
@@ -152,24 +168,8 @@ class Pattern
             inner.className = cell_on? 'cell on':'cell off';
             cell.appendChild(inner);
 
-            /*
-            // 4-step beat separator
-            if (step_idx % 4 == 3)
-            {
-                var sep = document.createElement('div');
-                sep.style['display'] = 'inline-block';
-                sep.style['width'] = '1px';
-                cell.appendChild(sep);
-            }
-            */
-
-            //cell.onpointerdown = (evt) => evt.stopPropagation();
-            //cell.onpointerup = (evt) => evt.stopPropagation();
-
             cell.onclick = (evt) =>
             {
-                console.log(`clicked row_idx=${row_idx}, step_idx=${step_idx}`);
-
                 let cell_on = !this.rows[row_idx][step_idx];
                 this.rows[row_idx][step_idx] = cell_on;
                 inner.className = cell_on? 'cell on':'cell off';
@@ -178,54 +178,20 @@ class Pattern
             };
 
             return cell;
-        }
+        };
 
-        // Create a div representing one bar
-        function make_bar(bar_idx, num_steps)
+        // One row of cells per sample
+        for (let row_idx = 0; row_idx < this.num_rows; ++row_idx)
         {
-            let bar = document.createElement('div');
-            bar.style['display'] = 'inline-block';
-            bar.style['margin'] = '0px 2px';
+            let row_div = document.createElement('div');
+            row_div.className = 'pat_row';
 
-            for (var row_idx = 0; row_idx < this.rows.length; ++row_idx)
+            for (let step_idx = 0; step_idx < this.num_steps; ++step_idx)
             {
-                let row = document.createElement('div');
-
-                for (let i = 0; i < num_steps; ++i)
-                {
-                    let step_idx = bar_idx * 16 + i;
-                    let cell = make_cell.call(this, row_idx, step_idx);
-                    row.appendChild(cell);
-                }
-
-                bar.appendChild(row);
+                row_div.appendChild(make_cell(row_idx, step_idx));
             }
 
-            return bar;
-        }
-
-        // For each bar of the pattern
-        for (var bar_idx = 0; bar_idx < this.num_bars; ++bar_idx)
-        {
-            let bar_div = document.createElement('div');
-            bar_div.style['display'] = 'inline-block';
-            pat_div.appendChild(bar_div);
-
-            let bar = make_bar.call(this, bar_idx, this.steps_per_bar);
-            bar_div.appendChild(bar);
-
-            // If this is not the last bar, add a separator
-            if (bar_idx < this.num_bars - 1)
-            {
-                let bar_height = this.rows.length * 16;
-                let sep = document.createElement('div');
-                sep.style['display'] = 'inline-block';
-                sep.style['width'] = '3px';
-                sep.style['height'] = (bar_height - 4) + 'px';
-                sep.style['background'] = '#900';
-                sep.style['margin'] = '2px 1px';
-                bar_div.appendChild(sep);
-            }
+            pat_div.appendChild(row_div);
         }
     }
 }
@@ -245,15 +211,20 @@ const play_pat = document.getElementById('play_pat');
 
 // Tempo slider
 const tempo_slider = document.getElementById('tempo_slider');
+const tempo_val = document.getElementById('tempo_val');
 
 // Volume slider
 const volume_slider = document.getElementById('volume_slider');
+const volume_val = document.getElementById('volume_val');
+
+// Pattern length selector
+const num_steps_sel = document.getElementById('num_steps');
 
 // Pattern editor div
 const pat_div = document.getElementById('pat_div');
 
 // Tempo in beats per minute
-let tempo = 120;
+let tempo = tempo_slider.valueAsNumber;
 
 // List of patterns
 let patterns = Array(8);
@@ -261,13 +232,20 @@ let patterns = Array(8);
 // Create a first pattern
 patterns[0] = new Pattern();
 
-patterns[0].gen_grid(pat_div);
-
 // Currently selected pattern
 let cur_pat = 0;
 
 // Interval to update the audio playback
 let update_interv = null;
+
+// Regenerate the DOM for the currently selected pattern
+function render_pattern()
+{
+    pat_div.replaceChildren();
+    patterns[cur_pat].gen_grid(pat_div);
+}
+
+render_pattern();
 
 // Initialize the web audio context
 async function init_web_audio()
@@ -288,7 +266,29 @@ async function init_web_audio()
     await audio_ctx.resume();
 }
 
-play_pat.onclick = function ()
+tempo_slider.oninput = function ()
+{
+    tempo = tempo_slider.valueAsNumber;
+    tempo_val.textContent = tempo;
+}
+
+volume_slider.oninput = function ()
+{
+    let gain_val = volume_slider.valueAsNumber / 100;
+    volume_val.textContent = volume_slider.valueAsNumber;
+
+    // The gain node only exists once the audio context is initialized
+    if (global_gain)
+        global_gain.gain.setValueAtTime(gain_val, audio_ctx.currentTime);
+}
+
+num_steps_sel.onchange = function ()
+{
+    patterns[cur_pat].set_num_steps(Number(num_steps_sel.value));
+    render_pattern();
+}
+
+play_pat.onclick = async function ()
 {
     // If already playing, stop playback
     if (update_interv)
@@ -301,83 +301,84 @@ play_pat.onclick = function ()
 
     console.log('Starting pattern playback');
 
-    init_web_audio();
+    await init_web_audio();
 
-    //let sample_idx = patterns[0].sample_idxs[0];
-    //samples.play_sample(sample_idx, audio_ctx.currentTime, audio_ctx.destination);
+    // Reset the playback position. The audio clock has been running ever since
+    // the audio context was created, so we anchor the position to the current
+    // time, otherwise the first update would try to queue every step elapsed
+    // since page load.
+    last_time = audio_ctx.currentTime;
+    last_pos = 0;
+    next_step = 0;
+
+    // Queue the first steps immediately, so that playback starts without
+    // waiting for the first interval to elapse
+    update_playback();
 
     // Schedule update callback
-    update_interv = setInterval(update_playback, 1000 / 25)
+    update_interv = setInterval(update_playback, UPDATE_INTERV_MS);
 }
 
 
-// Time at the last playback update
+// How far ahead of the audio clock we queue samples, in seconds
+const LOOKAHEAD_TIME = 0.1;
+
+// How often the playback update runs, in milliseconds
+const UPDATE_INTERV_MS = 1000 / 25;
+
+// Audio context time at the last playback update
 let last_time = 0;
 
-
-// FIXME: the position should probably be in terms of steps, not bars?
-// Time we last queued until
-// Monotonically increasing position in fractional bars
+// Playback position we last queued until
+// Monotonically increasing position in fractional steps
 let last_pos = 0;
 
-
+// Index of the next step to be queued. Steps have a fixed duration, so this is
+// a single global step counter shared by every pattern: a pattern just plays
+// step `next_step % pat.num_steps`. That's what makes patterns of different
+// lengths phase against each other, and it means we don't need to keep a
+// playback position per pattern.
+let next_step = 0;
 
 // Update playback
 function update_playback()
 {
-    // Get the current tempo in beats per minute
-    // Convert it to bars per second
-    let tempo_bpm = tempo_slider.valueAsNumber;
-    let bars_per_sec = tempo_bpm / (60 * 4);
+    // Compute the step rate from the tempo in beats per minute.
+    // A beat is 4 steps, so at 120 BPM there are 8 steps per second.
+    let steps_per_sec = tempo * 4 / 60;
 
     // Time to queue until
-    let queue_until_t = audio_ctx.currentTime + 0.1;
+    let queue_until_t = audio_ctx.currentTime + LOOKAHEAD_TIME;
 
-    // Compute how far to queue until
-    // This is a monotonically increasing position in fractional bars
+    // Advance the position by however much time elapsed since the last update.
+    // We accumulate a delta instead of computing the position directly from the
+    // audio clock so that moving the tempo slider mid-playback only affects the
+    // steps queued from here on, instead of retroactively rescaling the position
+    // of everything already played, which would make the playback jump.
     let delta_time = queue_until_t - last_time;
-    let delta_bars = delta_time * bars_per_sec;
-    let queue_until_pos = last_pos + delta_bars;
+    let delta_steps = delta_time * steps_per_sec;
+    let queue_until_pos = last_pos + delta_steps;
 
-
-
-    // TODO: start by just scanning the current pattern
-
-    // NOTE: patterns can be multiple bars long...
-    // That means we need to maintain a position per pattern?
-    // Otherwise, maintain a global position in fractional bars
-
+    // TODO: for now we only play the currently selected pattern,
+    // song playback will need to scan every pattern active on the timeline
     let pat = patterns[cur_pat];
 
-
-    // TODO: you need to be able to get the fractinal part of that pattern position...
-    // Or maybe convert it into a global step index first?
-
-    // Global step index we last queued until
-    let step_from = last_pos * pat.steps_per_bar;
-    let step_to = queue_until_pos * pat.steps_per_bar;
-
-
-    // For each step to queue
-    for (let step_idx = step_from + 1; step_idx <= step_to; ++step_idx)
+    // For each step falling inside the lookahead window
+    for (; next_step <= queue_until_pos; ++next_step)
     {
-        let s_idx = step_idx % pat.num_steps;
+        // Back-project the time of this step from the queue horizon
+        let step_time = queue_until_t - (queue_until_pos - next_step) / steps_per_sec;
 
+        let step_idx = next_step % pat.num_steps;
 
-        // TODO: we need a time value to queue at
-
-
-
-
-
-
+        // Trigger the sample of each active cell on this step.
+        // There is one row per sample, and the number of rows is variable.
+        for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
+        {
+            if (pat.rows[row_idx][step_idx])
+                samples.play_sample(pat.sample_idxs[row_idx], step_time, global_gain);
+        }
     }
-
-
-
-
-
-
 
     last_time = queue_until_t;
     last_pos = queue_until_pos;

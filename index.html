@@ -15,9 +15,9 @@
         <div class="label">Controls</div>
         <div class="controls">
             <!-- TODO: do we want an obvious play button at the top? -->
-            <label>Tempo: <span id="tempoValue">120</span> BPM</label>
-            <input type="range" id="tempo_slider" min="60" max="200" value="120">
-            <label>Volume: <span id="">50</span>%</label>
+            <label>Tempo: <span id="tempo_val">120</span> BPM</label>
+            <input type="range" id="tempo_slider" min="40" max="220" value="120">
+            <label>Volume: <span id="volume_val">50</span>%</label>
             <input type="range" id="volume_slider" min="0" max="100" value="50">
         </div>
     </div>
@@ -27,8 +27,10 @@
 
         <div class="controls">
             <div>
-            Steps ber bar
-            <select id="steps_per_bar">
+            Steps
+            <select id="num_steps">
+                <option value="4">4</option>
+                <option value="8">8</option>
                 <option value="12">12</option>
                 <option value="14">14</option>
                 <option value="16" selected="selected">16</option>
@@ -36,6 +38,8 @@
                 <option value="27">27</option>
                 <option value="32">32</option>
                 <option value="36">36</option>
+                <option value="48">48</option>
+                <option value="64">64</option>
             </select>
             </div>
         </div>
