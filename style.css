@@ -9,6 +9,18 @@ body {
     padding: 20px;
 }
 
+h1 {
+    margin: 4px 0 2px 0;
+}
+
+.logo {
+    display: block;
+    width: 420px;
+
+    /* Shrink on narrow screens rather than overflowing */
+    max-width: 92vw;
+}
+
 .group {
     position: relative;
     display: flex;
