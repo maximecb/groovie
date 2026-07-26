@@ -42,9 +42,6 @@ body {
     padding-right: 2px;
 }
 
-
-
-
 .sequencer {
     border: 1px solid #444;
     margin: 4px;
@@ -74,7 +71,7 @@ body {
     height: 16px;
     margin: 2px;
     cursor: pointer;
-    border: 1px solid #CCC;
+    border: 1px solid #666;
 }
 .cell.on {
     background-color: #E22;
@@ -87,16 +84,11 @@ body {
 /* Step currently being played. This comes after the on/off rules so that it
    wins over them at equal specificity. */
 .cell.playing {
-    background-color: #333;
+    background-color: #222;
 }
 .cell.on.playing {
     background-color: #FFF;
 }
-
-
-
-
-
 
 .controls {
     margin: 4px;
@@ -104,9 +96,6 @@ body {
     gap: 20px;
     align-items: center;
 }
-
-
-
 
 input[type="range"] {
     width: 120px;
