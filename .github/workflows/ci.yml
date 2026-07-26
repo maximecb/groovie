@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Check that all samples are 44.1 kHz 16-bit mono PCM
-        run: python3 check_samples.py
+        run: python3 tools/check_samples.py
 
   check-js:
     name: Check JavaScript syntax
@@ -26,4 +26,4 @@ jobs:
         with:
           node-version: '22'
       - name: Check that all JavaScript files parse
-        run: ./check_js.sh
+        run: ./tools/check_js.sh

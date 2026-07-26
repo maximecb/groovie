@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import http.server
+import os
 import socketserver
 
 PORT_NO = 8001
-SERVE_DIR = "."
+
+# Serve the repo root, so the script can be run from anywhere.
+SERVE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Based on:
 # https://www.frontendeng.dev/blog/38-disable-cache-for-python-http-server

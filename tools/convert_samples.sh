@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Paths are relative to the repo root, so the script can be run from anywhere.
+cd "$(dirname "$0")/.." || exit 1
+
 # Directory to process
 directory="./samples"
 

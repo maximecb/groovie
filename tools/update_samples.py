@@ -18,6 +18,7 @@
 import os
 import re
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAMPLE_LIST_PATH = "sample_list.js"
 SAMPLES_DIR = "samples"
 
@@ -77,6 +78,10 @@ def write_map(path, sample_map):
 
 
 def main():
+    # Paths are relative to the repo root, so the script can be run from
+    # anywhere.
+    os.chdir(ROOT_DIR)
+
     existing = parse_existing_map(SAMPLE_LIST_PATH)
     on_disk = find_samples_on_disk()
 

@@ -3,12 +3,13 @@
 # Checks that every sample under samples/ is a 44.1 kHz, 16-bit mono PCM wav
 # file, the one format the audio engine is built around.
 #
-# Run convert_samples.sh to convert any offending file in place.
+# Run tools/convert_samples.sh to convert any offending file in place.
 
 import os
 import sys
 import wave
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAMPLES_DIR = "samples"
 
 CHANNELS = 1
@@ -41,6 +42,10 @@ def check_wav(path):
 
 
 def main():
+    # Paths are relative to the repo root, so the script can be run from
+    # anywhere.
+    os.chdir(ROOT_DIR)
+
     if not os.path.isdir(SAMPLES_DIR):
         print(f"Error: '{SAMPLES_DIR}' directory does not exist.")
         return 1
@@ -71,7 +76,8 @@ def main():
     print(f"Checked {len(wav_paths)} wav files, {failures} problem(s) found.")
 
     if failures:
-        print("Run ./convert_samples.sh to convert samples to the correct format.")
+        print("Run tools/convert_samples.sh to convert samples to the correct "
+              "format.")
         return 1
 
     return 0

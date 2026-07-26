@@ -8,6 +8,9 @@
 
 set -u
 
+# Paths are relative to the repo root, so the script can be run from anywhere.
+cd "$(dirname "$0")/.." || exit 1
+
 if ! command -v node &> /dev/null; then
     echo "Error: node is not installed. Please install it first."
     exit 1
