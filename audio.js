@@ -253,6 +253,25 @@ export function is_playing()
     return update_interv != null;
 }
 
+// Get the index of the step currently being heard, or null if not playing.
+//
+// The scheduler runs ahead of the audio clock, so the position it has queued
+// up to is not the position to show. We get the audible one by evaluating the
+// same straight line the scheduler uses, at the current time rather than at
+// the queue horizon, which is behind it.
+export function get_play_step()
+{
+    if (!is_playing())
+        return null;
+
+    let delta_time = get_audio_ctx().currentTime - last_time;
+    let play_pos = last_pos + delta_time * play_project.steps_per_sec;
+
+    // The first update queues ahead of the start of playback, which puts the
+    // line slightly behind step 0 until the audio clock catches up
+    return Math.max(0, Math.floor(play_pos));
+}
+
 // Start playing a single pattern of a project
 export async function play_pattern(project, pat_idx)
 {

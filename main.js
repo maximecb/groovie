@@ -11,9 +11,10 @@ import {
     is_playing,
     play_pattern,
     stop_playback,
+    get_play_step,
 } from "./audio.js";
 
-import { render_pattern, render_timeline } from "./view.js";
+import { render_pattern, render_timeline, highlight_step } from "./view.js";
 
 //============================================================================
 // DOM elements
@@ -134,4 +135,32 @@ play_pat.onclick = async function ()
     console.log('Starting pattern playback');
 
     await play_pattern(project, cur_pat);
+
+    // Follow the playback position with the grid highlight. A loop may still be
+    // winding down from a previous playback, in which case it just keeps going.
+    if (highlight_req === null)
+        highlight_req = requestAnimationFrame(update_highlight);
+}
+
+// Pending animation frame for the playback highlight, null when not running
+let highlight_req = null;
+
+// Move the pattern grid highlight to the step currently being heard. This runs
+// off animation frames rather than off the scheduler, because the scheduler
+// queues steps ahead of time and the highlight has to track what's audible.
+function update_highlight()
+{
+    let play_step = get_play_step();
+
+    // Playback stopped, clear the highlight and let the loop end
+    if (play_step === null)
+    {
+        highlight_step(pat_div, null);
+        highlight_req = null;
+        return;
+    }
+
+    highlight_step(pat_div, play_step % project.patterns[cur_pat].num_steps);
+
+    highlight_req = requestAnimationFrame(update_highlight);
 }

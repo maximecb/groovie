@@ -67,19 +67,23 @@ https://pointersgonewild.com/2012/04/23/musictoy-music-made-simple/
 
 For a while, wanted to build a More advanced sequencer. Most of them basic. Most of them have lots of ads.
 
+IDEA: try to encode the amen break as a pattern/project compression test
+=> This can wait until we have a working timeline, etc?
+
 -----------------------------------------------------------------------------
 
-IDEA: try to encode the amen break as a pattern/project compression test
-
+TODO: button to add new rows to patterns
 TODO: add the sample select dropboxes to the pattern editor UI
+
+claude doctor
+
 TODO: pattern highlighting during playback
 
-TODO: logic to strip out inactive pattern rows when encoding projects
 
 
 
 
-
+[DONE] TODO: logic to strip out inactive pattern rows when encoding projects
 
 [DONE] TODO: In light of @design.md, let's do the following refactoring to try and make the code cleaner
 - Split into model.js (project state + actions + URL encode/decode)

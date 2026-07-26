@@ -77,10 +77,20 @@ body {
     border: 1px solid #CCC;
 }
 .cell.on {
-    background-color: #FFF;
+    background-color: #E22;
+    border-color: #E22;
 }
 .cell.off {
     background-color: #000;
+}
+
+/* Step currently being played. This comes after the on/off rules so that it
+   wins over them at equal specificity. */
+.cell.playing {
+    background-color: #333;
+}
+.cell.on.playing {
+    background-color: #FFF;
 }
 
 
