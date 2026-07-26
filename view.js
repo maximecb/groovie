@@ -1,4 +1,9 @@
-import { SORTED_SAMPLE_IDXS, get_sample_name, fetch_sample } from "./audio.js";
+import {
+    SORTED_SAMPLE_IDXS,
+    get_sample_name,
+    fetch_sample,
+    preview_sample,
+} from "./audio.js";
 import { MAX_PAT_ROWS } from "./model.js";
 
 //============================================================================
@@ -85,9 +90,10 @@ export function render_pattern(pat_div, pattern)
             let sample_idx = Number(select.value);
             pattern.set_row_sample(row_idx, sample_idx);
 
-            // Load the newly selected sample so that it can be heard, whether
-            // or not playback is currently running
-            fetch_sample(sample_idx);
+            // Play the new sample once, so that picking a sample is a matter of
+            // hearing it rather than of recognizing its name. This loads it too,
+            // which is what the row needs to play it from here on.
+            preview_sample(sample_idx);
         };
 
         return select;

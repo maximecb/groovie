@@ -107,14 +107,21 @@ class SampleManager
         this.pending_fetches = Array(NUM_SAMPLES);
     }
 
-    // Fetch/download a sample by index
-    // Note that this only requests to load the sample asynchronously.
-    // This function doesn't return anything
+    // Fetch/download a sample by index.
+    // Returns a promise that settles once the sample is loaded, or immediately
+    // if it's already loaded or there is no sample behind this index. Callers
+    // that just want the sample on its way can ignore it.
     fetch_sample(sample_idx)
     {
-        // Check if the sample is already loaded, or already being loaded
-        if (this.sample_bufs[sample_idx] || this.pending_fetches[sample_idx])
-            return;
+        // Check if the sample is already loaded
+        if (this.sample_bufs[sample_idx])
+            return Promise.resolve();
+
+        // Check if the sample is already being loaded. A buffer isn't stored
+        // until it finishes decoding, so this is what tells us a sample is
+        // already on its way and keeps us from downloading it twice.
+        if (this.pending_fetches[sample_idx])
+            return this.pending_fetches[sample_idx];
 
         let sample_path = get_sample_path(sample_idx);
 
@@ -122,13 +129,13 @@ class SampleManager
         // sample no longer on disk, or come from a URL that was shared when
         // the sample list was longer. Such a row simply stays silent.
         if (!sample_path)
-            return;
+            return Promise.resolve();
 
         console.log(`Fetching ${sample_path}`);
 
         // Clearing the pending fetch once it settles means that a sample whose
         // fetch failed will be retried the next time it's requested
-        this.pending_fetches[sample_idx] = fetch(sample_path)
+        return this.pending_fetches[sample_idx] = fetch(sample_path)
         .then(response => response.arrayBuffer())
         .then(array_buffer => get_audio_ctx().decodeAudioData(array_buffer))
         .then(audio_buffer => this.sample_bufs[sample_idx] = audio_buffer)
@@ -174,9 +181,10 @@ const samples = new SampleManager();
 
 // Request that a single sample be loaded, by index.
 // Loading is asynchronous, and a sample already loaded is not fetched again.
+// Returns a promise that settles once the sample is available.
 export function fetch_sample(sample_idx)
 {
-    samples.fetch_sample(sample_idx);
+    return samples.fetch_sample(sample_idx);
 }
 
 // Request the samples used by a pattern
@@ -232,6 +240,20 @@ export function set_volume(new_volume)
     // The gain node only exists once the audio context is initialized
     if (global_gain)
         global_gain.gain.setValueAtTime(volume, get_audio_ctx().currentTime);
+}
+
+// Play a sample once, right away, to preview what it sounds like.
+//
+// The sample is loaded first if it isn't loaded yet, so previewing a sample
+// being heard for the first time plays it when it arrives rather than dropping
+// it. It goes through the master volume like everything else, and can overlap
+// with playback, which is what makes it usable while a pattern is running.
+export async function preview_sample(sample_idx)
+{
+    await init_web_audio();
+    await samples.fetch_sample(sample_idx);
+
+    samples.play_sample(sample_idx, get_audio_ctx().currentTime, global_gain);
 }
 
 //============================================================================
