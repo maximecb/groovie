@@ -1,4 +1,5 @@
 import { SORTED_SAMPLE_IDXS, get_sample_name, fetch_sample } from "./audio.js";
+import { MAX_PAT_ROWS } from "./model.js";
 
 //============================================================================
 // DOM rendering
@@ -92,6 +93,36 @@ export function render_pattern(pat_div, pattern)
         return select;
     }
 
+    // Create the button that adds a row to the pattern. It's shaped like a row
+    // of its own and sits at the bottom of the grid, lined up under the sample
+    // selects, so that it reads as the next row waiting to exist.
+    function make_add_row()
+    {
+        let row_div = document.createElement('div');
+        row_div.className = 'pat_row';
+
+        let button = document.createElement('button');
+        button.className = 'add_row';
+        button.textContent = '+ row';
+        button.title = 'Add a row to this pattern';
+
+        button.onclick = () =>
+        {
+            let sample_idx = pattern.next_row_sample();
+            pattern.add_row(sample_idx);
+
+            // Load the sample the new row starts out playing
+            fetch_sample(sample_idx);
+
+            // The grid has a row more than it's showing, so it gets rebuilt
+            render_pattern(pat_div, pattern);
+        };
+
+        row_div.appendChild(button);
+
+        return row_div;
+    }
+
     // Create a div representing one cell
     function make_cell(row_idx, step_idx)
     {
@@ -152,6 +183,10 @@ export function render_pattern(pat_div, pattern)
         row_div.appendChild(cells_div);
         pat_div.appendChild(row_div);
     }
+
+    // A pattern that can't grow any further gets no button
+    if (pattern.num_rows < MAX_PAT_ROWS)
+        pat_div.appendChild(make_add_row());
 
     // TODO: stereo pan knob on the right of each row
 }

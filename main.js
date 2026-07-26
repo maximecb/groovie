@@ -122,6 +122,13 @@ num_steps_sel.onchange = function ()
     render_pattern(pat_div, project.patterns[cur_pat]);
 }
 
+// The play button doubles as the stop button, so it names whichever action it
+// performs next rather than what it's currently doing
+function update_play_button()
+{
+    play_pat.textContent = is_playing()? 'Stop':'Play';
+}
+
 play_pat.onclick = async function ()
 {
     // If already playing, stop playback
@@ -129,12 +136,14 @@ play_pat.onclick = async function ()
     {
         console.log('Stopping playback');
         stop_playback();
+        update_play_button();
         return;
     }
 
     console.log('Starting pattern playback');
 
     await play_pattern(project, cur_pat);
+    update_play_button();
 
     // Follow the playback position with the grid highlight. A loop may still be
     // winding down from a previous playback, in which case it just keeps going.
@@ -152,10 +161,13 @@ function update_highlight()
 {
     let play_step = get_play_step();
 
-    // Playback stopped, clear the highlight and let the loop end
+    // Playback stopped, clear the highlight and let the loop end. The button is
+    // updated here too, so that it still ends up right if playback stops
+    // somewhere other than the button's own handler.
     if (play_step === null)
     {
         highlight_step(null);
+        update_play_button();
         highlight_req = null;
         return;
     }

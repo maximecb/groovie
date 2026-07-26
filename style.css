@@ -74,7 +74,10 @@ h1 {
 
 /* Sample selection drop-down, on the left of a row */
 .sample_sel {
-    width: 140px;
+    /* Sized with the border and padding included, so that the button below the
+       grid can line up with these by asking for the same width */
+    box-sizing: border-box;
+    width: 144px;
     padding: 1px;
 
     background-color: #000;
@@ -83,6 +86,25 @@ h1 {
 
     font-family: inherit;
     font-size: inherit;
+}
+
+/* Button to add a row, at the bottom of the pattern grid. Dashed and dim, so
+   that it reads as an empty grid slot rather than as a control of its own. */
+.add_row {
+    box-sizing: border-box;
+    width: 144px;
+    padding: 2px;
+
+    background-color: transparent;
+    color: #999;
+    border: 1px dashed #444;
+}
+.add_row:hover {
+    background-color: transparent;
+    color: #FFF;
+
+    /* Picks up the purple end of the logo */
+    border-color: #B14BFF;
 }
 
 /* Click target around a cell, larger than the cell itself */
@@ -131,4 +153,26 @@ h1 {
 
 input[type="range"] {
     width: 120px;
+}
+
+/* Buttons inherit the surrounding monospace font, so that they sit with the
+   labels and drop-downs around them instead of looking like page furniture */
+button {
+    padding: 4px 14px;
+
+    background-color: #222;
+    color: #DDD;
+    border: 1px solid #666;
+
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #2E2E2E;
+    border-color: #999;
+    color: #FFF;
+}
+button:active {
+    background-color: #444;
 }

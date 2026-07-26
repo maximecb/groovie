@@ -28,18 +28,39 @@ export const DEFAULT_PAT_STEPS = 16;
 // A pattern has one row per sample, and the number of rows is variable
 export const MIN_PAT_ROWS = 1;
 export const MAX_PAT_ROWS = 16;
+export const DEFAULT_PAT_ROWS = 6;
 
 // Number of patterns a project can hold
 export const MAX_PATTERNS = 64;
 
-// Samples used by a newly created pattern
-const DEFAULT_SAMPLES = [
+// Samples handed out to pattern rows, in order. A new pattern starts with the
+// first few of these, and a row added later takes the first one the pattern
+// isn't playing yet, so that a grown pattern is a usable kit rather than a
+// stack of the same sample. There are as many of these as a pattern has rows,
+// which is what guarantees an unused one is always left to hand out.
+const ROW_SAMPLES = [
     'kick_01',
     'snare_01',
     'hat_closed_01',
     'hat_open_01',
     'clap_01',
+    'rimshot_01',
+    'tom_low_01',
+    'tom_mid_01',
+    'tom_hi_01',
+    'cowbell_01',
+    'claves_01',
+    'ride_01',
+    'crash_01',
+    'maracas_01',
+    'perc_01',
+    'bongo_01',
 ];
+
+console.assert(ROW_SAMPLES.length == MAX_PAT_ROWS);
+
+// Samples used by a newly created pattern
+const DEFAULT_SAMPLES = ROW_SAMPLES.slice(0, DEFAULT_PAT_ROWS);
 
 //============================================================================
 // Project state
@@ -111,6 +132,37 @@ export class Pattern
         }
 
         this.num_steps = num_steps;
+    }
+
+    // Add a row at the bottom of the pattern, playing a given sample.
+    // Returns false if the pattern already holds as many rows as it can.
+    add_row(sample_idx)
+    {
+        console.assert(sample_idx < 2 ** SAMPLE_IDX_BITS);
+
+        if (this.num_rows >= MAX_PAT_ROWS)
+            return false;
+
+        this.sample_idxs.push(sample_idx);
+        this.rows.push(Array(this.num_steps).fill(0));
+
+        return true;
+    }
+
+    // Sample to give a newly added row, i.e. the first one this pattern isn't
+    // playing yet. The fallback is unreachable while there are at least as many
+    // ROW_SAMPLES as a pattern can have rows.
+    next_row_sample()
+    {
+        for (let sample_name of ROW_SAMPLES)
+        {
+            let sample_idx = get_sample_idx(sample_name);
+
+            if (!this.sample_idxs.includes(sample_idx))
+                return sample_idx;
+        }
+
+        return get_sample_idx(ROW_SAMPLES[0]);
     }
 
     // Set the sample played by a given row
