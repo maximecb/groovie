@@ -12,9 +12,19 @@ import {
     play_pattern,
     stop_playback,
     get_play_step,
+    get_play_pat_idx,
+    get_queued_pat_idx,
+    queue_pattern,
+    pattern_deleted,
 } from "./audio.js";
 
-import { render_pattern, render_timeline, highlight_step } from "./view.js";
+import {
+    render_pattern,
+    render_pat_tabs,
+    render_timeline,
+    highlight_step,
+    highlight_pat_tabs,
+} from "./view.js";
 
 //============================================================================
 // DOM elements
@@ -33,6 +43,12 @@ const volume_val = document.getElementById('volume_val');
 
 // Pattern length selector
 const num_steps_sel = document.getElementById('num_steps');
+
+// Pattern selection tabs
+const pat_tabs = document.getElementById('pat_tabs');
+
+// Delete pattern button
+const del_pat = document.getElementById('del_pat');
 
 // Pattern editor div
 const pat_div = document.getElementById('pat_div');
@@ -67,6 +83,37 @@ function load_project()
     }
 }
 
+// What clicking the pattern tabs does. Which pattern is being edited is a
+// property of the editing session rather than of the project, so the tab strip
+// reports clicks back here instead of tracking a selection of its own.
+const tab_handlers = {
+
+    // Selecting a pattern shows it for editing right away. It only starts
+    // playing at the end of the current pattern's cycle, so that switching
+    // patterns during playback doesn't cut off what's being heard.
+    select: (pat_idx) =>
+    {
+        cur_pat = pat_idx;
+        queue_pattern(pat_idx);
+        render_all();
+    },
+
+    create: () => select_new_pattern(project.new_pattern(cur_pat)),
+    copy: () => select_new_pattern(project.copy_pattern(cur_pat)),
+};
+
+// Switch to a pattern that was just created, if it could be created at all.
+// Both ways of creating one produce a pattern playing the same samples as the
+// current one, so there is nothing new to load.
+function select_new_pattern(pat_idx)
+{
+    if (pat_idx === null)
+        return;
+
+    cur_pat = pat_idx;
+    render_all();
+}
+
 // Re-render everything from the project state
 function render_all()
 {
@@ -76,8 +123,15 @@ function render_all()
     tempo_val.textContent = project.tempo;
     num_steps_sel.value = pat.num_steps;
 
+    // A project always holds at least one pattern
+    del_pat.disabled = (project.num_patterns <= 1);
+
+    render_pat_tabs(pat_tabs, project, cur_pat, tab_handlers);
     render_pattern(pat_div, pat);
     render_timeline(pat_seq, project);
+
+    // The strip was rebuilt, so it has to be told what's playing again
+    highlight_pat_tabs(get_play_pat_idx(), get_queued_pat_idx());
 }
 
 //============================================================================
@@ -120,6 +174,29 @@ num_steps_sel.onchange = function ()
 {
     project.patterns[cur_pat].set_num_steps(Number(num_steps_sel.value));
     render_pattern(pat_div, project.patterns[cur_pat]);
+}
+
+del_pat.onclick = function ()
+{
+    // Deleting a pattern that plays nothing costs the user nothing, so only a
+    // pattern with something in it is worth interrupting them over
+    if (!project.patterns[cur_pat].is_inactive())
+    {
+        if (!confirm(`Delete pattern ${cur_pat + 1}?`))
+            return;
+    }
+
+    if (!project.delete_pattern(cur_pat))
+        return;
+
+    // Playback refers to patterns by index too, and the indices after the one
+    // deleted have all shifted down
+    pattern_deleted(cur_pat);
+
+    // The pattern list got shorter, so the selection can now be past its end
+    cur_pat = Math.min(cur_pat, project.num_patterns - 1);
+
+    render_all();
 }
 
 // The play button doubles as the stop button, so it names whichever action it
@@ -167,12 +244,18 @@ function update_highlight()
     if (play_step === null)
     {
         highlight_step(null);
+        highlight_pat_tabs(null, null);
         update_play_button();
         highlight_req = null;
         return;
     }
 
-    highlight_step(play_step % project.patterns[cur_pat].num_steps);
+    // The pattern on screen is not always the one being heard: a pattern
+    // selected during playback is shown right away, but only takes over at the
+    // end of the current pattern's cycle. The grid it shows isn't playing yet,
+    // so there is no step of it to highlight.
+    highlight_step(get_play_pat_idx() === cur_pat? play_step : null);
+    highlight_pat_tabs(get_play_pat_idx(), get_queued_pat_idx());
 
     highlight_req = requestAnimationFrame(update_highlight);
 }

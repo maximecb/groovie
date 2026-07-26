@@ -4,7 +4,7 @@ import {
     fetch_sample,
     preview_sample,
 } from "./audio.js";
-import { MAX_PAT_ROWS } from "./model.js";
+import { MAX_PAT_ROWS, MAX_PATTERNS } from "./model.js";
 
 //============================================================================
 // DOM rendering
@@ -43,6 +43,101 @@ export function highlight_step(step_idx)
     }
 
     cur_highlight = step_idx;
+}
+
+// The pattern tab divs the last render produced, indexed by pattern index
+let tab_divs = [];
+
+// Pattern indices the tab strip is currently showing as playing and as queued
+let cur_play_tab = null;
+let cur_queued_tab = null;
+
+// Mark which pattern is being heard, and which one is waiting to take over
+// from it. Like the step highlight, this runs on every animation frame, so it
+// only touches the strip when what it shows has gone stale.
+export function highlight_pat_tabs(play_idx, queued_idx)
+{
+    if (play_idx === cur_play_tab && queued_idx === cur_queued_tab)
+        return;
+
+    for (let pat_idx = 0; pat_idx < tab_divs.length; ++pat_idx)
+    {
+        tab_divs[pat_idx].classList.toggle('playing', pat_idx === play_idx);
+        tab_divs[pat_idx].classList.toggle('queued', pat_idx === queued_idx);
+    }
+
+    cur_play_tab = play_idx;
+    cur_queued_tab = queued_idx;
+}
+
+// Generate the DOM for the pattern tab strip, i.e. one numbered tab per
+// pattern, followed by the buttons that create new patterns.
+//
+// The strip is how patterns are switched between, which the handlers report
+// back: which pattern is being edited is a property of the editing session
+// rather than of the project, and so lives outside of the model.
+export function render_pat_tabs(tabs_div, project, cur_pat, handlers)
+{
+    // Create the tab selecting a given pattern. Tabs are numbered from 1,
+    // which is how patterns are referred to in the interface.
+    function make_tab(pat_idx)
+    {
+        let button = document.createElement('button');
+        button.className = 'pat_tab';
+        button.textContent = pat_idx + 1;
+        button.title = `Edit pattern ${pat_idx + 1}`;
+
+        if (pat_idx == cur_pat)
+            button.classList.add('selected');
+
+        button.onclick = () => handlers.select(pat_idx);
+
+        return button;
+    }
+
+    // Create one of the buttons that add a pattern at the end of the strip.
+    // They're dashed and dim, like the button that adds a row to a pattern, so
+    // that they read as patterns waiting to exist rather than as controls.
+    function make_add_button(label, title, on_click)
+    {
+        let button = document.createElement('button');
+        button.className = 'pat_tab add_pat';
+        button.textContent = label;
+        button.title = title;
+        button.onclick = on_click;
+
+        return button;
+    }
+
+    // The strip is rebuilt, so nothing carries the playback state anymore
+    cur_play_tab = null;
+    cur_queued_tab = null;
+    tab_divs = [];
+
+    tabs_div.replaceChildren();
+
+    for (let pat_idx = 0; pat_idx < project.num_patterns; ++pat_idx)
+    {
+        let tab = make_tab(pat_idx);
+        tab_divs.push(tab);
+        tabs_div.appendChild(tab);
+    }
+
+    // A project that can't hold any more patterns gets no add buttons
+    if (project.num_patterns < MAX_PATTERNS)
+    {
+        tabs_div.appendChild(make_add_button(
+            '+',
+            'Create a new empty pattern',
+            handlers.create
+        ));
+
+        tabs_div.appendChild(make_add_button(
+            'Copy',
+            'Create a copy of the current pattern',
+            handlers.copy
+        ));
+    }
 }
 
 // A select element listing every sample, cloned once per pattern row. The

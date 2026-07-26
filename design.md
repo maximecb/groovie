@@ -50,6 +50,23 @@ Shortening a pattern therefore makes it shorter, not slower. Patterns of
 different lengths naturally phase against each other, which can be used to create
 evolving, polyrhythmic textures.
 
+Above the pattern editor is a strip of numbered tabs, one per pattern, which is
+how patterns are created, selected and deleted. Clicking a tab opens that
+pattern for editing; buttons at the end of the strip create an empty pattern or
+a copy of the current one. New patterns take their samples and length from the
+pattern that was open, since samples belong to pattern rows and a song is
+usually played with one kit. Patterns are always added at the end, so that
+creating one never renumbers the patterns that exist. Deleting a pattern does
+renumber the ones after it, which anything referring to patterns by index (the
+timeline, playback) has to account for.
+
+While a pattern is playing, selecting another one does not cut it off: the
+selected pattern is opened for editing right away, but is only launched once
+the playing pattern reaches the end of its cycle, and it starts from its own
+first step. The tab strip shows which pattern is being heard and which is
+queued behind it. Selecting the pattern already playing cancels a pending
+launch.
+
 On the left side of the pattern editor, there will be drop-down boxes to select
 the sample associated with each row. On the right side, there will be a stereo
 pan knob, adjustable per-row with the mouse.

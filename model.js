@@ -191,6 +191,24 @@ export class Pattern
         return true;
     }
 
+    // Produce an independent copy of this pattern
+    copy()
+    {
+        let pat = new Pattern(this.sample_idxs.slice(), this.num_steps);
+        pat.rows = this.rows.map(row => row.slice());
+
+        return pat;
+    }
+
+    // Produce an empty pattern with the same samples and length as this one.
+    // A newly created pattern is made this way rather than from the default
+    // samples: samples live on pattern rows, so starting from the defaults
+    // would throw away whatever kit the user has assembled.
+    empty_copy()
+    {
+        return new Pattern(this.sample_idxs.slice(), this.num_steps);
+    }
+
     // Produce a copy of this pattern with the rows that play nothing removed.
     // This is used when encoding a project: an inactive row makes no sound, but
     // still costs a sample index plus one bit per step in the URL.
@@ -242,6 +260,63 @@ export class Project
         console.assert(tempo >= MIN_TEMPO);
         console.assert(tempo <= MAX_TEMPO);
         this.tempo = tempo;
+    }
+
+    // Number of patterns this project holds
+    get num_patterns()
+    {
+        return this.patterns.length;
+    }
+
+    // Append a pattern to the project and return its index, or null if the
+    // project already holds as many patterns as it can. Patterns are always
+    // added at the end, so that creating one never renumbers the patterns
+    // that already exist.
+    add_pattern(pattern)
+    {
+        if (this.num_patterns >= MAX_PATTERNS)
+            return null;
+
+        this.patterns.push(pattern);
+
+        return this.num_patterns - 1;
+    }
+
+    // Create an empty pattern, taking its samples and length from an existing
+    // one, since a new pattern is usually played with the same kit
+    new_pattern(src_idx)
+    {
+        console.assert(src_idx < this.num_patterns);
+        return this.add_pattern(this.patterns[src_idx].empty_copy());
+    }
+
+    // Create a copy of an existing pattern, cells included. Most new patterns
+    // in a song are variations on one that already exists.
+    copy_pattern(src_idx)
+    {
+        console.assert(src_idx < this.num_patterns);
+        return this.add_pattern(this.patterns[src_idx].copy());
+    }
+
+    // Remove a pattern from the project. Returns false if this is the last
+    // pattern: a project always holds at least one.
+    //
+    // Patterns are referred to by index, so removing one renumbers every
+    // pattern after it. This is the one place patterns are removed, so that
+    // whatever holds a pattern index has a single point to be fixed up from.
+    delete_pattern(pat_idx)
+    {
+        console.assert(pat_idx < this.num_patterns);
+
+        if (this.num_patterns <= 1)
+            return false;
+
+        this.patterns.splice(pat_idx, 1);
+
+        // TODO: renumber the pattern indices the timeline refers to, once the
+        // timeline exists
+
+        return true;
     }
 
     // Playback rate, in steps per second. Steps have a fixed duration, so this

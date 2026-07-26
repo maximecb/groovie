@@ -56,8 +56,106 @@ h1 {
 
 .sequencer {
     border: 1px solid #444;
-    margin: 4px;
+    margin: 4px 6px;
     padding: 2px;
+
+    /* Fills the width of the group rather than shrinking to its contents, so
+       that the controls above it have a fixed edge to line up with */
+    align-self: stretch;
+
+    /* A pattern can be up to 64 steps long, which is wider than the group.
+       Scrolling keeps it inside its box instead of spilling onto the page. */
+    overflow-x: auto;
+}
+
+/* Bar above the pattern grid, holding everything that acts on the pattern the
+   grid is showing. On a narrow screen the length control wraps below the tabs
+   rather than squeezing them. */
+.pat_bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 20px;
+
+    align-self: stretch;
+
+    /* The group label sits on the top border and hangs below it, so the tabs
+       need a little more clearance than a row of plain text would */
+    margin: 8px 0 4px 0;
+
+    /* Indented by the margin, border and padding of the grid below, so that
+       the tabs start exactly where the sample selects inside the grid do */
+    padding: 0 9px;
+}
+
+/* Strip of pattern selection tabs, on the left of the bar. A project can hold
+   many patterns, so the strip takes the space the length control doesn't and
+   wraps within it, instead of pushing that control around as patterns pile up. */
+.pat_tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+
+    flex: 1;
+    min-width: 0;
+}
+
+/* Pattern length control, on the right of the bar */
+.pat_len {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* One tab, i.e. one pattern of the project */
+.pat_tab {
+    box-sizing: border-box;
+    min-width: 30px;
+    padding: 3px 5px;
+}
+
+/* The pattern currently open in the editor below */
+.pat_tab.selected {
+    /* Picks up the purple end of the logo */
+    border-color: #B14BFF;
+    background-color: #2C1640;
+    color: #FFF;
+}
+
+/* Buttons that create patterns, at the end of the strip. Dashed and dim, like
+   the button that adds a row, so that they read as patterns not yet created. */
+.pat_tab.add_pat {
+    background-color: transparent;
+    color: #999;
+    border: 1px dashed #444;
+}
+.pat_tab.add_pat:hover {
+    background-color: transparent;
+    color: #FFF;
+    border-color: #B14BFF;
+}
+
+/* The pattern currently being heard. This comes after the rules above so that
+   it wins over them: the pattern playing is usually also the one being edited,
+   and which one is playing is the more useful of the two to be able to see. */
+.pat_tab.playing {
+    background-color: #E22;
+    border-color: #E22;
+    color: #FFF;
+}
+
+/* A pattern waiting to take over at the end of the current pattern's cycle.
+   It blinks the color of the pattern playing, which is what it's about to
+   become, the way a groovebox shows a pattern queued for launch. */
+.pat_tab.queued {
+    animation: queued_blink 0.4s steps(1) infinite;
+}
+@keyframes queued_blink {
+    50% {
+        background-color: #E22;
+        border-color: #E22;
+        color: #FFF;
+    }
 }
 
 /* One row of steps, for one sample, with its per-row controls */
@@ -175,4 +273,14 @@ button:hover {
 }
 button:active {
     background-color: #444;
+}
+
+/* An action that isn't available right now, e.g. deleting the last pattern of
+   a project. These rules come last so that they win over the hover ones. */
+button:disabled,
+button:disabled:hover {
+    background-color: #191919;
+    border-color: #333;
+    color: #555;
+    cursor: default;
 }
