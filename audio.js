@@ -45,6 +45,22 @@ console.assert(sample_paths.length > 0);
 // Number of sample slots (highest index + 1)
 export const NUM_SAMPLES = sample_paths.length;
 
+// Sample indices in alphabetical order by name, which is how the sample
+// selection UI lists them. Index order won't do: an index is assigned when a
+// sample is added and never changes afterwards, so it drifts away from
+// alphabetical as samples come and go. sample_list.js is generated sorted by
+// name (see update_samples.py), so its own order is the one we want.
+export const SORTED_SAMPLE_IDXS = Object.values(SAMPLE_MAP);
+
+// Guard the ordering we get from sample_list.js, so that a file that somehow
+// isn't sorted shows up here instead of as a scrambled sample list in the UI
+console.assert(
+    SORTED_SAMPLE_IDXS.every((sample_idx, i) =>
+        i == 0 || sample_names[SORTED_SAMPLE_IDXS[i - 1]] < sample_names[sample_idx]
+    ),
+    'sample_list.js is expected to be sorted by sample name'
+);
+
 // Sample indices are encoded using 9 bits when sharing a project through a
 // URL (see SAMPLE_IDX_BITS in model.js), which caps the index space at 512
 console.assert(NUM_SAMPLES <= 512);
@@ -155,6 +171,13 @@ class SampleManager
 }
 
 const samples = new SampleManager();
+
+// Request that a single sample be loaded, by index.
+// Loading is asynchronous, and a sample already loaded is not fetched again.
+export function fetch_sample(sample_idx)
+{
+    samples.fetch_sample(sample_idx);
+}
 
 // Request the samples used by a pattern
 export function fetch_pattern_samples(pattern)

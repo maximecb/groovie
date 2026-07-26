@@ -155,12 +155,12 @@ function update_highlight()
     // Playback stopped, clear the highlight and let the loop end
     if (play_step === null)
     {
-        highlight_step(pat_div, null);
+        highlight_step(null);
         highlight_req = null;
         return;
     }
 
-    highlight_step(pat_div, play_step % project.patterns[cur_pat].num_steps);
+    highlight_step(play_step % project.patterns[cur_pat].num_steps);
 
     highlight_req = requestAnimationFrame(update_highlight);
 }

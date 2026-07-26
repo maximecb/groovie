@@ -48,9 +48,29 @@ body {
     padding: 2px;
 }
 
-/* One row of steps, for one sample */
+/* One row of steps, for one sample, with its per-row controls */
 .pat_row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The steps of a row */
+.pat_cells {
     white-space: nowrap;
+}
+
+/* Sample selection drop-down, on the left of a row */
+.sample_sel {
+    width: 140px;
+    padding: 1px;
+
+    background-color: #000;
+    color: #FFF;
+    border: 1px solid #666;
+
+    font-family: inherit;
+    font-size: inherit;
 }
 
 /* Click target around a cell, larger than the cell itself */

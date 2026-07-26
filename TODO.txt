@@ -73,15 +73,22 @@ IDEA: try to encode the amen break as a pattern/project compression test
 -----------------------------------------------------------------------------
 
 TODO: button to add new rows to patterns
-TODO: add the sample select dropboxes to the pattern editor UI
 
-claude doctor
+TODO: can you generate a cool SVG logo for Groovie in a cyberpunk-esque font,
+to be put at the top of the page
 
-TODO: pattern highlighting during playback
+TODO: make the default samples a more complete drum kit?
+What's in a normal drum kit?
+Can we include 8 samples by default?
+
+TODO: let's make the sample select play the new sound after the selection is changed
 
 
 
 
+[DONE] TODO: add the sample select dropboxes to the pattern editor UI
+
+[DONE] TODO: pattern highlighting during playback
 
 [DONE] TODO: logic to strip out inactive pattern rows when encoding projects
 
@@ -98,6 +105,8 @@ TODO: pattern highlighting during playback
 => We should probably go with the classic model, patterns phase against each other
 
 [DONE] TODO: mention responsive layout
+
+-----------------------------------------------------------------------------
 
 [DONE] TODO: update the sample list format
 
