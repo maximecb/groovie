@@ -25,6 +25,16 @@ Samples in patterns can be referenced with an integer index, probably
 9 bits long (up to 512 samples). The `sample_list.js` file serves as a map
 of sample names to sample indices.
 
+Some compression ideas:
+- Reuse row M from pattern N, or straight up reuse data from some previous bit index
+- Take up to min(16, pat_len) bits of row K from codebook
+  - We can use 3 to 6 bits to do our codebook lookup.
+- Repeat these 4 bits to fill up to 16 steps.
+
+For the timeline, many patterns are likely to be really sparse, or only on
+after a certain number of time steps, then on for some number of steps, and
+then off again. It's likely best if we use some kind RLE encoding.
+
 ## UI Interface
 
 There are going to be main controls at the top, including a tempo selectable

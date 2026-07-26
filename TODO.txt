@@ -61,14 +61,21 @@ to avoid getting out of sync.
 If the main thread gets delayed, we could miss a bunch of steps.
 That's maybe fine?
 
-TODO: pattern highlighting during playback
+Blog post title: building an Advanced browser-based drum/beat sequencer
+Back in 2012, I built one of the earliest JavaScript music apps on the web. Predates the web audio API. One cool trick, encodes patterns in the fragment part of the URL. Also Turing drawings.
+https://pointersgonewild.com/2012/04/23/musictoy-music-made-simple/
 
-TODO: sketch pattern playback code.
-=> send audio to the global_gain node, not audio_ctx
+For a while, wanted to build a More advanced sequencer. Most of them basic. Most of them have lots of ads.
 
 -----------------------------------------------------------------------------
 
+IDEA: try to encode the amen break as a pattern/project compression test
+
 TODO: add the sample select dropboxes to the pattern editor UI
+TODO: pattern highlighting during playback
+
+TODO: logic to strip out inactive pattern rows when encoding projects
+
 
 
 
