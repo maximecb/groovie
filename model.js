@@ -120,6 +120,52 @@ export class Pattern
         console.assert(sample_idx < 2 ** SAMPLE_IDX_BITS);
         this.sample_idxs[row_idx] = sample_idx;
     }
+
+    // Test if a row has no active step, i.e. plays nothing
+    row_is_inactive(row_idx)
+    {
+        return this.rows[row_idx].every(cell => !cell);
+    }
+
+    // Test if the whole pattern has no active step, i.e. plays nothing
+    is_inactive()
+    {
+        for (let row_idx = 0; row_idx < this.num_rows; ++row_idx)
+        {
+            if (!this.row_is_inactive(row_idx))
+                return false;
+        }
+
+        return true;
+    }
+
+    // Produce a copy of this pattern with the rows that play nothing removed.
+    // This is used when encoding a project: an inactive row makes no sound, but
+    // still costs a sample index plus one bit per step in the URL.
+    // Note that this leaves the pattern it's called on untouched.
+    strip_inactive()
+    {
+        let row_idxs = [];
+
+        for (let row_idx = 0; row_idx < this.num_rows; ++row_idx)
+        {
+            if (!this.row_is_inactive(row_idx))
+                row_idxs.push(row_idx);
+        }
+
+        // A pattern always has at least one row, so an empty pattern
+        // keeps its first row rather than becoming rowless
+        if (row_idxs.length == 0)
+            row_idxs.push(0);
+
+        let pat = new Pattern(
+            row_idxs.map(row_idx => this.sample_idxs[row_idx]),
+            this.num_steps
+        );
+        pat.rows = row_idxs.map(row_idx => this.rows[row_idx].slice());
+
+        return pat;
+    }
 }
 
 // A project, i.e. everything that gets shared through a URL
@@ -162,6 +208,13 @@ export class Project
 // the project. This is deliberately a simple scheme to start with, and can be
 // made more clever about compression later (see design.md); the version field
 // makes it possible to change it without breaking already-shared links.
+//
+// Encoding is lossy in one respect: anything that plays nothing is dropped,
+// both silent rows and entirely silent patterns, so a decoded project can be
+// smaller than the one that was encoded.
+//
+// TODO: once the timeline exists, dropping a pattern has to renumber the
+// pattern indices the timeline refers to.
 //============================================================================
 
 // Version of the encoding format
@@ -254,14 +307,25 @@ export function encode_project(project)
 {
     console.assert(project.patterns.length <= MAX_PATTERNS);
 
+    // Patterns that play nothing are left out entirely
+    let patterns = project.patterns.filter(pat => !pat.is_inactive());
+
+    // A project always has at least one pattern, so a project where nothing
+    // plays keeps its first pattern rather than becoming patternless
+    if (patterns.length == 0)
+        patterns = [project.patterns[0]];
+
     let writer = new BitWriter();
 
     writer.write(ENCODING_VERSION, VERSION_BITS);
     writer.write(project.tempo - MIN_TEMPO, TEMPO_BITS);
-    writer.write(project.patterns.length - 1, NUM_PATTERNS_BITS);
+    writer.write(patterns.length - 1, NUM_PATTERNS_BITS);
 
-    for (let pat of project.patterns)
+    for (let pat of patterns)
     {
+        // Rows that play nothing are not worth the space they take up in a URL
+        pat = pat.strip_inactive();
+
         writer.write(pat.num_steps - 1, NUM_STEPS_BITS);
         writer.write(pat.num_rows - 1, NUM_ROWS_BITS);
 
