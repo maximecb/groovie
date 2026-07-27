@@ -147,11 +147,11 @@ h1 {
     padding: 3px 5px;
 }
 
-/* The pattern currently open in the editor below */
+/* The pattern currently open in the editor below. Marked out in neutral white
+   rather than a color of its own, which a pattern would read as its color. */
 .pat_tab.selected {
-    /* Picks up the purple end of the logo */
-    border-color: #B14BFF;
-    background-color: #2C1640;
+    border-color: #FFF;
+    background-color: #3A3A3A;
     color: #FFF;
 }
 
@@ -272,9 +272,11 @@ h1 {
     cursor: pointer;
     border: 1px solid #666;
 }
+/* A cell that plays is drawn in the color of its pattern, which is set on the
+   grid in view.js. The fallback is only there for a grid rendered without one. */
 .cell.on {
-    background-color: #E22;
-    border-color: #E22;
+    background-color: var(--pat_color, #E22);
+    border-color: var(--pat_color, #E22);
 }
 .cell.off {
     background-color: #000;
@@ -318,11 +320,11 @@ h1 {
     margin: 1px 0;
 }
 
-/* The pattern currently open in the pattern editor above */
+/* The pattern currently open in the pattern editor above, marked out like its
+   tab */
 .tl_label.selected {
-    /* Picks up the purple end of the logo, like the pattern tab */
-    border-color: #B14BFF;
-    background-color: #2C1640;
+    border-color: #FFF;
+    background-color: #3A3A3A;
     color: #FFF;
 }
 
@@ -343,16 +345,21 @@ h1 {
     box-sizing: border-box;
     border: 1px solid #666;
 }
+/* A cell that plays is drawn in the color of its lane's pattern, matching the
+   cells of the grid that edits it. The color is set on the lane in view.js. */
 .tl_cell.on {
-    background-color: #E22;
-    border-color: #E22;
+    background-color: var(--pat_color, #E22);
+    border-color: var(--pat_color, #E22);
 }
 .tl_cell.off {
     background-color: #000;
 }
+
+/* An empty cell outlines itself in the color it would take, so that pointing at
+   it says which pattern would land there */
 .tl_cell.off:hover {
-    background-color: #2C1640;
-    border-color: #B14BFF;
+    background-color: #222;
+    border-color: var(--pat_color, #B14BFF);
 }
 
 /* Ruler above the lanes, numbering the bars of the song */

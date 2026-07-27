@@ -19,6 +19,36 @@ import {
 // project decoded from a URL and just re-render.
 //============================================================================
 
+// Colors of the 12-band rainbow, one per pattern. A pattern is drawn in its
+// color both on the timeline lane that places it and in the grid that edits
+// it, so that the two read as the same thing. A project can hold more patterns
+// than there are colors here, so the colors repeat.
+//
+// The bands at the violet end of the rainbow are much darker than the rest, so
+// they're lightened here to hold their own against the yellows against a dark
+// background. The hues are the ones the rainbow has.
+const PAT_COLORS = [
+    '#d926d3',
+    '#7433ff',
+    '#0551ff', // Bright blue
+    '#00d0d0',
+    '#00fa00',
+    '#cbfa00',
+    '#fefb00',
+    '#fec802',
+    '#ff9501',
+    '#ff5004',
+    '#fe2204',
+    '#d81d52'
+];
+
+// Give an element the color of a pattern. The cells inside it are painted from
+// this in the stylesheet, which keeps the palette out of the rules drawing them.
+function set_pat_color(div, pat_idx)
+{
+    div.style.setProperty('--pat_color', PAT_COLORS[pat_idx % PAT_COLORS.length]);
+}
+
 // Step column currently highlighted in the pattern grid, null if none
 let cur_highlight = null;
 
@@ -187,8 +217,10 @@ function get_sample_sel_template()
     return sample_sel_template;
 }
 
-// Generate the DOM for a pattern grid, replacing whatever the div held before
-export function render_pattern(pat_div, pattern)
+// Generate the DOM for a pattern grid, replacing whatever the div held before.
+// The pattern index is what says which color the grid is drawn in, and is the
+// same one its timeline lane uses.
+export function render_pattern(pat_div, pattern, pat_idx)
 {
     // Create the drop-down used to select the sample a row plays
     function make_sample_sel(row_idx)
@@ -236,7 +268,7 @@ export function render_pattern(pat_div, pattern)
             fetch_sample(sample_idx);
 
             // The grid has a row more than it's showing, so it gets rebuilt
-            render_pattern(pat_div, pattern);
+            render_pattern(pat_div, pattern, pat_idx);
         };
 
         row_div.appendChild(button);
@@ -276,6 +308,7 @@ export function render_pattern(pat_div, pattern)
     cur_highlight = null;
     cell_divs = [];
 
+    set_pat_color(pat_div, pat_idx);
     pat_div.replaceChildren();
 
     // One row of cells per sample
@@ -406,6 +439,7 @@ export function render_timeline(seq_div, project, cur_pat, handlers)
     {
         let lane_div = document.createElement('div');
         lane_div.className = 'tl_lane';
+        set_pat_color(lane_div, pat_idx);
         lane_div.appendChild(make_label(pat_idx));
 
         let cells_div = document.createElement('div');

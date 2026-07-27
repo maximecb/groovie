@@ -156,7 +156,7 @@ function render_all()
     num_steps_sel.value = pat.num_steps;
 
     render_pat_tabs(pat_tabs, project, cur_pat, tab_handlers);
-    render_pattern(pat_div, pat);
+    render_pattern(pat_div, pat, cur_pat);
     render_timeline(pat_seq, project, cur_pat, timeline_handlers);
     update_play_buttons();
     update_song_len();
@@ -218,7 +218,7 @@ volume_slider.oninput = function ()
 num_steps_sel.onchange = function ()
 {
     project.patterns[cur_pat].set_num_steps(Number(num_steps_sel.value));
-    render_pattern(pat_div, project.patterns[cur_pat]);
+    render_pattern(pat_div, project.patterns[cur_pat], cur_pat);
 
     // A timeline cell is one playthrough of its pattern, so changing a
     // pattern's length changes how much of the song each of its cells covers
