@@ -53,14 +53,14 @@ const num_steps_sel = document.getElementById('num_steps');
 // Pattern selection tabs
 const pat_tabs = document.getElementById('pat_tabs');
 
-// Delete pattern button
-const del_pat = document.getElementById('del_pat');
-
 // Pattern editor div
 const pat_div = document.getElementById('pat_div');
 
 // Timeline div
 const pat_seq = document.getElementById('pat_seq');
+
+// Song length readout, below the timeline
+const song_len = document.getElementById('song_len');
 
 //============================================================================
 // Application state
@@ -106,6 +106,7 @@ const tab_handlers = {
 
     create: () => select_new_pattern(project.new_pattern(cur_pat)),
     copy: () => select_new_pattern(project.copy_pattern(cur_pat)),
+    delete: () => delete_pattern(),
 };
 
 // What clicking the timeline does
@@ -129,6 +130,7 @@ const timeline_handlers = {
         project.toggle_lane_cell(pat_idx, cell_idx);
         render_timeline(pat_seq, project, cur_pat, timeline_handlers);
         update_play_buttons();
+        update_song_len();
     },
 };
 
@@ -153,16 +155,24 @@ function render_all()
     tempo_val.textContent = project.tempo;
     num_steps_sel.value = pat.num_steps;
 
-    // A project always holds at least one pattern
-    del_pat.disabled = (project.num_patterns <= 1);
-
     render_pat_tabs(pat_tabs, project, cur_pat, tab_handlers);
     render_pattern(pat_div, pat);
     render_timeline(pat_seq, project, cur_pat, timeline_handlers);
     update_play_buttons();
+    update_song_len();
 
     // The strip was rebuilt, so it has to be told what's playing again
     highlight_pat_tabs(get_play_pat_idx(), get_queued_pat_idx());
+}
+
+// Say how long the song is. Steps are what the timeline is laid out in, and
+// what the length is a whole number of, so the time they come to is given
+// alongside them rather than on its own.
+function update_song_len()
+{
+    let num_steps = project.song_num_steps;
+    let secs = num_steps / project.steps_per_sec;
+    song_len.textContent = `Song length: ${num_steps} steps (${secs.toFixed(1)}s)`;
 }
 
 //============================================================================
@@ -193,6 +203,10 @@ tempo_slider.oninput = function ()
 {
     project.set_tempo(tempo_slider.valueAsNumber);
     tempo_val.textContent = project.tempo;
+
+    // Steps have a fixed duration, so the tempo is what says how long the song
+    // in steps runs for
+    update_song_len();
 }
 
 volume_slider.oninput = function ()
@@ -210,9 +224,10 @@ num_steps_sel.onchange = function ()
     // pattern's length changes how much of the song each of its cells covers
     render_timeline(pat_seq, project, cur_pat, timeline_handlers);
     update_play_buttons();
+    update_song_len();
 }
 
-del_pat.onclick = function ()
+function delete_pattern()
 {
     // Deleting a pattern that plays nothing costs the user nothing, so only a
     // pattern with something in it is worth interrupting them over

@@ -68,14 +68,12 @@ h1 {
     overflow-x: auto;
 }
 
-/* Bar above the pattern grid, holding everything that acts on the pattern the
-   grid is showing. On a narrow screen the length control wraps below the tabs
-   rather than squeezing them. */
+/* Bar above the pattern grid, holding the tabs that pick which pattern the
+   grid is showing */
 .pat_bar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: 4px 20px;
 
     align-self: stretch;
@@ -89,9 +87,8 @@ h1 {
     padding: 0 9px;
 }
 
-/* Strip of pattern selection tabs, on the left of the bar. A project can hold
-   many patterns, so the strip takes the space the length control doesn't and
-   wraps within it, instead of pushing that control around as patterns pile up. */
+/* Strip of pattern selection tabs, filling the bar. A project can hold many
+   patterns, so the strip wraps within the width of the group. */
 .pat_tabs {
     display: flex;
     flex-wrap: wrap;
@@ -101,10 +98,35 @@ h1 {
     min-width: 0;
 }
 
-/* Pattern length control, on the right of the bar */
-.pat_len {
+/* Bar below a grid: the buttons acting on it, and how long what it holds is */
+.bot_bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+
+    align-self: stretch;
+    margin: 4px 0;
+
+    /* Indented like the bar above the grid, so that both line up with the
+       edges of the grid between them */
+    padding: 0 9px;
+}
+
+/* How long the grid above is, at the right end of the bar. The pattern editor
+   and the timeline each state their length here, in the same place. */
+.bar_len {
+    margin-left: auto;
+
     flex-shrink: 0;
     white-space: nowrap;
+
+    /* Dimmer than the body text: this is something to glance at, not one of
+       the controls the bar is otherwise made of */
+    color: #BBB;
+
+    /* Anchored on the right, so the digits would otherwise shuffle sideways as
+       the count changes */
+    font-variant-numeric: tabular-nums;
 }
 
 /* One tab, i.e. one pattern of the project */
@@ -133,6 +155,20 @@ h1 {
     background-color: transparent;
     color: #FFF;
     border-color: #B14BFF;
+}
+
+/* Deletes the pattern being edited, at the end of the strip. Dim until pointed
+   at, since it undoes work and shouldn't be the thing the eye lands on, and red
+   on hover to say what it's about to do. Both rules leave the disabled button
+   alone, so that the plainer disabled look at the end of the sheet still wins
+   over them: two classes would otherwise outrank it. */
+.pat_tab.del_pat:not(:disabled) {
+    color: #999;
+}
+.pat_tab.del_pat:not(:disabled):hover {
+    background-color: #2E2E2E;
+    border-color: #E22;
+    color: #E22;
 }
 
 /* The pattern currently being heard. This comes after the rules above so that

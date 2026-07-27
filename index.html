@@ -29,26 +29,23 @@
     <div class="group">
         <div class="label">Patterns</div>
 
-        <!-- Selecting a pattern and setting its length share one bar, since
-             both act on the pattern shown in the grid below -->
         <div class="pat_bar">
             <!-- One tab per pattern, generated in view.js -->
             <div class="pat_tabs" id="pat_tabs">
-            </div>
-
-            <div class="pat_len">
-            Steps
-            <!-- Options are generated in main.js, from MIN/MAX_PAT_STEPS -->
-            <select id="num_steps"></select>
             </div>
         </div>
 
         <div class="sequencer" id="pat_div">
         </div>
 
-        <div class="controls">
+        <div class="bot_bar">
             <button id="play_pat">Play</button>
-            <button id="del_pat">Delete</button>
+
+            <div class="bar_len">
+            Pattern length:
+            <!-- Options are generated in main.js, from MIN/MAX_PAT_STEPS -->
+            <select id="num_steps"></select>
+            </div>
         </div>
     </div>
 
@@ -58,8 +55,11 @@
         <div class="sequencer" id="pat_seq">
         </div>
 
-        <div class="controls">
+        <div class="bot_bar">
             <button id="play_song">Play</button>
+
+            <!-- Filled in by main.js, since it depends on the tempo too -->
+            <div class="bar_len" id="song_len"></div>
         </div>
     </div>
 

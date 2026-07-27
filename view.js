@@ -143,6 +143,21 @@ export function render_pat_tabs(tabs_div, project, cur_pat, handlers)
             handlers.copy
         ));
     }
+
+    // Deleting the pattern being edited belongs with the buttons that create
+    // patterns, but acts on one that already exists, so it doesn't take on
+    // their unbuilt look. It stays in place when the add buttons are gone: a
+    // full project is where deleting a pattern is most worth reaching for.
+    let del_button = document.createElement('button');
+    del_button.className = 'pat_tab del_pat';
+    del_button.textContent = 'Delete';
+    del_button.title = `Delete pattern ${cur_pat + 1}`;
+    del_button.onclick = handlers.delete;
+
+    // A project always holds at least one pattern
+    del_button.disabled = (project.num_patterns <= 1);
+
+    tabs_div.appendChild(del_button);
 }
 
 // A select element listing every sample, cloned once per pattern row. The
