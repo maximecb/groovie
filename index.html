@@ -15,10 +15,14 @@
         <div class="label">Controls</div>
         <div class="controls">
             <!-- TODO: do we want an obvious play button at the top? -->
-            <label>Tempo: <span id="tempo_val">120</span> BPM</label>
-            <input type="range" id="tempo_slider" min="40" max="220" value="120">
-            <label>Volume: <span id="volume_val">50</span>%</label>
-            <input type="range" id="volume_slider" min="0" max="100" value="50">
+            <div class="slider_ctl">
+                <label>Tempo: <span class="num_val" id="tempo_val">120</span> BPM</label>
+                <input type="range" id="tempo_slider" min="40" max="220" value="120">
+            </div>
+            <div class="slider_ctl">
+                <label>Volume: <span class="num_val" id="volume_val">50</span>%</label>
+                <input type="range" id="volume_slider" min="0" max="100" value="50">
+            </div>
         </div>
     </div>
 

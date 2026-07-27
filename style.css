@@ -350,6 +350,27 @@ h1 {
     align-items: center;
 }
 
+/* A slider and the label reading out its value. Boxed together so the pair can
+   sit tighter than the gap that separates one control from the next. */
+.slider_ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Numeric readout inside a control label. Reserved at its widest value (3
+   digits) and right-aligned, so that the slider next to it doesn't shift as
+   the number gains or loses digits. */
+.num_val {
+    display: inline-block;
+    min-width: 3ch;
+    text-align: right;
+
+    /* Arial's digits are already equal width, but a fallback sans-serif may
+       use proportional figures, which would make the readout itself jitter */
+    font-variant-numeric: tabular-nums;
+}
+
 input[type="range"] {
     width: 120px;
 }
