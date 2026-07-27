@@ -37,7 +37,12 @@ h1 {
     width: 800px;
     border: 1px solid #444;
     margin: 10px;
-    padding: 8px;
+
+    /* The group label sits on the top border and hangs below it, so there is
+       more room at the top than at the other edges. Keeping that clearance
+       here rather than on whatever a group starts with is what makes every
+       section start the same distance below its own label. */
+    padding: 12px 8px 8px;
 
     font-size: 12px;
     font-family: monospace;
@@ -89,9 +94,7 @@ h1 {
 
     align-self: stretch;
 
-    /* The group label sits on the top border and hangs below it, so the tabs
-       need a little more clearance than a row of plain text would */
-    margin: 8px 0 4px 0;
+    margin: 4px 0;
 
     /* Indented by the margin, border and padding of the grid below, so that
        the tabs start exactly where the sample selects inside the grid do */
@@ -397,8 +400,12 @@ h1 {
     pointer-events: none;
 }
 
+/* The tempo and volume row at the top of the page. It sits a little higher
+   under its label than the other groups' contents do: this is a row of plain
+   text and sliders, with none of the boxed edges that need clearance to read
+   as separate from the label above them. */
 .controls {
-    margin: 4px;
+    margin: 2px 4px 4px;
     display: flex;
     gap: 20px;
     align-items: center;
@@ -436,7 +443,10 @@ input[type="range"] {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 4px;
+
+    /* A little more room below than a group's contents usually get, so that
+       the text under the field doesn't crowd it */
+    margin: 4px 4px 6px;
 }
 
 /* Title of the composition, which travels in the link */
