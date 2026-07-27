@@ -2,7 +2,11 @@ import {
     Project,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
+    MAX_TITLE_CHARS,
+    TITLE_STRIP_RE,
+    normalize_title,
     project_from_hash,
+    project_to_hash,
 } from "./model.js";
 
 import {
@@ -61,6 +65,18 @@ const pat_seq = document.getElementById('pat_seq');
 
 // Song length readout, below the timeline
 const song_len = document.getElementById('song_len');
+
+// Title field, the button copying a link to the project, and the line saying
+// what that button last did
+const song_title = document.getElementById('song_title');
+const share_btn = document.getElementById('share_btn');
+const share_status = document.getElementById('share_status');
+
+// How long a URL can get before it stops surviving the places projects get
+// shared in. Browsers and the sites people post links on all handle a couple
+// of thousand characters (see design.md), so this is where a link stops being
+// dependable rather than where it stops working.
+const MAX_URL_CHARS = 2000;
 
 //============================================================================
 // Application state
@@ -154,6 +170,7 @@ function render_all()
     tempo_slider.value = project.tempo;
     tempo_val.textContent = project.tempo;
     num_steps_sel.value = pat.num_steps;
+    song_title.value = project.title;
 
     render_pat_tabs(pat_tabs, project, cur_pat, tab_handlers);
     render_pattern(pat_div, pat, cur_pat);
@@ -191,6 +208,11 @@ for (let num_steps = MIN_PAT_STEPS; num_steps <= MAX_PAT_STEPS; ++num_steps)
     num_steps_sel.appendChild(option);
 }
 
+// Stop the title field at the length a title is allowed to be, so that the
+// field refuses the extra characters rather than the encoding quietly
+// dropping them later
+song_title.maxLength = MAX_TITLE_CHARS;
+
 set_volume(volume_slider.valueAsNumber / 100);
 fetch_project_samples(project);
 render_all();
@@ -225,6 +247,67 @@ num_steps_sel.onchange = function ()
     render_timeline(pat_seq, project, cur_pat, timeline_handlers);
     update_play_buttons();
     update_song_len();
+}
+
+// Only the characters a title can hold are kept, so that what the field shows
+// is what ends up in the link. Spaces are tidied up only once the field is
+// done being edited: collapsing runs of them on every keystroke would make it
+// impossible to type a space between two words.
+song_title.oninput = function ()
+{
+    let clean = song_title.value.replaceAll(TITLE_STRIP_RE, '');
+
+    if (clean != song_title.value)
+    {
+        // Assigning the value drops the caret at the end, so it's put back
+        // where it was, less whatever was just refused ahead of it
+        let caret = song_title.selectionStart -
+                    (song_title.value.length - clean.length);
+        song_title.value = clean;
+        song_title.setSelectionRange(caret, caret);
+    }
+
+    project.title = clean;
+}
+
+// Fires when the field is left or return is pressed, which is the point where
+// the title can be tidied up without getting in the way of typing it
+song_title.onchange = function ()
+{
+    project.title = normalize_title(song_title.value);
+    song_title.value = project.title;
+}
+
+share_btn.onclick = async function ()
+{
+    // The field can still hold a title mid-edit, i.e. one typed and then
+    // shared without ever leaving the field
+    project.title = normalize_title(song_title.value);
+    song_title.value = project.title;
+
+    // Replacing the URL rather than pushing it keeps sharing repeatable
+    // without filling up the back button, and leaves the project where a
+    // reload of the page will find it again
+    history.replaceState(null, '', '#' + project_to_hash(project));
+
+    let url = location.href;
+    let length = `${url.length} characters`;
+
+    if (url.length > MAX_URL_CHARS)
+        length += ', which may be too long for some sites';
+
+    try
+    {
+        await navigator.clipboard.writeText(url);
+        share_status.textContent = `Link copied, ${length}.`;
+    }
+    catch (err)
+    {
+        // Copying needs both a secure context and the user's permission, so it
+        // can't be counted on. The link is in the address bar either way.
+        console.error(`Could not copy the link: ${err.message}`);
+        share_status.textContent = `Link is in the address bar, ${length}.`;
+    }
 }
 
 function delete_pattern()

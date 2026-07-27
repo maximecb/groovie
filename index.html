@@ -63,5 +63,27 @@
         </div>
     </div>
 
+    <div class="group">
+        <div class="label">Share</div>
+
+        <div class="share_row">
+            <label for="song_title">Title</label>
+            <!-- Length limit is set in main.js, from MAX_TITLE_CHARS -->
+            <input type="text" id="song_title"
+                   placeholder="untitled" spellcheck="false">
+            <button id="share_btn">Copy link</button>
+        </div>
+
+        <!-- A link holds the whole project, so anyone who opens one can edit
+             what it plays. That's worth saying before it's shared. -->
+        <div class="share_note">
+            Generate a link to share this project.
+            Anyone with this link can play and remix your track.
+        </div>
+
+        <!-- What the last copy did, filled in by main.js -->
+        <div class="share_note" id="share_status"></div>
+    </div>
+
 </body>
 </html>

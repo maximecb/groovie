@@ -429,6 +429,41 @@ input[type="range"] {
     width: 120px;
 }
 
+/* The title of the composition and the button that puts it in a link. These
+   sit as close together as a label sits to its own field: the button acts on
+   the field beside it, rather than being a separate control of its own. */
+.share_row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px;
+}
+
+/* Title of the composition, which travels in the link */
+#song_title {
+    width: 240px;
+    padding: 3px 5px;
+
+    background-color: #000;
+    color: #FFF;
+    border: 1px solid #666;
+
+    font-family: inherit;
+    font-size: inherit;
+}
+#song_title:focus {
+    outline: none;
+    border-color: #999;
+}
+
+/* What sharing a link means, and what the last copy did. Dimmer than the
+   controls above, being something to read once rather than to operate. */
+.share_note {
+    margin: 4px;
+    color: #BBB;
+    text-align: center;
+}
+
 /* Buttons inherit the surrounding monospace font, so that they sit with the
    labels and drop-downs around them instead of looking like page furniture */
 button {

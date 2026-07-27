@@ -253,7 +253,10 @@ export class Project
 {
     constructor()
     {
-        this.title = 'untitled';
+        // A project starts out untitled, which the title field shows as a
+        // placeholder rather than as text to be deleted before typing over.
+        // A link made without a title is the one that says 'untitled'.
+        this.title = '';
 
         // Tempo, in beats per minute
         this.tempo = DEFAULT_TEMPO;
@@ -754,14 +757,44 @@ export function decode_project(b64_str)
 // so that the title stays readable in the link
 function encode_title(title)
 {
-    return title.trim().replaceAll(/[^A-Za-z0-9_-]+/g, '_');
+    let norm = normalize_title(title);
+
+    // A title is part of the URL, where a space can't appear as it is. Writing
+    // it as an underscore keeps the title readable in the link, which
+    // percent-escaping it would not.
+    return norm.length? norm.replaceAll(' ', '_') : 'untitled';
 }
+
+// Undo encode_title. A title holds no underscores of its own, so every
+// underscore in a link was a space.
+function decode_title(title)
+{
+    return normalize_title(title.replaceAll('_', ' '));
+}
+
+// Reduce a title to what one is allowed to hold: alphanumeric words separated
+// by single spaces, up to a limited length. Everything else is dropped, both
+// here and when a link is read back, which is what keeps a title from carrying
+// anything but a short piece of text onto the page it's shown on.
+export function normalize_title(title)
+{
+    let norm = title.replaceAll(TITLE_STRIP_RE, '').replaceAll(/ +/g, ' ').trim();
+
+    // Cut to length last, and trimmed again in case the cut landed on a space
+    return norm.substring(0, MAX_TITLE_CHARS).trim();
+}
+
+// Longest a title can be. This is what the title field allows, and it's
+// enforced again when a link is read, since a link can be edited by hand.
+export const MAX_TITLE_CHARS = 36;
+
+// Characters a title can't hold. Exported so that the title field can drop
+// them as they're typed, rather than only once the title is encoded.
+export const TITLE_STRIP_RE = /[^A-Za-z0-9 ]+/g;
 
 // Encode a project into a URL fragment, without the leading '#'
 export function project_to_hash(project)
 {
-    // TODO: here we should be logging the total project encoding length to the console
-
     return `${encode_title(project.title)},${encode_project(project)}`;
 }
 
@@ -777,7 +810,7 @@ export function project_from_hash(hash)
         throw SyntaxError('missing separator between title and project data');
 
     let project = decode_project(hash.substring(sep_idx + 1));
-    project.title = hash.substring(0, sep_idx);
+    project.title = decode_title(hash.substring(0, sep_idx));
 
     return project;
 }
