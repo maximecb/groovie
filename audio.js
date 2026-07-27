@@ -271,8 +271,18 @@ const LOOKAHEAD_TIME = 0.1;
 // How often the playback update runs, in milliseconds
 const UPDATE_INTERV_MS = 1000 / 25;
 
+// What playback is currently doing. A single pattern is played while it's
+// being edited, and the whole timeline is played to hear the song; both are the
+// same scheduler running over a different set of steps, and only one of them
+// can run at a time (see design.md).
+const PLAY_PATTERN = 'pattern';
+const PLAY_SONG = 'song';
+
 // Interval to update the audio playback
 let update_interv = null;
+
+// Whether playback is playing a single pattern or the song
+let play_mode = PLAY_PATTERN;
 
 // Project currently being played, and index of the pattern being played
 let play_project = null;
@@ -288,6 +298,12 @@ let queued_pat_idx = null;
 // measured from here rather than from the global step counter itself, which
 // keeps running across pattern changes.
 let play_pat_start = 0;
+
+// Step of the song currently being queued, and the global step the current
+// pass through the song started at. The song loops, so these play the same
+// role for song playback that the two above play for a pattern.
+let song_step = 0;
+let song_start = 0;
 
 // Audio context time at the last playback update
 let last_time = 0;
@@ -309,33 +325,51 @@ export function is_playing()
     return update_interv != null;
 }
 
-// Index of the pattern currently being heard, or null if not playing
+// Test if playback is currently playing a single pattern
+export function is_playing_pattern()
+{
+    return is_playing() && play_mode == PLAY_PATTERN;
+}
+
+// Test if playback is currently playing the song
+export function is_playing_song()
+{
+    return is_playing() && play_mode == PLAY_SONG;
+}
+
+// Index of the pattern currently being heard, or null if no single pattern is
+// being played. Song playback has several patterns sounding at once, so there
+// is no one pattern being heard to report.
 export function get_play_pat_idx()
 {
-    return is_playing()? play_pat_idx : null;
+    return is_playing_pattern()? play_pat_idx : null;
 }
 
 // Index of the pattern waiting to take over at the end of the current
 // pattern's cycle, or null if there is none
 export function get_queued_pat_idx()
 {
-    return is_playing()? queued_pat_idx : null;
+    return is_playing_pattern()? queued_pat_idx : null;
 }
 
-// Get the step of the playing pattern currently being heard, or null if not
-// playing.
+// Global step currently being heard.
 //
 // The scheduler runs ahead of the audio clock, so the position it has queued
 // up to is not the position to show. We get the audible one by evaluating the
 // same straight line the scheduler uses, at the current time rather than at
 // the queue horizon, which is behind it.
+function get_audible_step()
+{
+    let delta_time = get_audio_ctx().currentTime - last_time;
+    return Math.floor(last_pos + delta_time * play_project.steps_per_sec);
+}
+
+// Get the step of the playing pattern currently being heard, or null if no
+// single pattern is being played
 export function get_play_step()
 {
-    if (!is_playing())
+    if (!is_playing_pattern())
         return null;
-
-    let delta_time = get_audio_ctx().currentTime - last_time;
-    let play_pos = last_pos + delta_time * play_project.steps_per_sec;
 
     // Two things put the audible position behind the start of the pattern's
     // cycle: the first update queues ahead of the start of playback, and a
@@ -344,7 +378,23 @@ export function get_play_step()
     // be heard. Both resolve within that window, and clamping holds the
     // position at the first step until they do.
     let pat = play_project.patterns[play_pat_idx];
-    return Math.max(0, Math.floor(play_pos) - play_pat_start) % pat.num_steps;
+    return Math.max(0, get_audible_step() - play_pat_start) % pat.num_steps;
+}
+
+// Get the step of the song currently being heard, or null if the song isn't
+// being played
+export function get_song_step()
+{
+    if (!is_playing_song())
+        return null;
+
+    // The song loops at the queue horizon, so just after a loop the audible
+    // position is still behind the start of the pass being queued. Clamping
+    // holds it at the first step for the one lookahead window that takes.
+    let song_len = play_project.song_num_steps;
+    return song_len > 0?
+        Math.max(0, get_audible_step() - song_start) % song_len :
+        null;
 }
 
 // Queue a pattern to be launched at the end of the pattern currently playing,
@@ -353,7 +403,9 @@ export function get_play_step()
 // Does nothing when playback isn't running.
 export function queue_pattern(pat_idx)
 {
-    if (!is_playing())
+    // Selecting a pattern during song playback only opens it for editing: what
+    // plays then is what the timeline says, not what's on screen
+    if (!is_playing_pattern())
         return;
 
     console.assert(pat_idx < play_project.patterns.length);
@@ -366,7 +418,9 @@ export function queue_pattern(pat_idx)
 // after it (see Project.delete_pattern).
 export function pattern_deleted(pat_idx)
 {
-    if (!is_playing())
+    // Song playback reads the patterns and lanes of the project as it goes, so
+    // it has nothing of its own to fix up
+    if (!is_playing_pattern())
         return;
 
     // The pattern being heard is gone, so there is nothing to keep playing
@@ -388,15 +442,40 @@ export function pattern_deleted(pat_idx)
 // Start playing a single pattern of a project
 export async function play_pattern(project, pat_idx)
 {
-    console.assert(!is_playing());
     console.assert(pat_idx < project.patterns.length);
+
+    play_pat_idx = pat_idx;
+    queued_pat_idx = null;
+    play_pat_start = 0;
+
+    await start_playback(project, PLAY_PATTERN);
+}
+
+// Start playing the song, i.e. the patterns placed on the timeline.
+// Does nothing if no pattern is placed on the timeline, since there is then
+// no song to play.
+export async function play_song(project)
+{
+    if (project.song_num_steps == 0)
+        return;
+
+    song_step = 0;
+    song_start = 0;
+
+    await start_playback(project, PLAY_SONG);
+}
+
+// Start playback in a given mode. Playing a pattern and playing the song are
+// the same scheduler running over a different set of steps, and starting
+// either one ends whatever was playing before it.
+async function start_playback(project, mode)
+{
+    stop_playback();
 
     await init_web_audio();
 
     play_project = project;
-    play_pat_idx = pat_idx;
-    queued_pat_idx = null;
-    play_pat_start = 0;
+    play_mode = mode;
 
     // Reset the playback position. The audio clock has been running ever since
     // the audio context was created, so we anchor the position to the current
@@ -407,11 +486,10 @@ export async function play_pattern(project, pat_idx)
     next_step = 0;
 
     // Queue the first steps immediately, so that playback starts without
-    // waiting for the first interval to elapse
-    update_playback();
-
-    // Schedule update callback
+    // waiting for the first interval to elapse. This is also what starts the
+    // interval: an empty song stops playback instead of starting it.
     update_interv = setInterval(update_playback, UPDATE_INTERV_MS);
+    update_playback();
 }
 
 // Stop playback
@@ -444,42 +522,95 @@ function update_playback()
     let delta_steps = delta_time * steps_per_sec;
     let queue_until_pos = last_pos + delta_steps;
 
-    // TODO: for now we only play one pattern,
-    // song playback will need to scan every pattern active on the timeline
-    let pat = play_project.patterns[play_pat_idx];
+    // Read the song length on every update too, since the song ends wherever
+    // the last pattern placed on the timeline does. Emptying the timeline
+    // during playback leaves no song to keep playing.
+    let song_len = 0;
+
+    if (play_mode == PLAY_SONG)
+    {
+        song_len = play_project.song_num_steps;
+
+        if (song_len == 0)
+        {
+            stop_playback();
+            return;
+        }
+    }
 
     // For each step falling inside the lookahead window
     for (; next_step <= queue_until_pos; ++next_step)
     {
-        let step_idx = (next_step - play_pat_start) % pat.num_steps;
-
-        // A queued pattern is launched once the playing one reaches the end of
-        // its cycle. This is tested per step rather than once per update,
-        // because the lookahead window can straddle the end of a cycle.
-        if (queued_pat_idx !== null && step_idx == 0)
-        {
-            play_pat_idx = queued_pat_idx;
-            queued_pat_idx = null;
-            play_pat_start = next_step;
-
-            // The new pattern is launched from its first step, whatever its
-            // length, rather than picking up the phase of the previous one
-            pat = play_project.patterns[play_pat_idx];
-            step_idx = 0;
-        }
-
         // Back-project the time of this step from the queue horizon
         let step_time = queue_until_t - (queue_until_pos - next_step) / steps_per_sec;
 
-        // Trigger the sample of each active cell on this step.
-        // There is one row per sample, and the number of rows is variable.
-        for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
-        {
-            if (pat.get_cell(row_idx, step_idx))
-                samples.play_sample(pat.sample_idxs[row_idx], step_time, global_gain);
-        }
+        if (play_mode == PLAY_SONG)
+            queue_song_step(step_time, song_len);
+        else
+            queue_pat_step(step_time);
     }
 
     last_time = queue_until_t;
     last_pos = queue_until_pos;
+}
+
+// Queue one step of the pattern being played
+function queue_pat_step(step_time)
+{
+    let pat = play_project.patterns[play_pat_idx];
+    let step_idx = (next_step - play_pat_start) % pat.num_steps;
+
+    // A queued pattern is launched once the playing one reaches the end of its
+    // cycle. This is tested per step rather than once per update, because the
+    // lookahead window can straddle the end of a cycle.
+    if (queued_pat_idx !== null && step_idx == 0)
+    {
+        play_pat_idx = queued_pat_idx;
+        queued_pat_idx = null;
+        play_pat_start = next_step;
+
+        // The new pattern is launched from its first step, whatever its
+        // length, rather than picking up the phase of the previous one
+        pat = play_project.patterns[play_pat_idx];
+        step_idx = 0;
+    }
+
+    queue_pat_cells(pat, step_idx, step_time);
+}
+
+// Queue one step of the song, i.e. of every pattern placed on the timeline at
+// that step. Steps have a fixed duration, so a pattern plays the step of its
+// own that the song step falls on, which is what makes patterns of different
+// lengths phase against each other.
+function queue_song_step(step_time, song_len)
+{
+    // Loop back to the start of the song at the end. The song can have gotten
+    // shorter since the last step, hence testing rather than comparing.
+    if (song_step >= song_len)
+    {
+        song_step = 0;
+        song_start = next_step;
+    }
+
+    for (let pat_idx = 0; pat_idx < play_project.num_patterns; ++pat_idx)
+    {
+        if (!play_project.pat_active_at(pat_idx, song_step))
+            continue;
+
+        let pat = play_project.patterns[pat_idx];
+        queue_pat_cells(pat, song_step % pat.num_steps, step_time);
+    }
+
+    song_step++;
+}
+
+// Trigger the sample of each active cell on one step of a pattern.
+// There is one row per sample, and the number of rows is variable.
+function queue_pat_cells(pat, step_idx, step_time)
+{
+    for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
+    {
+        if (pat.get_cell(row_idx, step_idx))
+            samples.play_sample(pat.sample_idxs[row_idx], step_time, global_gain);
+    }
 }

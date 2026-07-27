@@ -31,9 +31,22 @@ Some compression ideas:
   - We can use 3 to 6 bits to do our codebook lookup.
 - Repeat these 4 bits to fill up to 16 steps.
 
-For the timeline, many patterns are likely to be really sparse, or only on
-after a certain number of time steps, then on for some number of steps, and
-then off again. It's likely best if we use some kind RLE encoding.
+The timeline is encoded one lane at a time, right after the pattern the lane
+places. Lanes are sparse: a pattern is off for most of a song, and where it's
+on it tends to be on for several cells in a row, so a lane is written as a
+series of blocks of consecutive active cells, each written as the gap before it
+followed by its own length, ending with an empty gap. A pattern not placed on
+the timeline at all costs a single bit.
+
+Those values are written in 4-bit chunks, each preceded by a bit saying whether
+a chunk follows, so that short songs don't pay for the length fields a long one
+needs. Zero takes no chunks and so costs a single bit, which every other value
+pays one bit for. That trade is worth it because zero is by far the most common
+value here: it ends every lane, it's the gap of a lane starting on the first
+bar, and, since a block always holds at least one cell and is written one lower,
+it's the length of every single-cell block. On a 32-bar arrangement of eight
+patterns, this costs 112 bits for the whole timeline, against 136 for the same
+scheme without the cheap zero.
 
 ## UI Interface
 
@@ -71,25 +84,35 @@ On the left side of the pattern editor, there will be drop-down boxes to select
 the sample associated with each row. On the right side, there will be a stereo
 pan knob, adjustable per-row with the mouse.
 
-The timeline view at the bottom will allow arranging patterns into a song, with
-one row per pattern. Because steps have a fixed duration, each timeline cell is
-as wide as the pattern is long (in steps), and one cell represents one full
-playthrough of that pattern. Each cell can be toggled to turn the pattern on or
-off at that position. Patterns repeat at their natural step boundary and phase
-against each other; lanes only realign at step 0 and at the least common
-multiple of their lengths.
+The timeline view at the bottom arranges patterns into a song, with one lane per
+pattern. Because steps have a fixed duration, each timeline cell is as wide as
+the pattern is long (in steps), and one cell represents one full playthrough of
+that pattern. Each cell can be toggled to turn the pattern on or off at that
+position. Patterns repeat at their natural step boundary and phase against each
+other; lanes only realign at step 0 and at the least common multiple of their
+lengths. A lane is labelled with the number of the pattern it places, and that
+label also opens the pattern for editing.
 
-The song has an explicit total length in steps (max 4096). Playback runs left to
-right and loops back to step 0 at the end, re-syncing all lanes. A pattern whose
-length does not divide the song length may have its final repetition clipped at
-the loop point; a "fit to content" helper can set the song length to the end of
-the last active cell to avoid this. Very short patterns produce many narrow cells
-on their row, which a timeline zoom control can accommodate.
+The song has no length of its own: it ends where the last pattern placed on the
+timeline stops playing, rounded up to a whole bar so that the loop lands on a
+bar boundary even when the patterns don't. The timeline shows some empty room
+past that end to place the next pattern into, so making the song longer is a
+matter of placing a pattern further right, and removing the last pattern makes
+it shorter again. Playback runs left to right and loops back to step 0 at the
+end, re-syncing all lanes. A song can be at most 4096 steps long, and a pattern
+reaching that limit may have its final playthrough clipped at the loop point.
+Above the lanes is a ruler numbering the bars, since the cells of a pattern that
+isn't a whole number of bars long don't line up with them. Very short patterns
+produce many narrow cells on their lane, which a timeline zoom control could
+accommodate later on.
 
-There should be both a global play/stop button that plays the whole song/timeline
+There are both a global play/stop button that plays the whole song/timeline
 sequence, and a local play/stop button that allows playing individual patterns
-while editing them. However both cannot play at the same time. Pressing the
-spacebar while nothing is playing will trigger song playback.
+while editing them. Both cannot play at the same time: starting either one ends
+whatever was playing. The spacebar plays and stops the song. Song playback has
+several patterns sounding at once, so there is nothing one pattern grid can
+usefully show: the timeline playhead is what says where playback is, and the
+pattern editor stays out of it.
 
 The layout should ideally be responsive and be able to adapt to desktop,
 phones and tablets.

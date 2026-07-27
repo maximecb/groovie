@@ -4,7 +4,12 @@ import {
     fetch_sample,
     preview_sample,
 } from "./audio.js";
-import { MAX_PAT_ROWS, MAX_PATTERNS } from "./model.js";
+import {
+    MAX_PAT_ROWS,
+    MAX_PATTERNS,
+    MAX_SONG_STEPS,
+    STEPS_PER_BAR,
+} from "./model.js";
 
 //============================================================================
 // DOM rendering
@@ -292,10 +297,193 @@ export function render_pattern(pat_div, pattern)
     // TODO: stereo pan knob on the right of each row
 }
 
-// Generate the DOM for the timeline, i.e. the arrangement of patterns
-export function render_timeline(seq_div, project)
+//============================================================================
+// Timeline
+//
+// The timeline has one lane per pattern, and one cell per playthrough of that
+// pattern. Steps have a fixed duration, so a cell is drawn as wide as the
+// pattern is long: a cell is that much time, whatever lane it sits on, and
+// lanes of different lengths visibly phase against each other.
+//============================================================================
+
+// Width of one step of the timeline, in pixels
+const STEP_PX = 6;
+
+// How much room past the end of the song the timeline shows, and the smallest
+// extent it shows, both in steps. The song ends at the last pattern placed on
+// it, so there has to be somewhere past that end to place the next one.
+const TRAILING_STEPS = 2 * STEPS_PER_BAR;
+const MIN_VIEW_STEPS = 8 * STEPS_PER_BAR;
+
+// Playhead of the last timeline render, and the offset the lanes start at,
+// which is what the playhead is positioned against
+let playhead_div = null;
+let lanes_left = 0;
+
+// Song step the timeline is currently showing the playhead at, null if none
+let cur_song_step = null;
+
+// Move the timeline playhead to the song step being played, or hide it when
+// step_idx is null. Like the pattern grid highlight, this runs on every
+// animation frame, so it only moves the playhead instead of redrawing lanes.
+export function highlight_song_step(step_idx)
 {
-    // TODO: one row per pattern, with each cell as wide as the pattern is long
-    // in steps, and one cell representing one playthrough of that pattern.
-    // This needs the timeline state in the model first (see design.md).
+    if (step_idx === cur_song_step)
+        return;
+
+    if (playhead_div)
+    {
+        playhead_div.style.display = (step_idx === null)? 'none':'block';
+
+        if (step_idx !== null)
+            playhead_div.style.left = `${lanes_left + step_idx * STEP_PX}px`;
+    }
+
+    cur_song_step = step_idx;
+}
+
+// Generate the DOM for the timeline, i.e. the arrangement of patterns.
+//
+// Like the pattern tab strip, the timeline reports back which pattern was
+// picked for editing, which is a property of the editing session rather than
+// of the project.
+export function render_timeline(seq_div, project, cur_pat, handlers)
+{
+    // Create the label of a lane, which names the pattern the lane places and
+    // doubles as a way to open that pattern for editing
+    function make_label(pat_idx)
+    {
+        let pat = project.patterns[pat_idx];
+
+        let button = document.createElement('button');
+        button.className = 'tl_label';
+        button.textContent = pat_idx + 1;
+        button.title = `Edit pattern ${pat_idx + 1} (${pat.num_steps} steps)`;
+
+        if (pat_idx == cur_pat)
+            button.classList.add('selected');
+
+        button.onclick = () => handlers.select(pat_idx);
+
+        return button;
+    }
+
+    // Create one cell of a lane, i.e. one playthrough of that pattern
+    function make_cell(pat_idx, cell_idx)
+    {
+        let num_steps = project.patterns[pat_idx].num_steps;
+
+        let cell = document.createElement('div');
+        let cell_on = project.get_lane_cell(pat_idx, cell_idx);
+        cell.className = cell_on? 'tl_cell on':'tl_cell off';
+
+        // Cells are inset by a pixel on each side, so that a run of them reads
+        // as several playthroughs rather than as one long block
+        cell.style.width = `${num_steps * STEP_PX - 2}px`;
+
+        cell.onclick = () => handlers.toggle(pat_idx, cell_idx);
+
+        return cell;
+    }
+
+    // Create the lane placing a given pattern in the song
+    function make_lane(pat_idx, view_steps)
+    {
+        let lane_div = document.createElement('div');
+        lane_div.className = 'tl_lane';
+        lane_div.appendChild(make_label(pat_idx));
+
+        let cells_div = document.createElement('div');
+        cells_div.className = 'tl_cells';
+
+        // Enough cells to cover the extent shown. A pattern whose length isn't
+        // a whole number of bars has its last cell reach past that extent,
+        // which is the same thing that happens at the end of the song.
+        let num_cells = Math.ceil(view_steps / project.patterns[pat_idx].num_steps);
+
+        for (let cell_idx = 0; cell_idx < num_cells; ++cell_idx)
+            cells_div.appendChild(make_cell(pat_idx, cell_idx));
+
+        lane_div.appendChild(cells_div);
+
+        return lane_div;
+    }
+
+    // Create the ruler above the lanes, numbering the bars of the song. Cells
+    // line up with bars only when their pattern is a whole number of bars long,
+    // so this is what tells you where you are in the song.
+    function make_ruler(view_steps)
+    {
+        let lane_div = document.createElement('div');
+        lane_div.className = 'tl_lane tl_ruler';
+
+        // Empty space above the lane labels, to line the bars up with the cells
+        let label_div = document.createElement('div');
+        label_div.className = 'tl_label tl_no_label';
+        lane_div.appendChild(label_div);
+
+        let bars_div = document.createElement('div');
+        bars_div.className = 'tl_cells';
+
+        for (let bar_idx = 0; bar_idx < view_steps / STEPS_PER_BAR; ++bar_idx)
+        {
+            let bar_div = document.createElement('div');
+            bar_div.className = 'tl_bar';
+            bar_div.textContent = bar_idx + 1;
+            bar_div.style.width = `${STEPS_PER_BAR * STEP_PX}px`;
+            bars_div.appendChild(bar_div);
+        }
+
+        lane_div.appendChild(bars_div);
+
+        return lane_div;
+    }
+
+    // Create the marker showing where the song loops back to its start
+    function make_loop_marker(song_steps)
+    {
+        let marker = document.createElement('div');
+        marker.className = 'tl_loop';
+        marker.style.left = `${lanes_left + song_steps * STEP_PX}px`;
+        marker.title = `The song loops back to the start after ${song_steps} steps`;
+
+        return marker;
+    }
+
+    let song_steps = project.song_num_steps;
+
+    // Extent shown, i.e. the song plus the room to make it longer
+    let view_steps = Math.min(
+        Math.max(song_steps + TRAILING_STEPS, MIN_VIEW_STEPS),
+        MAX_SONG_STEPS
+    );
+
+    // The timeline is rebuilt, so nothing carries the playhead anymore
+    playhead_div = null;
+    cur_song_step = null;
+
+    // The lanes sit in a wrapper of their own so that the playhead and the
+    // loop marker, which span every lane, can be positioned against it
+    let tl_div = document.createElement('div');
+    tl_div.className = 'timeline';
+    tl_div.appendChild(make_ruler(view_steps));
+
+    for (let pat_idx = 0; pat_idx < project.num_patterns; ++pat_idx)
+        tl_div.appendChild(make_lane(pat_idx, view_steps));
+
+    seq_div.replaceChildren(tl_div);
+
+    // Where the lanes start, i.e. how far the labels push them in. This is
+    // measured rather than assumed, so that the playhead lines up with the
+    // cells whatever the labels end up being sized at.
+    lanes_left = tl_div.querySelector('.tl_cells').offsetLeft;
+
+    // A song that plays nothing has no loop point to show
+    if (song_steps > 0)
+        tl_div.appendChild(make_loop_marker(song_steps));
+
+    playhead_div = document.createElement('div');
+    playhead_div.className = 'tl_playhead';
+    playhead_div.style.display = 'none';
+    tl_div.appendChild(playhead_div);
 }

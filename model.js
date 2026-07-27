@@ -15,6 +15,16 @@ import { get_sample_idx } from "./audio.js";
 // A beat is 4 steps, so at 120 BPM there are 8 steps per second
 export const STEPS_PER_BEAT = 4;
 
+// A bar is 4 beats, i.e. 16 steps. Playback doesn't depend on bars at all:
+// they're a reference for the timeline, which shows a ruler in bars and ends
+// the song on a bar boundary.
+export const STEPS_PER_BAR = 4 * STEPS_PER_BEAT;
+
+// Song length, in steps. The song has no length of its own: it ends at the
+// last pattern placed on the timeline (see design.md), and this is how far the
+// timeline can be extended.
+export const MAX_SONG_STEPS = 4096;
+
 // Tempo range, in beats per minute
 export const MIN_TEMPO = 40;
 export const MAX_TEMPO = 220;
@@ -250,9 +260,18 @@ export class Project
 
         this.patterns = [Pattern.with_default_samples()];
 
-        // TODO: the timeline/song arrangement lives here too, once it exists.
-        // The encoding is versioned so that it can be added without breaking
-        // links shared before then.
+        // Timeline lanes, one per pattern. Cell `k` of a lane covers steps
+        // `[k * num_steps, (k + 1) * num_steps)` of the song, so one cell is
+        // one playthrough of its pattern, and lanes of different lengths phase
+        // against each other (see design.md).
+        //
+        // Lanes are kept here rather than on Pattern so that copying a pattern
+        // doesn't copy its place in the song: a copy is a variation meant to go
+        // somewhere else, so a new pattern always starts out unplaced.
+        //
+        // A lane never ends on an inactive cell, which is what makes the length
+        // of a lane the point where it stops playing.
+        this.lanes = [[]];
     }
 
     set_tempo(tempo)
@@ -278,6 +297,9 @@ export class Project
             return null;
 
         this.patterns.push(pattern);
+
+        // A pattern starts out placed nowhere in the song
+        this.lanes.push([]);
 
         return this.num_patterns - 1;
     }
@@ -313,8 +335,9 @@ export class Project
 
         this.patterns.splice(pat_idx, 1);
 
-        // TODO: renumber the pattern indices the timeline refers to, once the
-        // timeline exists
+        // The timeline has one lane per pattern, so the lanes are indexed the
+        // same way the patterns are and shift along with them
+        this.lanes.splice(pat_idx, 1);
 
         return true;
     }
@@ -324,6 +347,83 @@ export class Project
     get steps_per_sec()
     {
         return this.tempo * STEPS_PER_BEAT / 60;
+    }
+
+    //========================================================================
+    // Timeline
+    //========================================================================
+
+    // Test if a pattern is placed at a given cell of its lane
+    get_lane_cell(pat_idx, cell_idx)
+    {
+        console.assert(pat_idx < this.num_patterns);
+
+        // Cells past the end of a lane are the ones it can be extended into,
+        // and hold nothing until they're turned on
+        return this.lanes[pat_idx][cell_idx]? 1:0;
+    }
+
+    // Toggle a cell of a lane, returns the new value.
+    //
+    // Turning on a cell past the end of a lane extends the lane to reach it,
+    // and turning one off trims whatever silence that leaves at the end: the
+    // song ends at the last cell placed on the timeline, so a lane ending in
+    // silence would make the song longer than what can be heard in it.
+    toggle_lane_cell(pat_idx, cell_idx)
+    {
+        console.assert(pat_idx < this.num_patterns);
+
+        let lane = this.lanes[pat_idx];
+        let cell_on = !lane[cell_idx];
+
+        // Placing a pattern past the end of the timeline is what the limit on
+        // song length actually limits
+        if (cell_on && (cell_idx + 1) * this.patterns[pat_idx].num_steps > MAX_SONG_STEPS)
+            return false;
+
+        while (lane.length <= cell_idx)
+            lane.push(0);
+
+        lane[cell_idx] = cell_on? 1:0;
+
+        while (lane.length > 0 && !lane[lane.length - 1])
+            lane.pop();
+
+        return cell_on;
+    }
+
+    // Test if a pattern is playing at a given step of the song, i.e. whether
+    // the cell of its lane covering that step is on
+    pat_active_at(pat_idx, step_idx)
+    {
+        let cell_idx = Math.floor(step_idx / this.patterns[pat_idx].num_steps);
+        return this.get_lane_cell(pat_idx, cell_idx);
+    }
+
+    // Length of the song, in steps, i.e. where playback loops back to the
+    // start. The song has no length of its own: it ends where the last pattern
+    // placed on the timeline stops playing, rounded up to a whole bar so that
+    // the loop lands on a bar boundary even when the patterns don't.
+    //
+    // Returns 0 when no pattern is placed on the timeline, i.e. when there is
+    // no song to play.
+    get song_num_steps()
+    {
+        let song_end = 0;
+
+        for (let pat_idx = 0; pat_idx < this.num_patterns; ++pat_idx)
+        {
+            // A lane never ends on an inactive cell, so its last cell stops
+            // playing exactly where the lane ends
+            let lane_end = this.lanes[pat_idx].length * this.patterns[pat_idx].num_steps;
+            song_end = Math.max(song_end, lane_end);
+        }
+
+        let num_steps = Math.ceil(song_end / STEPS_PER_BAR) * STEPS_PER_BAR;
+
+        // A pattern reaching the limit may have its last playthrough clipped
+        // by the loop point, which is what the limit costs (see design.md)
+        return Math.min(num_steps, MAX_SONG_STEPS);
     }
 }
 
@@ -338,10 +438,8 @@ export class Project
 //
 // Encoding is lossy in one respect: anything that plays nothing is dropped,
 // both silent rows and entirely silent patterns, so a decoded project can be
-// smaller than the one that was encoded.
-//
-// TODO: once the timeline exists, dropping a pattern has to renumber the
-// pattern indices the timeline refers to.
+// smaller than the one that was encoded. A dropped pattern takes its timeline
+// lane with it, which is what keeps lanes matched up with patterns.
 //============================================================================
 
 // Version of the encoding format
@@ -354,6 +452,12 @@ const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
+
+// Size of the chunks values of no bounded size are written in, and how many
+// chunks one such value can take up before it can't be anything we wrote. A
+// lane holds at most MAX_SONG_STEPS cells, which is what bounds them.
+const VAR_CHUNK_BITS = 4;
+const MAX_VAR_CHUNKS = Math.ceil(Math.log2(MAX_SONG_STEPS + 1) / VAR_CHUNK_BITS);
 
 console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));
 console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
@@ -384,6 +488,32 @@ class BitWriter
             this.bytes[this.bytes.length - 1] |= bit << (7 - this.num_bits % 8);
             this.num_bits++;
         }
+    }
+
+    // Variable-length integer encoding.
+    // Write a value of no bounded size, as chunks of VAR_CHUNK_BITS bits, each
+    // preceded by a bit saying whether a chunk follows. This is for the
+    // timeline, where run lengths are small in a short song and large in a long
+    // one, and a field wide enough for the longest song would be mostly zeroes.
+    //
+    // Zero is written as a single zero bit, since it takes no chunks to hold.
+    // That's what makes it cheap for the timeline to write the zero that ends a
+    // lane, and the zeroes that come of writing a length one lower. Every other
+    // value pays one bit for it, which is a good trade only because zero is by
+    // far the most common value written this way.
+    write_var(val)
+    {
+        console.assert(Number.isInteger(val));
+        console.assert(val >= 0);
+
+        while (val > 0)
+        {
+            this.write(1, 1);
+            this.write(val % (1 << VAR_CHUNK_BITS), VAR_CHUNK_BITS);
+            val = Math.floor(val / (1 << VAR_CHUNK_BITS));
+        }
+
+        this.write(0, 1);
     }
 
     to_base64url()
@@ -427,6 +557,101 @@ class BitReader
 
         return val;
     }
+
+    // Read back a value written by write_var. Values are bounded by what the
+    // format can hold, so a value that goes on for more chunks than that isn't
+    // data we wrote.
+    read_var()
+    {
+        let val = 0;
+
+        for (let chunk_idx = 0; this.read(1); ++chunk_idx)
+        {
+            if (chunk_idx >= MAX_VAR_CHUNKS)
+                throw RangeError('oversized value in encoded project data');
+
+            val += this.read(VAR_CHUNK_BITS) * (1 << (VAR_CHUNK_BITS * chunk_idx));
+        }
+
+        return val;
+    }
+}
+
+// Encode one timeline lane.
+//
+// Lanes are sparse: a pattern is off for most of a song, and where it's on it
+// tends to be on for several cells in a row. A lane is therefore written as a
+// series of blocks of consecutive active cells, each written as the gap of
+// inactive cells before it followed by its own length.
+//
+// A block always holds at least one cell, so its length is written one lower:
+// a block of a single cell then writes a zero, which costs one bit. Gaps are
+// written as they are, so that an empty gap can mark the end of the lane. Only
+// the gap before the first block can be empty in a lane, since two blocks with
+// nothing between them would be one block.
+function encode_lane(writer, lane)
+{
+    // A pattern not placed on the timeline is the common case, and is what the
+    // lane of every pattern of a project without a song looks like
+    if (lane.length == 0)
+    {
+        writer.write(0, 1);
+        return;
+    }
+
+    writer.write(1, 1);
+
+    for (let cell_idx = 0; cell_idx < lane.length;)
+    {
+        let gap_start = cell_idx;
+        while (cell_idx < lane.length && !lane[cell_idx])
+            ++cell_idx;
+
+        writer.write_var(cell_idx - gap_start);
+
+        let blk_start = cell_idx;
+        while (cell_idx < lane.length && lane[cell_idx])
+            ++cell_idx;
+
+        writer.write_var(cell_idx - blk_start - 1);
+    }
+
+    // A lane never ends on an inactive cell, so a gap here can only mean the
+    // lane is over
+    writer.write_var(0);
+}
+
+// Read back a lane written by encode_lane.
+// Cells are bounded by the length of the pattern the lane belongs to.
+function decode_lane(reader, num_steps)
+{
+    let lane = [];
+
+    if (!reader.read(1))
+        return lane;
+
+    for (let first_gap = true; ; first_gap = false)
+    {
+        let gap = reader.read_var();
+
+        // Only the gap before the first block can be empty, so an empty gap
+        // anywhere else is what ends the lane
+        if (gap == 0 && !first_gap)
+            return lane;
+
+        for (let i = 0; i < gap; ++i)
+            lane.push(0);
+
+        let len = reader.read_var() + 1;
+
+        for (let i = 0; i < len; ++i)
+            lane.push(1);
+
+        // Tested inside the loop, so that a lane claiming more blocks than the
+        // song can hold is rejected rather than built up first
+        if (lane.length * num_steps > MAX_SONG_STEPS)
+            throw RangeError('encoded timeline lane runs past the end of the song');
+    }
 }
 
 // Encode a project into a base64url string
@@ -434,24 +659,30 @@ export function encode_project(project)
 {
     console.assert(project.patterns.length <= MAX_PATTERNS);
 
-    // Patterns that play nothing are left out entirely
-    let patterns = project.patterns.filter(pat => !pat.is_inactive());
+    // Patterns that play nothing are left out entirely, along with where they
+    // sit on the timeline, which is what keeps lanes matched up with patterns
+    let pat_idxs = [];
+    for (let pat_idx = 0; pat_idx < project.num_patterns; ++pat_idx)
+    {
+        if (!project.patterns[pat_idx].is_inactive())
+            pat_idxs.push(pat_idx);
+    }
 
     // A project always has at least one pattern, so a project where nothing
     // plays keeps its first pattern rather than becoming patternless
-    if (patterns.length == 0)
-        patterns = [project.patterns[0]];
+    if (pat_idxs.length == 0)
+        pat_idxs = [0];
 
     let writer = new BitWriter();
 
     writer.write(ENCODING_VERSION, VERSION_BITS);
     writer.write(project.tempo - MIN_TEMPO, TEMPO_BITS);
-    writer.write(patterns.length - 1, NUM_PATTERNS_BITS);
+    writer.write(pat_idxs.length - 1, NUM_PATTERNS_BITS);
 
-    for (let pat of patterns)
+    for (let pat_idx of pat_idxs)
     {
         // Rows that play nothing are not worth the space they take up in a URL
-        pat = pat.strip_inactive();
+        let pat = project.patterns[pat_idx].strip_inactive();
 
         writer.write(pat.num_steps - 1, NUM_STEPS_BITS);
         writer.write(pat.num_rows - 1, NUM_ROWS_BITS);
@@ -464,6 +695,9 @@ export function encode_project(project)
             for (let step_idx = 0; step_idx < pat.num_steps; ++step_idx)
                 writer.write(pat.rows[row_idx][step_idx]? 1:0, 1);
         }
+
+        // A pattern is followed by the lane placing it on the timeline
+        encode_lane(writer, project.lanes[pat_idx]);
     }
 
     return writer.to_base64url();
@@ -484,6 +718,7 @@ export function decode_project(b64_str)
 
     let num_patterns = reader.read(NUM_PATTERNS_BITS) + 1;
     project.patterns = [];
+    project.lanes = [];
 
     for (let pat_idx = 0; pat_idx < num_patterns; ++pat_idx)
     {
@@ -509,6 +744,7 @@ export function decode_project(b64_str)
         let pat = new Pattern(sample_idxs, num_steps);
         pat.rows = rows;
         project.patterns.push(pat);
+        project.lanes.push(decode_lane(reader, num_steps));
     }
 
     return project;

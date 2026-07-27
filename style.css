@@ -242,6 +242,107 @@ h1 {
     background-color: #FFF;
 }
 
+/* Wrapper around the timeline lanes. The playhead and the loop marker span
+   every lane, and are positioned against this. */
+.timeline {
+    position: relative;
+
+    /* Lanes are as wide as the song is long, which can be wider than the box
+       the timeline sits in. Shrinking to the box would squeeze the lanes out
+       of alignment with each other, so the box scrolls instead. */
+    display: inline-block;
+    min-width: 100%;
+}
+
+/* One lane, i.e. where one pattern plays in the song */
+.tl_lane {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+/* The pattern a lane places, on the left of the lane. Sized so that all the
+   lanes start at the same offset, which is what lines their cells up. */
+.tl_label {
+    box-sizing: border-box;
+    width: 36px;
+    padding: 2px;
+    margin: 1px 0;
+}
+
+/* The pattern currently open in the pattern editor above */
+.tl_label.selected {
+    /* Picks up the purple end of the logo, like the pattern tab */
+    border-color: #B14BFF;
+    background-color: #2C1640;
+    color: #FFF;
+}
+
+/* Empty space where the ruler would have a label */
+.tl_no_label {
+    border: none;
+    background: none;
+}
+
+/* One playthrough of a pattern. These are sized in JS, from the length of the
+   pattern: a cell is as wide as the pattern takes to play, so that a cell is
+   the same amount of time on every lane. */
+.tl_cell {
+    display: inline-block;
+    height: 12px;
+    margin: 1px;
+    cursor: pointer;
+    box-sizing: border-box;
+    border: 1px solid #666;
+}
+.tl_cell.on {
+    background-color: #E22;
+    border-color: #E22;
+}
+.tl_cell.off {
+    background-color: #000;
+}
+.tl_cell.off:hover {
+    background-color: #2C1640;
+    border-color: #B14BFF;
+}
+
+/* Ruler above the lanes, numbering the bars of the song */
+.tl_ruler {
+    color: #999;
+}
+
+/* One bar of the ruler. Cells only line up with bars when their pattern is a
+   whole number of bars long, so the ticks are what locate the rest. */
+.tl_bar {
+    display: inline-block;
+    box-sizing: border-box;
+    padding-left: 3px;
+    border-left: 1px solid #444;
+    overflow: hidden;
+}
+
+/* Where the song loops back to its start */
+.tl_loop {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px dashed #888;
+    pointer-events: none;
+}
+
+/* Position of the song currently being heard */
+.tl_playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px solid #FFF;
+    pointer-events: none;
+}
+
 .controls {
     margin: 4px;
     display: flex;

@@ -9,9 +9,13 @@ import {
     fetch_project_samples,
     set_volume,
     is_playing,
+    is_playing_pattern,
+    is_playing_song,
     play_pattern,
+    play_song,
     stop_playback,
     get_play_step,
+    get_song_step,
     get_play_pat_idx,
     get_queued_pat_idx,
     queue_pattern,
@@ -23,6 +27,7 @@ import {
     render_pat_tabs,
     render_timeline,
     highlight_step,
+    highlight_song_step,
     highlight_pat_tabs,
 } from "./view.js";
 
@@ -30,8 +35,9 @@ import {
 // DOM elements
 //============================================================================
 
-// Play pattern button
+// Play pattern and play song buttons
 const play_pat = document.getElementById('play_pat');
+const play_song_btn = document.getElementById('play_song');
 
 // Tempo slider
 const tempo_slider = document.getElementById('tempo_slider');
@@ -102,6 +108,30 @@ const tab_handlers = {
     copy: () => select_new_pattern(project.copy_pattern(cur_pat)),
 };
 
+// What clicking the timeline does
+const timeline_handlers = {
+
+    // Selecting a pattern from its lane opens it for editing, the way its tab
+    // does. It doesn't queue the pattern: during song playback what plays is
+    // what the timeline says, and the pattern play button starts from the
+    // pattern shown either way.
+    select: (pat_idx) =>
+    {
+        cur_pat = pat_idx;
+        render_all();
+    },
+
+    // Placing or removing a pattern can make the song longer or shorter, which
+    // moves the loop point and the room shown past it, so the whole timeline
+    // is redrawn rather than just the cell that was clicked
+    toggle: (pat_idx, cell_idx) =>
+    {
+        project.toggle_lane_cell(pat_idx, cell_idx);
+        render_timeline(pat_seq, project, cur_pat, timeline_handlers);
+        update_play_buttons();
+    },
+};
+
 // Switch to a pattern that was just created, if it could be created at all.
 // Both ways of creating one produce a pattern playing the same samples as the
 // current one, so there is nothing new to load.
@@ -128,7 +158,8 @@ function render_all()
 
     render_pat_tabs(pat_tabs, project, cur_pat, tab_handlers);
     render_pattern(pat_div, pat);
-    render_timeline(pat_seq, project);
+    render_timeline(pat_seq, project, cur_pat, timeline_handlers);
+    update_play_buttons();
 
     // The strip was rebuilt, so it has to be told what's playing again
     highlight_pat_tabs(get_play_pat_idx(), get_queued_pat_idx());
@@ -174,6 +205,11 @@ num_steps_sel.onchange = function ()
 {
     project.patterns[cur_pat].set_num_steps(Number(num_steps_sel.value));
     render_pattern(pat_div, project.patterns[cur_pat]);
+
+    // A timeline cell is one playthrough of its pattern, so changing a
+    // pattern's length changes how much of the song each of its cells covers
+    render_timeline(pat_seq, project, cur_pat, timeline_handlers);
+    update_play_buttons();
 }
 
 del_pat.onclick = function ()
@@ -199,63 +235,129 @@ del_pat.onclick = function ()
     render_all();
 }
 
-// The play button doubles as the stop button, so it names whichever action it
-// performs next rather than what it's currently doing
-function update_play_button()
+// Each play button doubles as the stop button for what it plays, so it names
+// whichever action it performs next rather than what it's currently doing.
+// Only one of the two can be playing at a time.
+function update_play_buttons()
 {
-    play_pat.textContent = is_playing()? 'Stop':'Play';
+    play_pat.textContent = is_playing_pattern()? 'Stop':'Play';
+    play_song_btn.textContent = is_playing_song()? 'Stop':'Play';
+
+    // Nothing is placed on the timeline, so there is no song to play. The
+    // button stays live while the song plays, since emptying the timeline
+    // during playback has to leave a way to stop it.
+    play_song_btn.disabled = !is_playing_song() && project.song_num_steps == 0;
 }
 
 play_pat.onclick = async function ()
 {
-    // If already playing, stop playback
-    if (is_playing())
+    if (is_playing_pattern())
     {
         console.log('Stopping playback');
         stop_playback();
-        update_play_button();
+        update_play_buttons();
         return;
     }
 
     console.log('Starting pattern playback');
 
+    // Playing a pattern stops the song, if that's what was playing
     await play_pattern(project, cur_pat);
-    update_play_button();
+    start_highlight();
+}
 
-    // Follow the playback position with the grid highlight. A loop may still be
-    // winding down from a previous playback, in which case it just keeps going.
-    if (highlight_req === null)
-        highlight_req = requestAnimationFrame(update_highlight);
+play_song_btn.onclick = async function ()
+{
+    if (is_playing_song())
+    {
+        console.log('Stopping playback');
+        stop_playback();
+        update_play_buttons();
+        return;
+    }
+
+    console.log('Starting song playback');
+
+    await play_song(project);
+    start_highlight();
+}
+
+// The spacebar plays and stops the song, which is the one thing worth a
+// keyboard shortcut. It's ignored while a control has focus, so that it still
+// does whatever that control does with it.
+document.onkeydown = async function (evt)
+{
+    if (evt.code != 'Space')
+        return;
+
+    let focus_tag = document.activeElement?.tagName;
+    if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(focus_tag))
+        return;
+
+    // Otherwise the spacebar scrolls the page
+    evt.preventDefault();
+
+    if (is_playing())
+    {
+        stop_playback();
+        update_play_buttons();
+        return;
+    }
+
+    await play_song(project);
+    start_highlight();
 }
 
 // Pending animation frame for the playback highlight, null when not running
 let highlight_req = null;
 
-// Move the pattern grid highlight to the step currently being heard. This runs
+// Follow whatever is now playing with the playback highlight. A loop may still
+// be winding down from a previous playback, in which case it just keeps going.
+function start_highlight()
+{
+    update_play_buttons();
+
+    if (highlight_req === null)
+        highlight_req = requestAnimationFrame(update_highlight);
+}
+
+// Move the playback highlight to the position currently being heard. This runs
 // off animation frames rather than off the scheduler, because the scheduler
 // queues steps ahead of time and the highlight has to track what's audible.
 function update_highlight()
 {
-    let play_step = get_play_step();
-
-    // Playback stopped, clear the highlight and let the loop end. The button is
-    // updated here too, so that it still ends up right if playback stops
-    // somewhere other than the button's own handler.
-    if (play_step === null)
+    // Playback stopped, clear the highlight and let the loop end. The buttons
+    // are updated here too, so that they still end up right if playback stops
+    // somewhere other than a button's own handler.
+    if (!is_playing())
     {
         highlight_step(null);
         highlight_pat_tabs(null, null);
-        update_play_button();
+        highlight_song_step(null);
+        update_play_buttons();
         highlight_req = null;
         return;
     }
 
-    // The pattern on screen is not always the one being heard: a pattern
-    // selected during playback is shown right away, but only takes over at the
-    // end of the current pattern's cycle. The grid it shows isn't playing yet,
-    // so there is no step of it to highlight.
-    highlight_step(get_play_pat_idx() === cur_pat? play_step : null);
-    highlight_pat_tabs(get_play_pat_idx(), get_queued_pat_idx());
+    // Song playback has several patterns sounding at once, so there is nothing
+    // one pattern grid can usefully show: the timeline playhead is what says
+    // where playback is, and the pattern editor stays out of it.
+    if (is_playing_song())
+    {
+        highlight_step(null);
+        highlight_pat_tabs(null, null);
+        highlight_song_step(get_song_step());
+    }
+    else
+    {
+        // The pattern on screen is not always the one being heard: a pattern
+        // selected during playback is shown right away, but only takes over at
+        // the end of the current pattern's cycle. The grid it shows isn't
+        // playing yet, so there is no step of it to highlight.
+        highlight_step(get_play_pat_idx() === cur_pat? get_play_step() : null);
+        highlight_pat_tabs(get_play_pat_idx(), get_queued_pat_idx());
+        highlight_song_step(null);
+    }
 
     highlight_req = requestAnimationFrame(update_highlight);
 }
