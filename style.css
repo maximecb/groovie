@@ -1,3 +1,10 @@
+/* A sideways swipe that the page has no more room to scroll is taken as a
+   back gesture by the browser, which would drop the user out of the editor.
+   The grids below scroll sideways, so that is easy to do by accident. */
+html {
+    overscroll-behavior-x: none;
+}
+
 body {
     font-family: Arial, sans-serif;
     display: flex;
@@ -66,6 +73,10 @@ h1 {
     /* A pattern can be up to 64 steps long, which is wider than the group.
        Scrolling keeps it inside its box instead of spilling onto the page. */
     overflow-x: auto;
+
+    /* Swiping past the end of a grid stops there, rather than carrying on into
+       the page and the back gesture behind it */
+    overscroll-behavior-x: contain;
 }
 
 /* Bar above the pattern grid, holding the tabs that pick which pattern the
