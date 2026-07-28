@@ -80,10 +80,30 @@ function make_project(tempo, pats)
         let pat = new Pattern(sample_idxs, rows[0].length);
         pat.rows = rows;
         project.patterns.push(pat);
-        project.lanes.push(lane);
+        project.lanes.push(typeof lane == 'string'? lane_cells(lane) : lane);
     }
 
     return project;
+}
+
+// Read a row of steps written as 'x' for on and '.' for off, which is how the
+// patterns further down are laid out so that they can be read as a grid
+function cells(str)
+{
+    return Array.from(str, ch => ch == 'x'? 1:0);
+}
+
+// Read a timeline lane written the same way. A lane never ends on an inactive
+// cell, so the trailing off-cells that pad the grid out to a readable width
+// are dropped, leaving the lane as toggle_lane_cell would have.
+function lane_cells(str)
+{
+    let lane = cells(str);
+
+    while (lane.length > 0 && !lane[lane.length - 1])
+        lane.pop();
+
+    return lane;
 }
 
 // Pack a string of '0' and '1' into the base64url form a link carries, so that
@@ -297,6 +317,225 @@ test("a drum and bass roller survives a round trip", () =>
     assert.equal(round_trip(project).patterns[0].num_rows, rows.length);
 });
 
+//============================================================================
+// Whole songs
+//
+// The tests above encode one pattern at a time. These are arrangements: several
+// patterns laid out across 32 bars of timeline, each with a lane of its own,
+// and in both cases a layer whose pattern length doesn't divide the bar, so it
+// phases against everything else rather than lining up with it.
+//
+// Each lane below is written as one character per cell, and a cell is one
+// playthrough of its own pattern, so a row of 16 cells of a 2-bar pattern is
+// 32 bars while a row of 73 cells of a 7-step pattern is roughly the same.
+//============================================================================
+
+// Lay a project's rows out as strings, the way the songs below are written
+function make_song(tempo, pats)
+{
+    return make_project(tempo, pats.map(({ rows, lane }) => ({
+        // Positional indices: what these are about is the encoding rather than
+        // which sample sits behind a row. The kits are named in the comments.
+        sample_idxs: rows.map((_, i) => i),
+        rows: rows.map(cells),
+        lane: lane,
+    })));
+}
+
+test("a 32 bar hip hop arrangement survives a round trip", () =>
+{
+    // Boom bap at 90. Kit per pattern, in row order: kick, snare, closed hat,
+    // rimshot. The shaker layer is maracas and a shaker-ish perc.
+    let project = make_song(90, [
+        {   // main groove
+            rows: [
+                'x.........x.....' + 'x.....x...x.....',
+                '....x.......x...' + '....x.......x...',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '..............x.' + '..x...........x.',
+            ],
+            lane: '..xxxxx.xx..xxx.',
+        },
+        {   // turnaround, with the fill in its second bar
+            rows: [
+                'x.........x.....' + 'x.........x.....',
+                '....x.......x...' + '....x.......x.x.',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.xxxxxx',
+                '..............x.' + '..x.....x.x.x.x.',
+            ],
+            lane: '.......x...x...x',
+        },
+        {   // intro
+            rows: [
+                '................' + 'x...............',
+                '..............x.' + '................',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '..x.......x.....' + '..x.......x.....',
+            ],
+            lane: 'xx..............',
+        },
+        {   // breakdown
+            rows: [
+                'x...............' + 'x.......x.......',
+                '............x...' + '....x...........',
+                'x...x...x...x...' + 'x...x...x...x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+            ],
+            lane: '..........x.....',
+        },
+        {   // three bars long, so it never lines up with the two-bar patterns
+            rows: [
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '..x..x..x..x..x.' + '..x..x..x..x..x.' + '..x..x..x..x....',
+            ],
+            lane: '.xxxxxxxxx',
+        },
+    ]);
+
+    assert_same_project(round_trip(project), project);
+    assert.equal(project.song_num_steps, 32 * STEPS_PER_BAR);
+
+    // The four two-bar patterns tile the song: every bar has exactly one of
+    // them playing, with the three-bar layer running across on top
+    for (let bar = 0; bar < 32; ++bar)
+    {
+        let playing = [0, 1, 2, 3].filter(
+            pat_idx => project.pat_active_at(pat_idx, bar * STEPS_PER_BAR)
+        );
+
+        assert.deepEqual(playing.length, 1, `bar ${bar + 1} has ${playing.length} playing`);
+    }
+});
+
+test("a 32 bar techno arrangement survives a round trip", () =>
+{
+    // Four to the floor at 130. Kit per pattern, in row order: kick, clap,
+    // closed hat, open hat, and a perc on the last one.
+    let project = make_song(130, [
+        {   // kick and hats only
+            rows: [
+                'x...x...x...x...' + 'x...x...x...x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+            ],
+            lane: 'xx..............',
+        },
+        {   // main
+            rows: [
+                'x...x...x...x...' + 'x...x...x...x...',
+                '....x.......x...' + '....x.......x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                '......x.......x.' + '......x.......x.',
+            ],
+            lane: '..xxxx..xxxx....',
+        },
+        {   // build, hats closing up into sixteenths
+            rows: [
+                'x...x...x...x...' + 'x...x...x...x...',
+                '....x.......x...' + '....x...x...x.x.',
+                '..x...x...x...x.' + '..x...x.xxxxxxxx',
+                '......x.......x.' + '......x.......x.',
+            ],
+            lane: '......xx........',
+        },
+        {   // peak, open hat on every offbeat
+            rows: [
+                'x...x...x...x...' + 'x...x...x...x...',
+                '....x.......x...' + '....x.......x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                'x..x..x..x..x...' + 'x..x..x..x..x...',
+            ],
+            lane: '............xxxx',
+        },
+        {   // seven steps, which divides neither the bar nor anything above,
+            // so it walks around the grid for as long as it plays
+            rows: ['x..x...'],
+            lane: '.'.repeat(18) + 'x'.repeat(55),
+        },
+    ]);
+
+    assert_same_project(round_trip(project), project);
+    assert.equal(project.song_num_steps, 32 * STEPS_PER_BAR);
+
+    for (let bar = 0; bar < 32; ++bar)
+    {
+        let playing = [0, 1, 2, 3].filter(
+            pat_idx => project.pat_active_at(pat_idx, bar * STEPS_PER_BAR)
+        );
+
+        assert.deepEqual(playing.length, 1, `bar ${bar + 1} has ${playing.length} playing`);
+    }
+
+    // The phasing layer starts on a bar line and then never lands on one again
+    // for the rest of the song, which is what a seven-step pattern does
+    let blip = project.patterns[4];
+
+    assert.equal(blip.num_steps, 7);
+    assert.notEqual(STEPS_PER_BAR % blip.num_steps, 0);
+});
+
+// A lane that starts at a given bar and runs to the end of a song, in whole
+// cells of a pattern of a given length. A cell is one playthrough, so a
+// pattern whose length doesn't divide the song stops a little short of the end
+// rather than being cut off mid-playthrough.
+function lane_from_bar(start_bar, num_steps, song_steps)
+{
+    let first_cell = Math.ceil(start_bar * STEPS_PER_BAR / num_steps);
+    let last_cell = Math.floor(song_steps / num_steps) - 1;
+
+    return [
+        ...Array(first_cell).fill(0),
+        ...Array(last_cell - first_cell + 1).fill(1),
+    ];
+}
+
+test("patterns of prime lengths phase against each other", () =>
+{
+    // The free-running polymeter this is all built around. Four layers whose
+    // lengths are primes, over a plain 16 step pulse to hear them against, each
+    // coming in a few bars after the last. Kit in pattern order: kick and
+    // closed hat, then rimshot, claves, bongo, zap.
+    const SONG_STEPS = 32 * STEPS_PER_BAR;
+
+    let layers = [
+        { rows: ['x.......x.......', '..x...x...x...x.'], start_bar: 0  },
+        { rows: ['x..x.'],                                start_bar: 4  },
+        { rows: ['x..x...'],                              start_bar: 8  },
+        { rows: ['x...x..x...'],                          start_bar: 12 },
+        { rows: ['x.....x......'],                        start_bar: 16 },
+    ];
+
+    let project = make_project(120, layers.map(({ rows, start_bar }) => ({
+        sample_idxs: rows.map((_, i) => i),
+        rows: rows.map(cells),
+        lane: lane_from_bar(start_bar, rows[0].length, SONG_STEPS),
+    })));
+
+    assert_same_project(round_trip(project), project);
+    assert.equal(project.song_num_steps, SONG_STEPS);
+
+    let lens = project.patterns.map(pat => pat.num_steps);
+    assert.deepEqual(lens, [16, 5, 7, 11, 13]);
+
+    // No two of them share a factor, so no two ever line up until both have
+    // run a whole number of times
+    const gcd = (a, b) => b? gcd(b, a % b) : a;
+
+    for (let i = 0; i < lens.length; ++i)
+    {
+        for (let j = i + 1; j < lens.length; ++j)
+            assert.equal(gcd(lens[i], lens[j]), 1, `${lens[i]} and ${lens[j]} share a factor`);
+    }
+
+    // Which puts the point where the whole thing comes back around at the
+    // product of the lot, well past the longest song the format can hold. The
+    // arrangement never repeats itself, however far the timeline is extended.
+    let cycle = lens.reduce((a, b) => a / gcd(a, b) * b);
+
+    assert.equal(cycle, 16 * 5 * 7 * 11 * 13);
+    assert.ok(cycle > MAX_SONG_STEPS, `${cycle} steps would fit in a song`);
+});
+
 test("a lane reaching the end of the song survives a round trip", () =>
 {
     let num_steps = MAX_PAT_STEPS;
@@ -470,6 +709,20 @@ test("more patterns than the field holds is refused", () =>
 test("a value that isn't a whole number is refused", () =>
 {
     let project = make_project(120, [{ sample_idxs: [1.5], rows: [[1]] }]);
+
+    assert.throws(() => encode_project(project), RangeError);
+});
+
+test("a lane ending on an inactive cell is refused", () =>
+{
+    // A lane is written as blocks of active cells, so trailing silence leaves
+    // it writing a block of no cells, i.e. a length of -1. Nothing in the app
+    // builds a lane like this (toggle_lane_cell trims), but a lane assembled
+    // by hand can be, and it would otherwise go out as a lane of the wrong
+    // shape rather than as a failure.
+    let project = make_project(120, [
+        { sample_idxs: [0], rows: [[1]], lane: [1, 0, 0] },
+    ]);
 
     assert.throws(() => encode_project(project), RangeError);
 });
