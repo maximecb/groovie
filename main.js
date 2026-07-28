@@ -239,9 +239,12 @@ fetch('https://countapi.mileshilliard.com/api/v1/hit/groovie_pointersgonewild')
     {
         // The service answers errors with a JSON object of its own, which
         // carries no count. Anything that isn't a number is nothing to show.
+        // Grouped in threes with commas, e.g. 1,603. The locale is pinned so
+        // that it's commas everywhere: left to the visitor's own locale, the
+        // separator would come out as a space or a period in much of Europe.
         let count = Number(data.value);
         if (Number.isFinite(count))
-            hit_count.textContent = `${count.toLocaleString()} visits`;
+            hit_count.textContent = `${count.toLocaleString('en-US')} visits`;
     })
     .catch(err => console.error(`Could not get the visit count: ${err.message}`));
 
