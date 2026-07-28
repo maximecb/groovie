@@ -14,7 +14,14 @@
 #   - Names that have disappeared from disk are kept as reserved entries so
 #     their index is never handed out to a different sample. If the sample
 #     ever comes back, it reclaims its original index.
+#
+# The --reuse flag deliberately breaks that invariant: it drops the reserved
+# entries and renumbers every sample from 0 in alphabetical order, so the
+# indices are dense again. Any song exported before the renumbering will play
+# back with the wrong samples, so this is only safe while no shared songs are
+# in the wild.
 
+import argparse
 import os
 import re
 
@@ -67,6 +74,15 @@ def build_map(existing, on_disk):
     return sample_map
 
 
+def build_compact_map(on_disk):
+    """Number the on-disk samples from 0, in alphabetical order.
+
+    Reserved entries are dropped and existing indices are not preserved, so
+    the resulting map is dense.
+    """
+    return {name: index for index, name in enumerate(on_disk)}
+
+
 def write_map(path, sample_map):
     lines = ["export const SAMPLE_MAP = {"]
     for name in sorted(sample_map):
@@ -78,6 +94,14 @@ def write_map(path, sample_map):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--reuse",
+        action="store_true",
+        help="renumber all samples from 0 in alphabetical order, dropping "
+             "reserved indices. Breaks songs exported before the renumbering.")
+    args = parser.parse_args()
+
     # Paths are relative to the repo root, so the script can be run from
     # anywhere.
     os.chdir(ROOT_DIR)
@@ -85,11 +109,17 @@ def main():
     existing = parse_existing_map(SAMPLE_LIST_PATH)
     on_disk = find_samples_on_disk()
 
-    sample_map = build_map(existing, on_disk)
+    if args.reuse:
+        sample_map = build_compact_map(on_disk)
+    else:
+        sample_map = build_map(existing, on_disk)
 
     on_disk_set = set(on_disk)
     added = sorted(n for n in on_disk_set if n not in existing)
     reserved = sorted(n for n in sample_map if n not in on_disk_set)
+    dropped = sorted(n for n in existing if n not in sample_map)
+    moved = sorted(n for n in sample_map
+                   if n in existing and existing[n] != sample_map[n])
 
     write_map(SAMPLE_LIST_PATH, sample_map)
 
@@ -99,6 +129,14 @@ def main():
         print(f"  added:    {name} -> {sample_map[name]}")
     for name in reserved:
         print(f"  reserved: {name} -> {sample_map[name]} (missing from disk)")
+    for name in dropped:
+        print(f"  dropped:  {name} (was {existing[name]})")
+    for name in moved:
+        print(f"  moved:    {name} {existing[name]} -> {sample_map[name]}")
+
+    if moved or dropped:
+        print("\nIndices changed: songs exported before now will play back "
+              "with the wrong samples.")
 
 
 if __name__ == "__main__":
