@@ -474,6 +474,13 @@ input[type="range"] {
     text-align: center;
 }
 
+/* What stopped a link from being made, shown in the same line that otherwise
+   says what the last copy did. Marked rather than dim, being something to act
+   on before the button will do anything. */
+.share_error {
+    color: #E22;
+}
+
 /* Below the last group: who made this on the left, how many times the page has
    been opened on the right. Both are smaller and dimmer than anything in the
    groups above, being page furniture rather than part of the editor. */

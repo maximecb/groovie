@@ -69,7 +69,8 @@
 
         <div class="share_row">
             <label for="song_title">Title</label>
-            <!-- Length limit is set in main.js, from MAX_TITLE_CHARS -->
+            <!-- Deliberately not length-capped: what a title has to be is
+                 checked in main.js when a link is made, where it can be said -->
             <input type="text" id="song_title"
                    placeholder="untitled" spellcheck="false">
             <button id="share_btn">Copy link</button>

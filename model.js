@@ -478,10 +478,15 @@ class BitWriter
         this.num_bits = 0;
     }
 
+    // Throws if the value doesn't fit the field, rather than writing it out
+    // truncated. The loop below keeps only the low num_bits bits, so a value
+    // that's too wide would go out as a different, perfectly valid-looking one,
+    // and the link would decode into a project nobody made. A link is permanent
+    // once it's been shared, so this is worth failing the encoding over.
     write(val, num_bits)
     {
-        console.assert(Number.isInteger(val));
-        console.assert(val >= 0 && val < 2 ** num_bits);
+        if (!Number.isInteger(val) || val < 0 || val >= 2 ** num_bits)
+            throw RangeError(`cannot encode ${val} in a ${num_bits}-bit field`);
 
         for (let i = num_bits - 1; i >= 0; --i)
         {
@@ -506,10 +511,14 @@ class BitWriter
     // lane, and the zeroes that come of writing a length one lower. Every other
     // value pays one bit for it, which is a good trade only because zero is by
     // far the most common value written this way.
+    //
+    // Throws on a value it can't write, the way write() does. The chunks go
+    // through write(), which would catch a bad value on its own, but not
+    // before this has already looped on it.
     write_var(val)
     {
-        console.assert(Number.isInteger(val));
-        console.assert(val >= 0);
+        if (!Number.isInteger(val) || val < 0)
+            throw RangeError(`cannot encode ${val} as a variable-length value`);
 
         while (val > 0)
         {
@@ -774,20 +783,50 @@ function decode_title(title)
     return normalize_title(title.replaceAll('_', ' '));
 }
 
-// Reduce a title to what one is allowed to hold: alphanumeric words separated
-// by single spaces, up to a limited length. Everything else is dropped, both
-// here and when a link is read back, which is what keeps a title from carrying
-// anything but a short piece of text onto the page it's shown on.
-export function normalize_title(title)
+// Reduce a title to the characters one is allowed to hold: alphanumeric words
+// separated by single spaces. Everything else is dropped, which is what keeps a
+// title from carrying anything but a short piece of text onto the page it's
+// shown on.
+//
+// Length is left alone here, so that a title can be measured against both
+// limits before anything has been cut off it. See title_error.
+export function clean_title(title)
 {
-    let norm = title.replaceAll(TITLE_STRIP_RE, '').replaceAll(/ +/g, ' ').trim();
-
-    // Cut to length last, and trimmed again in case the cut landed on a space
-    return norm.substring(0, MAX_TITLE_CHARS).trim();
+    return title.replaceAll(TITLE_STRIP_RE, '').replaceAll(/ +/g, ' ').trim();
 }
 
-// Longest a title can be. This is what the title field allows, and it's
-// enforced again when a link is read, since a link can be edited by hand.
+// Reduce a title to what one is allowed to hold, length included. This is what
+// a title read back from a link goes through: a link that's been shared has to
+// keep opening, so an overlong title in one is cut down rather than refused.
+export function normalize_title(title)
+{
+    // Cut to length last, and trimmed again in case the cut landed on a space
+    return clean_title(title).substring(0, MAX_TITLE_CHARS).trim();
+}
+
+// Say why a title can't be shared, or null if it can be.
+//
+// This is what the title field is checked against when a link is made, rather
+// than as the title is typed: a title on its way to being long enough would
+// otherwise be an error the whole time it's being written.
+export function title_error(title)
+{
+    let clean = clean_title(title);
+
+    if (clean.length < MIN_TITLE_CHARS)
+        return `A title needs at least ${MIN_TITLE_CHARS} characters.`;
+
+    if (clean.length > MAX_TITLE_CHARS)
+        return `A title can be at most ${MAX_TITLE_CHARS} characters.`;
+
+    return null;
+}
+
+// Shortest and longest a title can be. Both are what making a link checks the
+// title field against. The longest is applied again when a link is read, since
+// a link can be edited by hand; the shortest is not, so that a link made before
+// there was a minimum still opens with the title it was shared under.
+export const MIN_TITLE_CHARS = 4;
 export const MAX_TITLE_CHARS = 36;
 
 // Characters a title can't hold. Exported so that the title field can drop

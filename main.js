@@ -4,9 +4,9 @@ import {
     MAX_TEMPO,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
-    MAX_TITLE_CHARS,
     TITLE_STRIP_RE,
-    normalize_title,
+    clean_title,
+    title_error,
     project_from_hash,
     project_to_hash,
 } from "./model.js";
@@ -220,11 +220,6 @@ for (let num_steps = MIN_PAT_STEPS; num_steps <= MAX_PAT_STEPS; ++num_steps)
     num_steps_sel.appendChild(option);
 }
 
-// Stop the title field at the length a title is allowed to be, so that the
-// field refuses the extra characters rather than the encoding quietly
-// dropping them later
-song_title.maxLength = MAX_TITLE_CHARS;
-
 set_volume(volume_slider.valueAsNumber / 100);
 fetch_project_samples(project);
 render_all();
@@ -302,24 +297,64 @@ song_title.oninput = function ()
 }
 
 // Fires when the field is left or return is pressed, which is the point where
-// the title can be tidied up without getting in the way of typing it
+// the title can be tidied up without getting in the way of typing it.
+//
+// Only the spaces are tidied. The field is deliberately not capped at the
+// length a title can be, and a title too long to share is left with every
+// character of itself: a field that silently swallowed the rest would say
+// nothing about why, where making the link says it.
 song_title.onchange = function ()
 {
-    project.title = normalize_title(song_title.value);
+    project.title = clean_title(song_title.value);
     song_title.value = project.title;
+}
+
+// Say what the share button just did. What stopped a link from being made is
+// marked as an error, rather than left to read like the note above it.
+function set_share_status(msg, is_error = false)
+{
+    share_status.textContent = msg;
+    share_status.classList.toggle('share_error', is_error);
 }
 
 share_btn.onclick = async function ()
 {
     // The field can still hold a title mid-edit, i.e. one typed and then
     // shared without ever leaving the field
-    project.title = normalize_title(song_title.value);
+    project.title = clean_title(song_title.value);
     song_title.value = project.title;
+
+    // A title travels in the link and is what names the track wherever it's
+    // posted, so it's worth saying what's wrong with one rather than sharing
+    // the project under a title nobody chose
+    let title_err = title_error(project.title);
+
+    if (title_err)
+    {
+        set_share_status(title_err, true);
+        return;
+    }
+
+    let hash;
+
+    try
+    {
+        hash = project_to_hash(project);
+    }
+    catch (err)
+    {
+        // The encoding refused the project rather than producing a link that
+        // would open as something else. Nothing is copied and the URL is left
+        // alone, so what's on screen is still what a reload would come back to.
+        console.error(`Could not encode the project: ${err.message}`);
+        set_share_status('Could not create a link for this project.', true);
+        return;
+    }
 
     // Replacing the URL rather than pushing it keeps sharing repeatable
     // without filling up the back button, and leaves the project where a
     // reload of the page will find it again
-    history.replaceState(null, '', '#' + project_to_hash(project));
+    history.replaceState(null, '', '#' + hash);
 
     let url = location.href;
     let length = `${url.length} characters`;
@@ -330,14 +365,14 @@ share_btn.onclick = async function ()
     try
     {
         await navigator.clipboard.writeText(url);
-        share_status.textContent = `Link copied, ${length}.`;
+        set_share_status(`Link copied, ${length}.`);
     }
     catch (err)
     {
         // Copying needs both a secure context and the user's permission, so it
         // can't be counted on. The link is in the address bar either way.
         console.error(`Could not copy the link: ${err.message}`);
-        share_status.textContent = `Link is in the address bar, ${length}.`;
+        set_share_status(`Link is in the address bar, ${length}.`);
     }
 }
 

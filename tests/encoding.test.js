@@ -1,0 +1,642 @@
+// Tests for the URL encoding in model.js.
+//
+// A link is permanent once it's been shared, so this file leans on two things
+// the rest of the tests don't need. There are golden strings, which are what
+// catch a change to the format that still round-trips cleanly against itself.
+// And the field widths are spelled out again here rather than imported: they
+// describe the wire format, so a change to one of them in model.js is meant to
+// fail these tests, not to be picked up by them.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import { drain_asserts } from "./setup.js";
+
+import {
+    Pattern,
+    Project,
+    MIN_TEMPO,
+    MAX_TEMPO,
+    MIN_PAT_STEPS,
+    MAX_PAT_STEPS,
+    MAX_PAT_ROWS,
+    MAX_PATTERNS,
+    MAX_SONG_STEPS,
+    MIN_TITLE_CHARS,
+    MAX_TITLE_CHARS,
+    clean_title,
+    title_error,
+    normalize_title,
+    encode_project,
+    decode_project,
+    project_to_hash,
+    project_from_hash,
+} from "../model.js";
+
+//============================================================================
+// Helpers
+//============================================================================
+
+// Compare everything about a project that the encoding is supposed to carry.
+// The title travels beside the data rather than in it, so it isn't part of
+// this; project_to_hash is what carries it.
+function assert_same_project(actual, expected)
+{
+    assert.equal(actual.tempo, expected.tempo, 'tempo');
+    assert.equal(actual.num_patterns, expected.num_patterns, 'pattern count');
+
+    for (let pat_idx = 0; pat_idx < expected.num_patterns; ++pat_idx)
+    {
+        let act = actual.patterns[pat_idx];
+        let exp = expected.patterns[pat_idx];
+
+        assert.equal(act.num_steps, exp.num_steps, `pattern ${pat_idx} length`);
+        assert.deepEqual(act.sample_idxs, exp.sample_idxs, `pattern ${pat_idx} samples`);
+        assert.deepEqual(act.rows, exp.rows, `pattern ${pat_idx} cells`);
+    }
+
+    assert.deepEqual(actual.lanes, expected.lanes, 'timeline lanes');
+}
+
+// Encode a project and read it straight back
+function round_trip(project)
+{
+    return decode_project(encode_project(project));
+}
+
+// Build a project out of patterns given as their samples, cells and lane, so
+// that a test can say what it's encoding in one place
+function make_project(tempo, pats)
+{
+    let project = new Project();
+    project.set_tempo(tempo);
+    project.patterns = [];
+    project.lanes = [];
+
+    for (let { sample_idxs, rows, lane = [] } of pats)
+    {
+        let pat = new Pattern(sample_idxs, rows[0].length);
+        pat.rows = rows;
+        project.patterns.push(pat);
+        project.lanes.push(lane);
+    }
+
+    return project;
+}
+
+// Pack a string of '0' and '1' into the base64url form a link carries, so that
+// a test can hand the decoder bytes that no encoder would produce
+function bits_to_b64(bits)
+{
+    let bytes = [];
+
+    for (let i = 0; i < bits.length; i += 8)
+        bytes.push(parseInt(bits.slice(i, i + 8).padEnd(8, '0'), 2));
+
+    return btoa(String.fromCharCode(...bytes))
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replaceAll('=', '');
+}
+
+// Field widths of the encoding, mirrored from model.js on purpose (see above)
+const VERSION_BITS = 4;
+const TEMPO_BITS = 8;
+const NUM_PATTERNS_BITS = 6;
+const NUM_STEPS_BITS = 6;
+const NUM_ROWS_BITS = 4;
+const SAMPLE_IDX_BITS = 9;
+const VAR_CHUNK_BITS = 4;
+
+// Write a value into a fixed-width field, most significant bit first
+function field(val, num_bits)
+{
+    return val.toString(2).padStart(num_bits, '0');
+}
+
+// The header of a link holding one pattern of one row, one step and no cell,
+// which is the smallest thing the decoder will accept. Tests that are about
+// what follows it start from this.
+const ONE_EMPTY_PATTERN =
+    field(0, VERSION_BITS) +            // encoding version
+    field(80, TEMPO_BITS) +             // tempo, offset from MIN_TEMPO
+    field(0, NUM_PATTERNS_BITS) +       // one pattern
+    field(0, NUM_STEPS_BITS) +          // one step
+    field(0, NUM_ROWS_BITS) +           // one row
+    field(0, SAMPLE_IDX_BITS) +         // sample index 0
+    '0';                                // the row's one cell, off
+
+//============================================================================
+// Round trips
+//============================================================================
+
+test("a new project survives a round trip", () =>
+{
+    let project = new Project();
+    let decoded = round_trip(project);
+
+    // Nothing plays, so the pattern comes back stripped to its first row
+    assert.equal(decoded.num_patterns, 1);
+    assert.equal(decoded.patterns[0].num_rows, 1);
+    assert.equal(decoded.tempo, project.tempo);
+    assert.deepEqual(decoded.lanes, [[]]);
+});
+
+test("a project with several patterns survives a round trip", () =>
+{
+    let project = make_project(96, [
+        { sample_idxs: [0, 5], rows: [[1, 0, 1, 0], [0, 0, 0, 1]], lane: [1, 1] },
+        { sample_idxs: [12], rows: [[1, 1, 0]], lane: [0, 0, 1] },
+        { sample_idxs: [3, 4, 7], rows: [[1], [1], [1]], lane: [] },
+    ]);
+
+    assert_same_project(round_trip(project), project);
+});
+
+test("both ends of the tempo range survive a round trip", () =>
+{
+    for (let tempo of [MIN_TEMPO, MAX_TEMPO, 120])
+    {
+        let project = make_project(tempo, [
+            { sample_idxs: [0], rows: [[1]] },
+        ]);
+
+        assert.equal(round_trip(project).tempo, tempo);
+    }
+});
+
+test("both ends of the pattern length range survive a round trip", () =>
+{
+    for (let num_steps of [MIN_PAT_STEPS, MAX_PAT_STEPS])
+    {
+        let project = make_project(120, [
+            { sample_idxs: [0], rows: [Array(num_steps).fill(1)] },
+        ]);
+
+        assert_same_project(round_trip(project), project);
+    }
+});
+
+test("a pattern with every row in use survives a round trip", () =>
+{
+    let project = make_project(120, [{
+        sample_idxs: Array.from({ length: MAX_PAT_ROWS }, (_, i) => i),
+        rows: Array.from({ length: MAX_PAT_ROWS }, () => [1]),
+    }]);
+
+    assert_same_project(round_trip(project), project);
+});
+
+test("a project holding as many patterns as it can survives a round trip", () =>
+{
+    let pats = Array.from({ length: MAX_PATTERNS }, (_, i) => ({
+        sample_idxs: [i],
+        rows: [[1]],
+    }));
+
+    let project = make_project(120, pats);
+
+    assert_same_project(round_trip(project), project);
+});
+
+test("both ends of the sample index range survive a round trip", () =>
+{
+    // A sample index is 9 bits wide, and the top of that range is reachable
+    // long before there are that many samples: an index is reserved forever,
+    // so the numbering keeps climbing as samples come and go
+    let project = make_project(120, [
+        { sample_idxs: [0, 2 ** SAMPLE_IDX_BITS - 1], rows: [[1], [1]] },
+    ]);
+
+    assert_same_project(round_trip(project), project);
+});
+
+test("timeline lanes of every shape survive a round trip", () =>
+{
+    let lanes = [
+        [],                       // placed nowhere
+        [1],                      // one cell, at the start
+        [0, 1],                   // one cell, after a gap
+        [1, 1, 1, 1],             // one long block
+        [1, 0, 1],                // two blocks, one cell each
+        [0, 0, 1, 1, 0, 0, 0, 1], // gaps and blocks of different sizes
+    ];
+
+    for (let lane of lanes)
+    {
+        let project = make_project(120, [
+            { sample_idxs: [0], rows: [[1, 0, 1, 0]], lane: lane },
+        ]);
+
+        assert.deepEqual(round_trip(project).lanes[0], lane, JSON.stringify(lane));
+    }
+});
+
+test("a lane reaching the end of the song survives a round trip", () =>
+{
+    let num_steps = MAX_PAT_STEPS;
+    let lane = Array(MAX_SONG_STEPS / num_steps).fill(1);
+
+    let project = make_project(120, [
+        { sample_idxs: [0], rows: [Array(num_steps).fill(1)], lane: lane },
+    ]);
+
+    assert.deepEqual(round_trip(project).lanes[0], lane);
+});
+
+//============================================================================
+// What the encoding drops
+//
+// Encoding is lossy: anything that plays nothing is left out, which is what
+// keeps a link short. These pin down exactly what comes back.
+//============================================================================
+
+test("rows that play nothing are dropped", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [1, 2, 3], rows: [[0, 0], [1, 0], [0, 0]] },
+    ]);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.patterns[0].num_rows, 1);
+    assert.deepEqual(decoded.patterns[0].sample_idxs, [2]);
+    assert.deepEqual(decoded.patterns[0].rows, [[1, 0]]);
+});
+
+test("patterns that play nothing are dropped, along with their lanes", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [1], rows: [[0, 0]], lane: [1] },
+        { sample_idxs: [2], rows: [[1, 0]], lane: [0, 1] },
+        { sample_idxs: [3], rows: [[0, 0]], lane: [1] },
+    ]);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.num_patterns, 1);
+    assert.deepEqual(decoded.patterns[0].sample_idxs, [2]);
+
+    // The surviving pattern keeps the lane that was its own
+    assert.deepEqual(decoded.lanes, [[0, 1]]);
+});
+
+test("a project where nothing plays keeps one pattern of one row", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [8, 9], rows: [[0, 0], [0, 0]] },
+    ]);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.num_patterns, 1);
+    assert.equal(decoded.patterns[0].num_rows, 1);
+    assert.deepEqual(decoded.patterns[0].sample_idxs, [8]);
+    assert.deepEqual(decoded.lanes, [[]]);
+});
+
+test("a pattern keeps its length even when its cells are dropped", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [0], rows: [Array(MAX_PAT_STEPS).fill(0)] },
+    ]);
+
+    assert.equal(round_trip(project).patterns[0].num_steps, MAX_PAT_STEPS);
+});
+
+//============================================================================
+// Golden links
+//
+// These strings are frozen: a link that was shared has to keep opening as the
+// project it was made from, forever. A failure here means already-shared links
+// now decode differently, which is a change to make on purpose or not at all.
+//============================================================================
+
+// A new project, untouched. This is the most-shared link there is, so it's
+// worth pinning even though it ties this test to the sample table: its one
+// surviving row plays the first of the samples handed to a new pattern. If
+// that sample's index moves, every link ever shared breaks, and this is the
+// test that says so.
+const GOLDEN_EMPTY = 'untitled,BQAPAagAAA';
+
+// A single one-step pattern, its one cell on, placed once on the timeline
+const GOLDEN_MINIMAL = 'untitled,BQAAAAYA';
+
+// Two patterns of different lengths, a title, a tempo off the default, the
+// widest sample index the format holds, and both patterns on the timeline
+const GOLDEN_MIXED = 'test_song,BkBDEAUBRoogIP_sgA';
+
+test("a new project encodes to the same link it always has", () =>
+{
+    assert.equal(project_to_hash(new Project()), GOLDEN_EMPTY);
+});
+
+test("the golden links still decode to the projects they were made from", () =>
+{
+    let minimal = project_from_hash(GOLDEN_MINIMAL);
+
+    assert.equal(minimal.title, 'untitled');
+    assert.equal(minimal.tempo, 120);
+    assert.equal(minimal.num_patterns, 1);
+    assert.deepEqual(minimal.patterns[0].sample_idxs, [0]);
+    assert.deepEqual(minimal.patterns[0].rows, [[1]]);
+    assert.deepEqual(minimal.lanes, [[1]]);
+
+    let mixed = project_from_hash(GOLDEN_MIXED);
+
+    assert.equal(mixed.title, 'test song');
+    assert.equal(mixed.tempo, 140);
+    assert.equal(mixed.num_patterns, 2);
+    assert.deepEqual(mixed.patterns[0].sample_idxs, [0, 5]);
+    assert.deepEqual(mixed.patterns[0].rows, [[1, 0, 1, 0], [0, 0, 0, 1]]);
+    assert.deepEqual(mixed.patterns[1].sample_idxs, [2 ** SAMPLE_IDX_BITS - 1]);
+    assert.deepEqual(mixed.patterns[1].rows, [[1, 1, 0]]);
+    assert.deepEqual(mixed.lanes, [[1, 1, 0, 1], [0, 0, 1]]);
+});
+
+test("the golden links re-encode to themselves", () =>
+{
+    for (let hash of [GOLDEN_EMPTY, GOLDEN_MINIMAL, GOLDEN_MIXED])
+        assert.equal(project_to_hash(project_from_hash(hash)), hash);
+});
+
+//============================================================================
+// Encoding refuses what it cannot carry
+//
+// A value too wide for its field used to be written out with its high bits
+// dropped, which produced a link that decoded cleanly into a project nobody
+// made. It fails the encoding instead.
+//============================================================================
+
+test("a sample index too wide for its field is refused", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [2 ** SAMPLE_IDX_BITS], rows: [[1]] },
+    ]);
+
+    assert.throws(() => encode_project(project), RangeError);
+});
+
+test("a tempo outside the range the field holds is refused", () =>
+{
+    let project = make_project(120, [{ sample_idxs: [0], rows: [[1]] }]);
+
+    // Set past set_tempo, the way a project decoded from a hand-edited link
+    // or a future version of the format could arrive
+    project.tempo = MAX_TEMPO + 1000;
+
+    assert.throws(() => encode_project(project), RangeError);
+});
+
+test("more patterns than the field holds is refused", () =>
+{
+    let pats = Array.from({ length: 2 ** NUM_PATTERNS_BITS + 1 }, (_, i) => ({
+        sample_idxs: [i % 2 ** SAMPLE_IDX_BITS],
+        rows: [[1]],
+    }));
+
+    assert.throws(() => encode_project(make_project(120, pats)), RangeError);
+
+    // encode_project states the same limit as a precondition of its own, which
+    // is recorded rather than thrown. See tests/setup.js.
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a value that isn't a whole number is refused", () =>
+{
+    let project = make_project(120, [{ sample_idxs: [1.5], rows: [[1]] }]);
+
+    assert.throws(() => encode_project(project), RangeError);
+});
+
+test("a project that fits encodes without complaint", () =>
+{
+    let project = make_project(MAX_TEMPO, [
+        { sample_idxs: [2 ** SAMPLE_IDX_BITS - 1], rows: [Array(MAX_PAT_STEPS).fill(1)] },
+    ]);
+
+    assert.doesNotThrow(() => encode_project(project));
+});
+
+//============================================================================
+// Decoding rejects what isn't a link
+//
+// A link can be truncated in a chat window or edited by hand, so the decoder
+// has to turn anything that isn't ours into an error rather than a project.
+//============================================================================
+
+test("a link from a newer format version is refused", () =>
+{
+    let bits = field(1, VERSION_BITS) + ONE_EMPTY_PATTERN.slice(VERSION_BITS);
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /unsupported encoding version/
+    );
+});
+
+test("a truncated link is refused", () =>
+{
+    assert.throws(
+        () => decode_project(bits_to_b64(field(0, VERSION_BITS))),
+        /unexpected end of encoded project data/
+    );
+
+    // Cut a real link short, the way a chat window would
+    let data = GOLDEN_MIXED.split(',')[1];
+
+    assert.throws(() => decode_project(data.slice(0, 4)), RangeError);
+});
+
+test("a link claiming an oversized value is refused", () =>
+{
+    // A gap running for more chunks than the longest song could need
+    let bits = ONE_EMPTY_PATTERN + '1' + ('1' + field(0, VAR_CHUNK_BITS)).repeat(6);
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /oversized value in encoded project data/
+    );
+});
+
+test("a link whose timeline runs past the end of the song is refused", () =>
+{
+    // A block of MAX_SONG_STEPS + 1 cells, on a pattern one step long. Block
+    // lengths are written one lower, since a block always holds a cell.
+    let len = MAX_SONG_STEPS;
+    let chunks = '';
+
+    for (let val = len; val > 0; val = Math.floor(val / 2 ** VAR_CHUNK_BITS))
+        chunks += '1' + field(val % 2 ** VAR_CHUNK_BITS, VAR_CHUNK_BITS);
+
+    let bits = ONE_EMPTY_PATTERN +
+        '1' +           // the pattern is placed somewhere
+        '0' +           // no gap before the first block
+        chunks + '0';   // the block's length
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /runs past the end of the song/
+    );
+});
+
+test("a fragment without a title separator is refused", () =>
+{
+    assert.throws(() => project_from_hash('BQAAAAYA'), SyntaxError);
+});
+
+test("a fragment that isn't base64 at all is refused", () =>
+{
+    assert.throws(() => project_from_hash('#untitled,not a link'));
+});
+
+//============================================================================
+// Titles
+//
+// A title rides in the fragment beside the project data, where it's readable,
+// which is what bounds what it's allowed to hold.
+//============================================================================
+
+test("a title survives a round trip through a fragment", () =>
+{
+    let project = new Project();
+    project.title = 'my beat';
+
+    let decoded = project_from_hash(project_to_hash(project));
+
+    assert.equal(decoded.title, 'my beat');
+});
+
+test("a fragment can be read back with or without its leading hash", () =>
+{
+    let project = new Project();
+    project.title = 'my beat';
+
+    let hash = project_to_hash(project);
+
+    assert.equal(project_from_hash('#' + hash).title, 'my beat');
+    assert.equal(project_from_hash(hash).title, 'my beat');
+});
+
+test("a project without a title is shared as untitled", () =>
+{
+    let project = new Project();
+
+    assert.ok(project_to_hash(project).startsWith('untitled,'));
+
+    // Note that this does not come back as the empty title it went in as: the
+    // link says 'untitled', and reading one back takes it at its word, so the
+    // title field shows the word rather than its placeholder
+    assert.equal(project_from_hash(project_to_hash(project)).title, 'untitled');
+});
+
+test("a title is written into the link with underscores for spaces", () =>
+{
+    let project = new Project();
+    project.title = 'my beat';
+
+    assert.ok(project_to_hash(project).startsWith('my_beat,'));
+});
+
+test("a title keeps only the characters it is allowed to hold", () =>
+{
+    assert.equal(normalize_title('Hello, World!'), 'Hello World');
+    assert.equal(normalize_title('<script>alert(1)</script>'), 'scriptalert1script');
+    assert.equal(normalize_title('drum & bass'), 'drum bass');
+});
+
+test("a title has its spaces tidied up", () =>
+{
+    assert.equal(normalize_title('  spaced   out  '), 'spaced out');
+    assert.equal(normalize_title(''), '');
+    assert.equal(normalize_title('   '), '');
+});
+
+test("a title is cut to the length one is allowed to be", () =>
+{
+    assert.equal(normalize_title('a'.repeat(50)).length, MAX_TITLE_CHARS);
+
+    // Cutting can land on a space, which leaves the title ending in one
+    let cut_on_space = 'a'.repeat(MAX_TITLE_CHARS - 1) + ' bbb';
+
+    assert.equal(normalize_title(cut_on_space), 'a'.repeat(MAX_TITLE_CHARS - 1));
+});
+
+test("a title that was cut survives a round trip as what it was cut to", () =>
+{
+    let project = new Project();
+    project.title = normalize_title('a'.repeat(50));
+
+    assert.equal(project_from_hash(project_to_hash(project)).title, project.title);
+});
+
+test("cleaning a title tidies it up without cutting it short", () =>
+{
+    assert.equal(clean_title('  Hello,   World!  '), 'Hello World');
+
+    // Length is what separates this from normalize_title: a title has to be
+    // measurable against both limits before anything is cut off it
+    assert.equal(clean_title('a'.repeat(50)).length, 50);
+});
+
+//============================================================================
+// What a title has to be
+//
+// Checked when a link is made, so that a title on its way to being long enough
+// isn't an error the whole time it's being typed. A link that's already been
+// shared is not held to this: see title_error in model.js.
+//============================================================================
+
+test("a title of the right length is accepted", () =>
+{
+    assert.equal(title_error('a'.repeat(MIN_TITLE_CHARS)), null);
+    assert.equal(title_error('a'.repeat(MAX_TITLE_CHARS)), null);
+    assert.equal(title_error('my beat'), null);
+});
+
+test("a title with nothing in it is refused", () =>
+{
+    assert.match(title_error(''), /at least 4 characters/);
+    assert.match(title_error('    '), /at least 4 characters/);
+
+    // Everything typed here is dropped as a character a title can't hold,
+    // which leaves nothing behind
+    assert.match(title_error('!!!!!!'), /at least 4 characters/);
+});
+
+test("a title shorter than the minimum is refused", () =>
+{
+    for (let len = 1; len < MIN_TITLE_CHARS; ++len)
+        assert.match(title_error('a'.repeat(len)), /at least 4 characters/, `${len} chars`);
+
+    // Spaces are collapsed and trimmed before the length is counted, so a
+    // short title padded out with them is still short
+    assert.match(title_error('  a   b  '), /at least 4 characters/);
+});
+
+test("a title longer than the maximum is refused", () =>
+{
+    assert.match(
+        title_error('a'.repeat(MAX_TITLE_CHARS + 1)),
+        /at most 36 characters/
+    );
+
+    // The field is deliberately not capped, so this is what a long title
+    // pasted into it comes to
+    assert.match(title_error('a'.repeat(500)), /at most 36 characters/);
+});
+
+test("what a title is measured on is what would go in the link", () =>
+{
+    // Characters a title can't hold are dropped before it's measured, so a
+    // title made of them plus a few letters is measured on the letters
+    let title = 'a!b@c#d$';
+
+    assert.equal(clean_title(title), 'abcd');
+    assert.equal(title_error(title), null);
+
+    let project = new Project();
+    project.title = clean_title(title);
+
+    assert.ok(project_to_hash(project).startsWith('abcd,'));
+});
