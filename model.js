@@ -764,9 +764,9 @@ export function decode_project(b64_str)
     return project;
 }
 
-// Strip the characters that don't survive being pasted around in a URL,
-// so that the title stays readable in the link
-function encode_title(title)
+// Write a title into the form it takes in a link, i.e. stripped of the
+// characters that don't survive being pasted around in a URL
+export function encode_title(title)
 {
     let norm = normalize_title(title);
 
@@ -778,7 +778,7 @@ function encode_title(title)
 
 // Undo encode_title. A title holds no underscores of its own, so every
 // underscore in a link was a space.
-function decode_title(title)
+export function decode_title(title)
 {
     return normalize_title(title.replaceAll('_', ' '));
 }
@@ -798,7 +798,11 @@ export function clean_title(title)
 // Reduce a title to what one is allowed to hold, length included. This is what
 // a title read back from a link goes through: a link that's been shared has to
 // keep opening, so an overlong title in one is cut down rather than refused.
-export function normalize_title(title)
+//
+// This is a step on the way to a link rather than something to reach for from
+// outside: what a title comes to is encode_title's business, and what a link
+// says a title is is decode_title's.
+function normalize_title(title)
 {
     // Cut to length last, and trimmed again in case the cut landed on a space
     return clean_title(title).substring(0, MAX_TITLE_CHARS).trim();
@@ -814,10 +818,13 @@ export function title_error(title)
     let clean = clean_title(title);
 
     if (clean.length < MIN_TITLE_CHARS)
-        return `A title needs at least ${MIN_TITLE_CHARS} characters.`;
+        return `Project title needs at least ${MIN_TITLE_CHARS} characters.`;
+
+    if (!TITLE_START_RE.test(clean))
+        return 'Project title has to start with a letter or a number.';
 
     if (clean.length > MAX_TITLE_CHARS)
-        return `A title can be at most ${MAX_TITLE_CHARS} characters.`;
+        return `Project title can be at most ${MAX_TITLE_CHARS} characters.`;
 
     return null;
 }
@@ -831,12 +838,40 @@ export const MAX_TITLE_CHARS = 36;
 
 // Characters a title can't hold. Exported so that the title field can drop
 // them as they're typed, rather than only once the title is encoded.
-export const TITLE_STRIP_RE = /[^A-Za-z0-9 ]+/g;
+//
+// This is an allowlist rather than a list of what to reject, so that what a
+// title can carry onto the page stays true by construction rather than by
+// review. Everything here survives in a URL fragment as it is: browsers only
+// escape spaces, quotes, angle brackets and backticks there.
+//
+// What's deliberately left out, beyond the obvious:
+//   _ * ~ ( )  are what Markdown gives meaning to, and a link posted anywhere
+//              Markdown is rendered has to come out the other side whole. The
+//              underscore is doubly spoken for, being how a space is written.
+//   &          would let a title ending in an entity name swallow the ';' that
+//              follows it: 'tom&copy' + ';' reads as '&copy;' to anything that
+//              decodes HTML, and the link loses its separator.
+//   # %        are not a fragment's to hold. A second '#' is outside the URL
+//              grammar, and a bare '%' is an incomplete escape.
+//   ;          separates the title from the data, so a title can't hold one.
+export const TITLE_STRIP_RE = /[^A-Za-z0-9 !$'+,.\/:=?@-]/g;
+
+// A title has to open on a letter or a number. Punctuation is there to be used
+// inside a title rather than to lead one, and a title that opens on it reads as
+// something other than a name for a track. Numbers are as good an opener as
+// letters: plenty of tracks are named 808 State or 4 Hero.
+const TITLE_START_RE = /^[A-Za-z0-9]/;
+
+// What separates the title from the project data in a fragment. A title can
+// hold a comma now, so the separator has to be something a title can't hold.
+// The encoded data is base64url, which is alphanumeric plus '-' and '_', so
+// this can't turn up on that side either.
+const TITLE_SEP = ';';
 
 // Encode a project into a URL fragment, without the leading '#'
 export function project_to_hash(project)
 {
-    return `${encode_title(project.title)},${encode_project(project)}`;
+    return `${encode_title(project.title)}${TITLE_SEP}${encode_project(project)}`;
 }
 
 // Decode a project from a URL fragment, with or without the leading '#'.
@@ -846,7 +881,7 @@ export function project_from_hash(hash)
     if (hash.startsWith('#'))
         hash = hash.substring(1);
 
-    let sep_idx = hash.indexOf(',');
+    let sep_idx = hash.indexOf(TITLE_SEP);
     if (sep_idx == -1)
         throw SyntaxError('missing separator between title and project data');
 

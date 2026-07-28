@@ -25,8 +25,9 @@ import {
     MIN_TITLE_CHARS,
     MAX_TITLE_CHARS,
     clean_title,
+    encode_title,
+    decode_title,
     title_error,
-    normalize_title,
     encode_project,
     decode_project,
     project_to_hash,
@@ -317,14 +318,14 @@ test("a pattern keeps its length even when its cells are dropped", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled,BQAPAagAAA';
+const GOLDEN_EMPTY = 'untitled;BQAPAagAAA';
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled,BQAAAAYA';
+const GOLDEN_MINIMAL = 'untitled;BQAAAAYA';
 
 // Two patterns of different lengths, a title, a tempo off the default, the
 // widest sample index the format holds, and both patterns on the timeline
-const GOLDEN_MIXED = 'test_song,BkBDEAUBRoogIP_sgA';
+const GOLDEN_MIXED = 'test_song;BkBDEAUBRoogIP_sgA';
 
 test("a new project encodes to the same link it always has", () =>
 {
@@ -443,7 +444,7 @@ test("a truncated link is refused", () =>
     );
 
     // Cut a real link short, the way a chat window would
-    let data = GOLDEN_MIXED.split(',')[1];
+    let data = GOLDEN_MIXED.split(';')[1];
 
     assert.throws(() => decode_project(data.slice(0, 4)), RangeError);
 });
@@ -520,59 +521,98 @@ test("a fragment can be read back with or without its leading hash", () =>
 
 test("a project without a title is shared as untitled", () =>
 {
-    let project = new Project();
+    assert.equal(encode_title(''), 'untitled');
 
-    assert.ok(project_to_hash(project).startsWith('untitled,'));
+    // A title that cleans away to nothing is a title that isn't there
+    assert.equal(encode_title('   '), 'untitled');
+    assert.equal(encode_title('~~~~'), 'untitled');
 
     // Note that this does not come back as the empty title it went in as: the
     // link says 'untitled', and reading one back takes it at its word, so the
     // title field shows the word rather than its placeholder
-    assert.equal(project_from_hash(project_to_hash(project)).title, 'untitled');
+    assert.equal(decode_title('untitled'), 'untitled');
 });
 
 test("a title is written into the link with underscores for spaces", () =>
 {
-    let project = new Project();
-    project.title = 'my beat';
+    assert.equal(encode_title('my beat'), 'my_beat');
+    assert.equal(decode_title('my_beat'), 'my beat');
 
-    assert.ok(project_to_hash(project).startsWith('my_beat,'));
+    // Which is why an underscore is not a character a title can hold: it would
+    // come back as a space and there would be no telling the two apart
+    assert.equal(encode_title('my_beat'), 'mybeat');
 });
 
-test("a title keeps only the characters it is allowed to hold", () =>
+test("a title keeps the punctuation it is allowed to hold", () =>
 {
-    assert.equal(normalize_title('Hello, World!'), 'Hello World');
-    assert.equal(normalize_title('<script>alert(1)</script>'), 'scriptalert1script');
-    assert.equal(normalize_title('drum & bass'), 'drum bass');
+    assert.equal(encode_title('Hello, World!'), 'Hello,_World!');
+    assert.equal(encode_title("Rock 'n' Roll"), "Rock_'n'_Roll");
+    assert.equal(encode_title('4/4 @ 120bpm?'), '4/4_@_120bpm?');
+    assert.equal(encode_title('A+B = C-D $1 x.y:z'), 'A+B_=_C-D_$1_x.y:z');
 });
 
-test("a title has its spaces tidied up", () =>
+test("a title drops the characters that would not survive being posted", () =>
 {
-    assert.equal(normalize_title('  spaced   out  '), 'spaced out');
-    assert.equal(normalize_title(''), '');
-    assert.equal(normalize_title('   '), '');
+    // Markdown gives these meaning, and a link has to come out of a Markdown
+    // renderer whole
+    assert.equal(encode_title('a_b *c* ~d~ (e)'), 'ab_c_d_e');
+
+    // An entity name plus the separator that follows it would be decoded away
+    assert.equal(encode_title('drum & bass'), 'drum_bass');
+    assert.equal(encode_title('tom&copy'), 'tomcopy');
+
+    // Not a fragment's to hold: a second '#', and an incomplete escape
+    assert.equal(encode_title('C# 100%'), 'C_100');
+
+    // The separator itself, and what a browser would escape anyway
+    assert.equal(encode_title('a;b'), 'ab');
+    assert.equal(encode_title('<script>alert(1)</script>'), 'scriptalert1/script');
+});
+
+test("a title has its spaces tidied up on the way into a link", () =>
+{
+    assert.equal(encode_title('  spaced   out  '), 'spaced_out');
 });
 
 test("a title is cut to the length one is allowed to be", () =>
 {
-    assert.equal(normalize_title('a'.repeat(50)).length, MAX_TITLE_CHARS);
+    assert.equal(encode_title('a'.repeat(50)), 'a'.repeat(MAX_TITLE_CHARS));
 
-    // Cutting can land on a space, which leaves the title ending in one
+    // Cutting can land on a space, which would leave the title ending in the
+    // underscore that space is written as
     let cut_on_space = 'a'.repeat(MAX_TITLE_CHARS - 1) + ' bbb';
 
-    assert.equal(normalize_title(cut_on_space), 'a'.repeat(MAX_TITLE_CHARS - 1));
+    assert.equal(encode_title(cut_on_space), 'a'.repeat(MAX_TITLE_CHARS - 1));
 });
 
 test("a title that was cut survives a round trip as what it was cut to", () =>
 {
     let project = new Project();
-    project.title = normalize_title('a'.repeat(50));
+    project.title = 'a'.repeat(50);
 
-    assert.equal(project_from_hash(project_to_hash(project)).title, project.title);
+    let decoded = project_from_hash(project_to_hash(project));
+
+    assert.equal(decoded.title, 'a'.repeat(MAX_TITLE_CHARS));
+
+    // A second trip through leaves it alone, having nothing left to cut
+    assert.equal(project_to_hash(decoded), project_to_hash(project));
+    assert.equal(project_from_hash(project_to_hash(decoded)).title, decoded.title);
+});
+
+test("a title held in a link is cut down rather than refused", () =>
+{
+    // A link can be edited by hand, and one that's been shared has to keep
+    // opening, so what a link says is taken and trimmed rather than rejected
+    assert.equal(decode_title('a'.repeat(50)), 'a'.repeat(MAX_TITLE_CHARS));
+
+    // Including titles that making a link would have refused outright
+    assert.equal(decode_title('ab'), 'ab');
+    assert.equal(decode_title('...nope'), '...nope');
 });
 
 test("cleaning a title tidies it up without cutting it short", () =>
 {
-    assert.equal(clean_title('  Hello,   World!  '), 'Hello World');
+    assert.equal(clean_title('  Hello,   World!  '), 'Hello, World!');
 
     // Length is what separates this from normalize_title: a title has to be
     // measurable against both limits before anything is cut off it
@@ -601,7 +641,7 @@ test("a title with nothing in it is refused", () =>
 
     // Everything typed here is dropped as a character a title can't hold,
     // which leaves nothing behind
-    assert.match(title_error('!!!!!!'), /at least 4 characters/);
+    assert.match(title_error('~~~~~~'), /at least 4 characters/);
 });
 
 test("a title shorter than the minimum is refused", () =>
@@ -626,11 +666,35 @@ test("a title longer than the maximum is refused", () =>
     assert.match(title_error('a'.repeat(500)), /at most 36 characters/);
 });
 
+test("a title that opens on punctuation is refused", () =>
+{
+    for (let title of ['...and then', '@home jam', '!!! hey', "'round midnight"])
+        assert.match(title_error(title), /start with a letter or a number/, title);
+
+    // The check is on what's left after cleaning, so punctuation a title can't
+    // hold at all doesn't count as its first character either
+    assert.equal(title_error('~beat one'), null);
+});
+
+test("a title can open on a number", () =>
+{
+    // Plenty of tracks are named this way, so a digit opens a title as well as
+    // a letter does
+    for (let title of ['808 State', '4/4 groove', '1st take', '99 problems'])
+        assert.equal(title_error(title), null, title);
+});
+
+test("a title opening on a letter is accepted whatever follows", () =>
+{
+    for (let title of ["Rock 'n' Roll", 'a.b.c.d', 'Take 2!', 'x/y @ 120?'])
+        assert.equal(title_error(title), null, title);
+});
+
 test("what a title is measured on is what would go in the link", () =>
 {
     // Characters a title can't hold are dropped before it's measured, so a
     // title made of them plus a few letters is measured on the letters
-    let title = 'a!b@c#d$';
+    let title = 'a#b~c%d';
 
     assert.equal(clean_title(title), 'abcd');
     assert.equal(title_error(title), null);
@@ -638,5 +702,15 @@ test("what a title is measured on is what would go in the link", () =>
     let project = new Project();
     project.title = clean_title(title);
 
-    assert.ok(project_to_hash(project).startsWith('abcd,'));
+    assert.ok(project_to_hash(project).startsWith('abcd;'));
+});
+
+test("a title holding the separator cannot break the fragment apart", () =>
+{
+    let project = new Project();
+    project.title = clean_title('a;b, c;d');
+
+    // The semicolon is dropped, so the one in the fragment is the separator
+    assert.equal(project.title, 'ab, cd');
+    assert.equal(project_from_hash(project_to_hash(project)).title, 'ab, cd');
 });
