@@ -22,6 +22,7 @@ import {
     MAX_PAT_ROWS,
     MAX_PATTERNS,
     MAX_SONG_STEPS,
+    STEPS_PER_BAR,
     MIN_TITLE_CHARS,
     MAX_TITLE_CHARS,
     clean_title,
@@ -231,6 +232,69 @@ test("timeline lanes of every shape survive a round trip", () =>
 
         assert.deepEqual(round_trip(project).lanes[0], lane, JSON.stringify(lane));
     }
+});
+
+test("the amen break survives a round trip", () =>
+{
+    // A real pattern rather than a made-up one, and about as much as a single
+    // pattern can hold: four bars at MAX_PAT_STEPS, four rows, most of them
+    // busy. Note that this is the grid rendering of the break, not the break:
+    // the original is played by a person and sits off the grid throughout.
+    const rows = {
+        //         bar 1             bar 2             bar 3             bar 4
+        crash: 'x...............' + '................' + '................' + '................',
+        ride:  'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+        snare: '....x..x..x.x...' + '....x..x..x.x...' + '....x.....x.x...' + '....x..x..x.....',
+        kick:  'x.x.......xx....' + 'x.x.......xx....' + '..x........x....' + '..x.......xx....',
+    };
+
+    let names = Object.keys(rows);
+    let project = make_project(136, [{
+        // Sample indices, since what this is about is the encoding rather than
+        // which sample sits behind a row
+        sample_idxs: names.map((_, i) => i),
+        rows: names.map(name => Array.from(rows[name], ch => ch == 'x'? 1:0)),
+        lane: [1],
+    }]);
+
+    assert.equal(project.patterns[0].num_steps, MAX_PAT_STEPS);
+    assert_same_project(round_trip(project), project);
+
+    // Every row plays something, so none of them is dropped on the way through
+    assert.equal(round_trip(project).patterns[0].num_rows, names.length);
+});
+
+test("a drum and bass roller survives a round trip", () =>
+{
+    // Written for this test rather than lifted from a record. Four bars of
+    // two-step at 174: kick and snare holding the two-step down, rimshots
+    // standing in for ghost notes since a cell is on or off with nothing in
+    // between, and the hats opening up into sixteenths for the last half bar.
+    //
+    // Kit, in row order: crash, open hat, closed hat, rimshot, snare, kick.
+    const rows = [
+        //  bar 1              bar 2              bar 3              bar 4
+        'x...............' + '................' + '................' + '................',
+        '......x.........' + '......x.......x.' + '......x.........' + '......x.........',
+        'x.x.x...x.x.x.x.' + 'x.x.x...x.x.x...' + 'x.x.x...x.x.x.x.' + 'x.x.x...xxxxxxxx',
+        '..x......x.....x' + '..x....x.x......' + '..x...x....x....' + '..x..x..x..x....',
+        '....x.......x...' + '....x.......x...' + '....x.......x...' + '....x.......x.x.',
+        'x.........x.....' + 'x.........x..x..' + 'x.......x...x...' + 'x.........x.....',
+    ];
+
+    let project = make_project(174, [{
+        sample_idxs: rows.map((_, i) => i),
+        rows: rows.map(row => Array.from(row, ch => ch == 'x'? 1:0)),
+
+        // Two playthroughs, i.e. eight bars of it
+        lane: [1, 1],
+    }]);
+
+    assert_same_project(round_trip(project), project);
+
+    // Eight bars at four bars a playthrough, and no row quiet enough to drop
+    assert.equal(project.song_num_steps, 8 * STEPS_PER_BAR);
+    assert.equal(round_trip(project).patterns[0].num_rows, rows.length);
 });
 
 test("a lane reaching the end of the song survives a round trip", () =>
