@@ -72,6 +72,9 @@ const song_title = document.getElementById('song_title');
 const share_btn = document.getElementById('share_btn');
 const share_status = document.getElementById('share_status');
 
+// Visit count in the page footer
+const hit_count = document.getElementById('hit_count');
+
 // How long a URL can get before it stops surviving the places projects get
 // shared in. Browsers and the sites people post links on all handle a couple
 // of thousand characters (see design.md), so this is where a link stops being
@@ -216,6 +219,22 @@ song_title.maxLength = MAX_TITLE_CHARS;
 set_volume(volume_slider.valueAsNumber / 100);
 fetch_project_samples(project);
 render_all();
+
+// Count this visit, and show what the count is now at. The service keeps every
+// counter under one public namespace, so the key has to be specific enough not
+// to land on somebody else's. The count is decoration: if the service can't be
+// reached, the footer is left without it rather than saying anything about it.
+fetch('https://countapi.mileshilliard.com/api/v1/hit/groovie_pointersgonewild')
+    .then(rsp => rsp.json())
+    .then(data =>
+    {
+        // The service answers errors with a JSON object of its own, which
+        // carries no count. Anything that isn't a number is nothing to show.
+        let count = Number(data.value);
+        if (Number.isFinite(count))
+            hit_count.textContent = `${count.toLocaleString()} visits`;
+    })
+    .catch(err => console.error(`Could not get the visit count: ${err.message}`));
 
 //============================================================================
 // Input handling

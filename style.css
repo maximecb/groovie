@@ -474,6 +474,39 @@ input[type="range"] {
     text-align: center;
 }
 
+/* Below the last group: who made this on the left, how many times the page has
+   been opened on the right. Both are smaller and dimmer than anything in the
+   groups above, being page furniture rather than part of the editor. */
+.footer {
+    display: flex;
+    align-items: baseline;
+
+    /* The width the groups take up, borders included, so that the two ends of
+       the footer line up with the edges of the boxes above it */
+    box-sizing: border-box;
+    width: 802px;
+    max-width: 100%;
+    margin: 4px 10px 10px;
+
+    color: #888;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+/* The visit count, at the right end of the footer */
+.footer #hit_count {
+    margin-left: auto;
+}
+
+/* Links here are dim like the text around them, rather than taking the
+   browser's blue, which no other color on the page is near */
+.footer a {
+    color: #888;
+}
+.footer a:hover {
+    color: #FFF;
+}
+
 /* Buttons inherit the surrounding monospace font, so that they sit with the
    labels and drop-downs around them instead of looking like page furniture */
 button {

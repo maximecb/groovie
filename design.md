@@ -119,7 +119,7 @@ phones and tablets.
 
 ## Future Features
 
-It would be desirable to have a hit counter (can we find a free provider?)
+[DONE] It would be desirable to have a hit counter (can we find a free provider?)
 
 We might also want to have the ability to project to `.wav` file. The processing
 for that should be done 100% locally on the client.
