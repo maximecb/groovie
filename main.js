@@ -1,5 +1,7 @@
 import {
     Project,
+    MIN_TEMPO,
+    MAX_TEMPO,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MAX_TITLE_CHARS,
@@ -198,6 +200,13 @@ function update_song_len()
 //============================================================================
 // Initialization
 //============================================================================
+
+// Let the tempo slider cover the range a tempo is allowed to be, so that it
+// can't hand the project a tempo the encoding has no room for. render_all()
+// sets its position, which has to happen after this: a value outside the range
+// would be clamped into it.
+tempo_slider.min = MIN_TEMPO;
+tempo_slider.max = MAX_TEMPO;
 
 // Populate the pattern length selector. Every length in the valid range is
 // selectable: steps have a fixed duration, so a pattern length isn't a

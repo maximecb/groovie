@@ -25,9 +25,11 @@ export const STEPS_PER_BAR = 4 * STEPS_PER_BEAT;
 // timeline can be extended.
 export const MAX_SONG_STEPS = 4096;
 
-// Tempo range, in beats per minute
+// Tempo range, in beats per minute. The top end is well past what a groove
+// sits at, so that the fast genres (drum and bass, hardcore, footwork) can be
+// written at the tempo they're counted in rather than at half of it.
 export const MIN_TEMPO = 40;
-export const MAX_TEMPO = 220;
+export const MAX_TEMPO = 280;
 export const DEFAULT_TEMPO = 120;
 
 // Pattern length, in steps

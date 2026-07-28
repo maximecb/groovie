@@ -51,7 +51,7 @@ scheme without the cheap zero.
 ## UI Interface
 
 There are going to be main controls at the top, including a tempo selectable
-between 40 and 220 (default 120) and a master volume. The tempo is tied to
+between 40 and 280 (default 120) and a master volume. The tempo is tied to
 the project, but the master volume defaults at 50% when loading a project
 to protect end users.
 
