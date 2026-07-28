@@ -7,14 +7,14 @@ on:
 
 jobs:
   check-samples:
-    name: Check sample format
+    name: Check samples
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Check that all samples are 44.1 kHz 16-bit mono PCM
+      - name: Check sample format, and sample_list.js against the samples
         run: python3 tools/check_samples.py
 
   check-js:
