@@ -23,7 +23,7 @@ export const STEPS_PER_BAR = 4 * STEPS_PER_BEAT;
 // Song length, in steps. The song has no length of its own: it ends at the
 // last pattern placed on the timeline (see design.md), and this is how far the
 // timeline can be extended.
-export const MAX_SONG_STEPS = 4096;
+export const MAX_SONG_STEPS = 16384;
 
 // Tempo range, in beats per minute. The top end is well past what a groove
 // sits at, so that the fast genres (drum and bass, hardcore, footwork) can be

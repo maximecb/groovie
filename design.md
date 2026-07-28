@@ -99,7 +99,7 @@ bar boundary even when the patterns don't. The timeline shows some empty room
 past that end to place the next pattern into, so making the song longer is a
 matter of placing a pattern further right, and removing the last pattern makes
 it shorter again. Playback runs left to right and loops back to step 0 at the
-end, re-syncing all lanes. A song can be at most 4096 steps long, and a pattern
+end, re-syncing all lanes. A song can be at most 16384 steps long, and a pattern
 reaching that limit may have its final playthrough clipped at the loop point.
 Above the lanes is a ruler numbering the bars, since the cells of a pattern that
 isn't a whole number of bars long don't line up with them. Very short patterns
