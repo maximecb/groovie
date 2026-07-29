@@ -16,6 +16,7 @@ export const SAMPLE_MAP = {
     'samples/claves_02.wav': 14,
     'samples/cowbell_01.wav': 15,
     'samples/cowbell_02.wav': 16,
+    'samples/cowbell_03.wav': 149,
     'samples/crash_01.wav': 17,
     'samples/crash_02.wav': 144,
     'samples/crow_01.wav': 18,
