@@ -73,6 +73,7 @@ export const SAMPLE_MAP = {
     'samples/kick_14.wav': 66,
     'samples/kick_distort_01.wav': 67,
     'samples/kick_distort_02.wav': 68,
+    'samples/lock_01.wav': 150,
     'samples/maracas_01.wav': 69,
     'samples/maracas_02.wav': 70,
     'samples/melee_01.wav': 71,
