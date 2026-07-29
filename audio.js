@@ -397,6 +397,29 @@ export function get_song_step()
         null;
 }
 
+// Get the step a given pattern is currently being heard at in the song, or
+// null if that pattern isn't sounding: the song isn't playing, or the timeline
+// doesn't place this pattern across the position being heard.
+//
+// A pattern plays the step of its own that the song step falls on, which is
+// what makes patterns of different lengths phase against each other. That rule
+// belongs to queue_song_step, and is applied here rather than by the caller so
+// that the highlight can't come to disagree with what's audible.
+export function get_song_pat_step(pat_idx)
+{
+    let song_step = get_song_step();
+
+    if (song_step === null)
+        return null;
+
+    // A pattern only sounds where the timeline places it. Everywhere else its
+    // grid is silent, and a step running across it would say otherwise.
+    if (!play_project.pat_active_at(pat_idx, song_step))
+        return null;
+
+    return song_step % play_project.patterns[pat_idx].num_steps;
+}
+
 // Queue a pattern to be launched at the end of the pattern currently playing,
 // so that selecting a pattern doesn't cut off the one being heard. Queuing the
 // pattern already playing cancels a pending queue instead.

@@ -24,6 +24,7 @@ import {
     stop_playback,
     get_play_step,
     get_song_step,
+    get_song_pat_step,
     get_play_pat_idx,
     get_queued_pat_idx,
     queue_pattern,
@@ -574,12 +575,17 @@ function update_highlight()
         return;
     }
 
-    // Song playback has several patterns sounding at once, so there is nothing
-    // one pattern grid can usefully show: the timeline playhead is what says
-    // where playback is, and the pattern editor stays out of it.
+    // Song playback has several patterns sounding at once, so the timeline
+    // playhead is what says where the song as a whole is. The pattern on screen
+    // is one of the several, and shows the step of itself being heard wherever
+    // the timeline places it. Where it isn't placed it isn't sounding, and its
+    // grid shows nothing rather than a step that can't be heard.
+    //
+    // The tab strip stays out of it: it marks one playing pattern, and during
+    // song playback there is no one pattern to mark.
     if (is_playing_song())
     {
-        highlight_step(null);
+        highlight_step(get_song_pat_step(cur_pat));
         highlight_pat_tabs(null, null);
         highlight_song_step(get_song_step());
     }
