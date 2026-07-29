@@ -89,6 +89,7 @@ export const SAMPLE_MAP = {
     'samples/punch_06.wav': 86,
     'samples/ratchet_01.wav': 87,
     'samples/ride_01.wav': 88,
+    'samples/ride_02.wav': 145,
     'samples/rimshot_01.wav': 89,
     'samples/rimshot_02.wav': 90,
     'samples/rimshot_03.wav': 91,
