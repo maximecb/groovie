@@ -507,9 +507,15 @@ play_song_btn.onclick = async function ()
     start_highlight();
 }
 
-// The spacebar plays and stops the song, which is the one thing worth a
-// keyboard shortcut. It's ignored while a control has focus, so that it still
-// does whatever that control does with it.
+// The spacebar plays and stops what there is to hear, which is the one thing
+// worth a keyboard shortcut. It's ignored while a control has focus, so that it
+// still does whatever that control does with it.
+//
+// That's the song, except when nothing has been placed on the timeline yet, in
+// which case it's the pattern being edited. A project starts out with an empty
+// timeline and the shortcut would otherwise do nothing at all there, which is
+// the one state where it can't say so: the song button greys itself out when
+// there is no song, and a key has no way to.
 document.onkeydown = async function (evt)
 {
     if (evt.code != 'Space')
@@ -529,7 +535,11 @@ document.onkeydown = async function (evt)
         return;
     }
 
-    await play_song(project);
+    if (project.song_num_steps == 0)
+        await play_pattern(project, cur_pat);
+    else
+        await play_song(project);
+
     start_highlight();
 }
 
