@@ -212,7 +212,7 @@ export const CORPUS = [
             lane: '......xx........',
         },
         {   // peak, open hat on every offbeat
-            samples: ['kick_09', 'clap_02', 'hat_closed_03', 'hat_open_03', 'perc_03'],
+            samples: ['kick_09', 'clap_02', 'hat_closed_03', 'hat_open_03', 'perc_04'],
             rows: [
                 'x...x...x...x...' + 'x...x...x...x...',
                 '....x.......x...' + '....x.......x...',
