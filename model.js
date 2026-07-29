@@ -32,6 +32,16 @@ export const MIN_TEMPO = 40;
 export const MAX_TEMPO = 280;
 export const DEFAULT_TEMPO = 120;
 
+// Swing, as the percentage of a pair of steps that the first step of the pair
+// takes up. 50 is an even split, i.e. no swing at all, and is where a project
+// starts. 75 gives the pair the 3:1 ratio of a dotted eighth followed by a
+// sixteenth, which is about as far as a groove goes before it stops reading as
+// swing and starts reading as a different rhythm. Triplet swing, the setting
+// most tracks that swing at all are written at, is the 67 in the middle.
+export const MIN_SWING = 50;
+export const MAX_SWING = 75;
+export const DEFAULT_SWING = 50;
+
 // Pattern length, in steps
 export const MIN_PAT_STEPS = 1;
 export const MAX_PAT_STEPS = 64;
@@ -263,6 +273,13 @@ export class Project
         // Tempo, in beats per minute
         this.tempo = DEFAULT_TEMPO;
 
+        // Swing, as a percentage (see above). Swing belongs to the project
+        // rather than to a pattern: steps have a fixed duration and patterns of
+        // different lengths phase against each other, so an off-beat step is an
+        // off-beat of the song's step grid rather than of whichever pattern
+        // happens to be playing across it.
+        this.swing = DEFAULT_SWING;
+
         this.patterns = [Pattern.with_default_samples()];
 
         // Timeline lanes, one per pattern. Cell `k` of a lane covers steps
@@ -284,6 +301,13 @@ export class Project
         console.assert(tempo >= MIN_TEMPO);
         console.assert(tempo <= MAX_TEMPO);
         this.tempo = tempo;
+    }
+
+    set_swing(swing)
+    {
+        console.assert(swing >= MIN_SWING);
+        console.assert(swing <= MAX_SWING);
+        this.swing = swing;
     }
 
     // Number of patterns this project holds
@@ -352,6 +376,18 @@ export class Project
     get steps_per_sec()
     {
         return this.tempo * STEPS_PER_BEAT / 60;
+    }
+
+    // How far a swung step is pushed back, as a fraction of a step.
+    //
+    // A pair of steps covers two steps either way, so a first step taking up
+    // `swing` percent of the pair runs 2 * swing / 100 steps long, and the
+    // second step of the pair starts wherever the first one ends. The delay is
+    // how far past its own place on the grid that puts it: none at 50, and half
+    // a step at 75, which is where the pair lands on a 3:1 ratio.
+    get swing_delay()
+    {
+        return 2 * this.swing / 100 - 1;
     }
 
     //========================================================================
@@ -453,6 +489,7 @@ const ENCODING_VERSION = 0;
 // Number of bits used for each field
 const VERSION_BITS = 4;
 const TEMPO_BITS = 8;
+const SWING_BITS = 5;
 const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
@@ -465,6 +502,7 @@ const VAR_CHUNK_BITS = 4;
 const MAX_VAR_CHUNKS = Math.ceil(Math.log2(MAX_SONG_STEPS + 1) / VAR_CHUNK_BITS);
 
 console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));
+console.assert(MAX_SWING - MIN_SWING < (1 << SWING_BITS));
 console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
 console.assert(MAX_PAT_STEPS <= (1 << NUM_STEPS_BITS));
 console.assert(MAX_PAT_ROWS <= (1 << NUM_ROWS_BITS));
@@ -691,6 +729,7 @@ export function encode_project(project)
 
     writer.write(ENCODING_VERSION, VERSION_BITS);
     writer.write(project.tempo - MIN_TEMPO, TEMPO_BITS);
+    writer.write(project.swing - MIN_SWING, SWING_BITS);
     writer.write(pat_idxs.length - 1, NUM_PATTERNS_BITS);
 
     for (let pat_idx of pat_idxs)
@@ -729,6 +768,7 @@ export function decode_project(b64_str)
 
     let project = new Project();
     project.set_tempo(MIN_TEMPO + reader.read(TEMPO_BITS));
+    project.set_swing(MIN_SWING + reader.read(SWING_BITS));
 
     let num_patterns = reader.read(NUM_PATTERNS_BITS) + 1;
     project.patterns = [];

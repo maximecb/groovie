@@ -2,6 +2,8 @@ import {
     Project,
     MIN_TEMPO,
     MAX_TEMPO,
+    MIN_SWING,
+    MAX_SWING,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     TITLE_STRIP_RE,
@@ -48,6 +50,10 @@ const play_song_btn = document.getElementById('play_song');
 // Tempo slider
 const tempo_slider = document.getElementById('tempo_slider');
 const tempo_val = document.getElementById('tempo_val');
+
+// Swing slider
+const swing_slider = document.getElementById('swing_slider');
+const swing_val = document.getElementById('swing_val');
 
 // Volume slider
 const volume_slider = document.getElementById('volume_slider');
@@ -174,6 +180,8 @@ function render_all()
 
     tempo_slider.value = project.tempo;
     tempo_val.textContent = project.tempo;
+    swing_slider.value = project.swing;
+    swing_val.textContent = project.swing;
     num_steps_sel.value = pat.num_steps;
     song_title.value = project.title;
 
@@ -207,6 +215,12 @@ function update_song_len()
 // would be clamped into it.
 tempo_slider.min = MIN_TEMPO;
 tempo_slider.max = MAX_TEMPO;
+
+// Likewise for swing, whose slider sits at its left end by default: an
+// unswung project is one at the bottom of the range rather than in the
+// middle of it.
+swing_slider.min = MIN_SWING;
+swing_slider.max = MAX_SWING;
 
 // Populate the pattern length selector. Every length in the valid range is
 // selectable: steps have a fixed duration, so a pattern length isn't a
@@ -247,6 +261,45 @@ fetch('https://countapi.mileshilliard.com/api/v1/hit/groovie_pointersgonewild')
 // Input handling
 //============================================================================
 
+// Opening another project in a page that's already on the site: a link pasted
+// into the address bar of this page, or the back button moving between hashes
+// that were visited. The page isn't reloaded in either case, so the fragment is
+// read again here rather than only at startup.
+//
+// Sharing writes the URL too, but does it with replaceState(), which doesn't
+// fire this and so doesn't reload the project out from under the editor.
+window.onhashchange = function ()
+{
+    let new_project;
+
+    try
+    {
+        new_project = location.hash?
+                      project_from_hash(location.hash) : new Project();
+    }
+    catch (err)
+    {
+        // The link carried nothing that could be shown. What's being edited is
+        // left where it is rather than dropped for a blank project, which is no
+        // more what the link said than the current one is.
+        console.error(`Could not load project from URL: ${err.message}`);
+        return;
+    }
+
+    // Whatever is playing belongs to the project being replaced
+    stop_playback();
+
+    project = new_project;
+    cur_pat = 0;
+
+    // The note under the share button is about a link to the project that was
+    // just replaced
+    set_share_status('');
+
+    fetch_project_samples(project);
+    render_all();
+}
+
 tempo_slider.oninput = function ()
 {
     project.set_tempo(tempo_slider.valueAsNumber);
@@ -255,6 +308,14 @@ tempo_slider.oninput = function ()
     // Steps have a fixed duration, so the tempo is what says how long the song
     // in steps runs for
     update_song_len();
+}
+
+// Swing redistributes the steps within each pair rather than changing how many
+// of them go by, so it leaves the song length alone
+swing_slider.oninput = function ()
+{
+    project.set_swing(swing_slider.valueAsNumber);
+    swing_val.textContent = project.swing;
 }
 
 volume_slider.oninput = function ()

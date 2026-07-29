@@ -17,6 +17,8 @@ import {
     Project,
     MIN_TEMPO,
     MAX_TEMPO,
+    MIN_SWING,
+    MAX_SWING,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MAX_PAT_ROWS,
@@ -45,6 +47,7 @@ import {
 function assert_same_project(actual, expected)
 {
     assert.equal(actual.tempo, expected.tempo, 'tempo');
+    assert.equal(actual.swing, expected.swing, 'swing');
     assert.equal(actual.num_patterns, expected.num_patterns, 'pattern count');
 
     for (let pat_idx = 0; pat_idx < expected.num_patterns; ++pat_idx)
@@ -124,6 +127,7 @@ function bits_to_b64(bits)
 // Field widths of the encoding, mirrored from model.js on purpose (see above)
 const VERSION_BITS = 4;
 const TEMPO_BITS = 8;
+const SWING_BITS = 5;
 const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
@@ -142,6 +146,7 @@ function field(val, num_bits)
 const ONE_EMPTY_PATTERN =
     field(0, VERSION_BITS) +            // encoding version
     field(80, TEMPO_BITS) +             // tempo, offset from MIN_TEMPO
+    field(0, SWING_BITS) +              // swing, offset from MIN_SWING
     field(0, NUM_PATTERNS_BITS) +       // one pattern
     field(0, NUM_STEPS_BITS) +          // one step
     field(0, NUM_ROWS_BITS) +           // one row
@@ -184,6 +189,19 @@ test("both ends of the tempo range survive a round trip", () =>
         ]);
 
         assert.equal(round_trip(project).tempo, tempo);
+    }
+});
+
+test("both ends of the swing range survive a round trip", () =>
+{
+    for (let swing of [MIN_SWING, MAX_SWING, 67])
+    {
+        let project = make_project(120, [
+            { sample_idxs: [0], rows: [[1]] },
+        ]);
+        project.set_swing(swing);
+
+        assert.equal(round_trip(project).swing, swing);
     }
 });
 
@@ -621,14 +639,15 @@ test("a pattern keeps its length even when its cells are dropped", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled;BQAPAagAAA';
+const GOLDEN_EMPTY = 'untitled;BQAAeA1AAAA';
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled;BQAAAAYA';
+const GOLDEN_MINIMAL = 'untitled;BQAAAAAw';
 
-// Two patterns of different lengths, a title, a tempo off the default, the
-// widest sample index the format holds, and both patterns on the timeline
-const GOLDEN_MIXED = 'test_song;BkBDEAUBRoogIP_sgA';
+// Two patterns of different lengths, a title, a tempo and a swing off their
+// defaults, the widest sample index the format holds, and both patterns on the
+// timeline
+const GOLDEN_MIXED = 'test_song;BkiCGIAoCjRRAQf_ZAA';
 
 test("a new project encodes to the same link it always has", () =>
 {
@@ -641,6 +660,7 @@ test("the golden links still decode to the projects they were made from", () =>
 
     assert.equal(minimal.title, 'untitled');
     assert.equal(minimal.tempo, 120);
+    assert.equal(minimal.swing, 50);
     assert.equal(minimal.num_patterns, 1);
     assert.deepEqual(minimal.patterns[0].sample_idxs, [0]);
     assert.deepEqual(minimal.patterns[0].rows, [[1]]);
@@ -650,6 +670,7 @@ test("the golden links still decode to the projects they were made from", () =>
 
     assert.equal(mixed.title, 'test song');
     assert.equal(mixed.tempo, 140);
+    assert.equal(mixed.swing, 67);
     assert.equal(mixed.num_patterns, 2);
     assert.deepEqual(mixed.patterns[0].sample_idxs, [0, 5]);
     assert.deepEqual(mixed.patterns[0].rows, [[1, 0, 1, 0], [0, 0, 0, 1]]);
@@ -688,6 +709,17 @@ test("a tempo outside the range the field holds is refused", () =>
     // Set past set_tempo, the way a project decoded from a hand-edited link
     // or a future version of the format could arrive
     project.tempo = MAX_TEMPO + 1000;
+
+    assert.throws(() => encode_project(project), RangeError);
+});
+
+test("a swing outside the range the field holds is refused", () =>
+{
+    let project = make_project(120, [{ sample_idxs: [0], rows: [[1]] }]);
+
+    // Set past set_swing, as above. The field is wider than the range, so this
+    // has to be well past the top of it to overflow.
+    project.swing = MIN_SWING + 2 ** SWING_BITS;
 
     assert.throws(() => encode_project(project), RangeError);
 });

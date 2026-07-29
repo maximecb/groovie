@@ -12,6 +12,9 @@ import {
     MIN_TEMPO,
     MAX_TEMPO,
     DEFAULT_TEMPO,
+    MIN_SWING,
+    MAX_SWING,
+    DEFAULT_SWING,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MIN_PAT_ROWS,
@@ -203,6 +206,7 @@ test("a new project has one empty pattern and no song", () =>
 
     assert.equal(project.title, '');
     assert.equal(project.tempo, DEFAULT_TEMPO);
+    assert.equal(project.swing, DEFAULT_SWING);
     assert.equal(project.num_patterns, 1);
     assert.equal(project.song_num_steps, 0);
 });
@@ -214,6 +218,25 @@ test("the tempo sets the playback rate in steps per second", () =>
 
     // 120 BPM is 2 beats a second, and a beat is STEPS_PER_BEAT steps
     assert.equal(project.steps_per_sec, 2 * STEPS_PER_BEAT);
+});
+
+test("swing holds a step back by its share of a step pair", () =>
+{
+    let project = new Project();
+
+    // An even split leaves every step where the grid puts it
+    project.set_swing(MIN_SWING);
+    assert.equal(project.swing_delay, 0);
+
+    // The far end of the range gives the pair a 3:1 ratio, i.e. a first step
+    // one and a half steps long, so the second one starts half a step late
+    project.set_swing(MAX_SWING);
+    assert.equal(project.swing_delay, 0.5);
+
+    // Triplet swing splits the pair 2:1. The setting is a whole percent and
+    // triplets aren't, so this lands near a third of a step rather than on it.
+    project.set_swing(67);
+    assert.ok(Math.abs(project.swing_delay - 1 / 3) < 0.01);
 });
 
 test("a pattern can be added up to the pattern limit and no further", () =>
@@ -402,6 +425,17 @@ test("a tempo outside the allowed range is refused", () =>
     assert.equal(drain_asserts().length, 1);
 
     project.set_tempo(MAX_TEMPO + 1);
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a swing outside the allowed range is refused", () =>
+{
+    let project = new Project();
+
+    project.set_swing(MIN_SWING - 1);
+    assert.equal(drain_asserts().length, 1);
+
+    project.set_swing(MAX_SWING + 1);
     assert.equal(drain_asserts().length, 1);
 });
 

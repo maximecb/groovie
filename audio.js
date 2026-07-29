@@ -510,6 +510,11 @@ function update_playback()
     // the tempo during playback takes effect immediately
     let steps_per_sec = play_project.steps_per_sec;
 
+    // How long a swung step is held back for, in seconds. Read here for the
+    // same reason the step rate is: moving the swing slider during playback
+    // takes effect on the steps queued from here on.
+    let swing_time = play_project.swing_delay / steps_per_sec;
+
     // Time to queue until
     let queue_until_t = get_audio_ctx().currentTime + LOOKAHEAD_TIME;
 
@@ -543,6 +548,18 @@ function update_playback()
     {
         // Back-project the time of this step from the queue horizon
         let step_time = queue_until_t - (queue_until_pos - next_step) / steps_per_sec;
+
+        // Swing holds back every other step of the grid, which is what turns an
+        // even run of steps into a groove. It moves when a step is heard without
+        // moving the step counter, so the position everything else works in
+        // stays the straight line back-projected above, and the steps still come
+        // out in order: a step is never held back as far as the next one.
+        //
+        // Which steps swing is decided on the global step counter rather than
+        // on a position within a pattern, so that patterns of different lengths
+        // swing with each other rather than against each other.
+        if (next_step % 2)
+            step_time += swing_time;
 
         if (play_mode == PLAY_SONG)
             queue_song_step(step_time, song_len);
