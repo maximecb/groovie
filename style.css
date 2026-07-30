@@ -432,8 +432,114 @@ h1 {
     font-variant-numeric: tabular-nums;
 }
 
+/* The sliders are drawn from scratch rather than left to the browser, which
+   would bring a rounded handle and a blue of its own to a page made of squares
+   in two colors. The part of the track behind the handle is lit, the way the
+   travelled part of a fader is on a mixer, so that how far up a control is set
+   reads across the room.
+
+   That lit part is one flat color rather than a ramp, and the color is the
+   whole track's to give: it crosses from the purple of the logo to its red as
+   the value climbs, so a control near the bottom of its range is purple down
+   its whole length and only one at the top is red. The handle takes the same
+   color, being the head of the same bar.
+
+   How far along the handle is has to come from main.js as --val, CSS having no
+   way of its own to read a range input's value. The fallback matters: it's what
+   the sliders look like if a script error keeps that from being set. */
 input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+
+    /* The color the track has reached. The two ends are the purple and the red
+       of the logo taken to full strength, rather than the softer shades it
+       shades between: a lit bar is a small thing to read a value off, and it
+       has none of the glow around the logo to carry it. */
+    --slider_color: color-mix(in oklab, #B400FF, #FF0000 var(--val, 50%));
+
     width: 120px;
+
+    /* Room for the handle, which stands proud of the track */
+    height: 20px;
+
+    background: transparent;
+    cursor: pointer;
+
+    /* Dragging a handle on a touch screen should move it, not scroll the page */
+    touch-action: none;
+}
+
+/* The track. WebKit and Firefox each only understand their own name for it, and
+   a selector either of them can't parse takes the whole rule down with it, so
+   the two are written out separately here and for the handle below. */
+input[type="range"]::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    height: 8px;
+
+    background: linear-gradient(90deg,
+        var(--slider_color) var(--val, 50%), #000 var(--val, 50%));
+
+    border: 1px solid #666;
+}
+input[type="range"]::-moz-range-track {
+    box-sizing: border-box;
+    height: 8px;
+
+    background: linear-gradient(90deg,
+        var(--slider_color) var(--val, 50%), #000 var(--val, 50%));
+
+    border: 1px solid #666;
+}
+
+/* The handle: a cap standing across the track, taller than it is wide so that
+   it reads as the thing that slides along rather than as another step cell, and
+   narrow enough to point at one spot on the track. It is grey rather than a
+   color of its own: the color along the track is what the value is being read
+   off, and a handle holding that color too would only take the eye off it. The
+   edge is darker than the face, which gives a cap sitting above the track
+   rather than a flat block, and keeps the grey off the white the page marks
+   the pattern being edited in.
+
+   WebKit lays the handle out from the top of the track's content box, so it is
+   pulled up by half the difference between the two to sit centered on the
+   track. Firefox centers it on its own. */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    width: 8px;
+    height: 18px;
+    margin-top: -6px;
+
+    background-color: #DDD;
+    border: 1px solid #888;
+}
+input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 8px;
+    height: 18px;
+
+    background-color: #DDD;
+    border: 1px solid #888;
+
+    /* Firefox rounds the handle unless told not to */
+    border-radius: 0;
+}
+
+/* Pointing at a slider or tabbing to it brightens the edge of its track, which
+   is what the text field does to say the same thing */
+input[type="range"]:hover::-webkit-slider-runnable-track,
+input[type="range"]:focus-visible::-webkit-slider-runnable-track {
+    border-color: #999;
+}
+input[type="range"]:hover::-moz-range-track,
+input[type="range"]:focus-visible::-moz-range-track {
+    border-color: #999;
+}
+
+/* The track edge above already marks the focused slider, so the ring the
+   browser would draw around the whole control is left off */
+input[type="range"]:focus-visible {
+    outline: none;
 }
 
 /* The title of the composition and the button that puts it in a link. These
