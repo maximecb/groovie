@@ -13,7 +13,13 @@ body {
     background-color: #111;
     color: #FFF;
     margin: 0;
-    padding: 20px;
+
+    /* Less room above than at the other edges: the logo below carries clear
+       space of its own inside the image, for the glow around the letters to
+       have somewhere to fall off, and the page's own padding lands on top of
+       that. The sides and the bottom keep the full amount, being what holds
+       the contents off the edges of a phone screen. */
+    padding: 6px 20px 20px;
 }
 
 h1 {
