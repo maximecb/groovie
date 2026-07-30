@@ -70,7 +70,7 @@ export const CORPUS = [
     song_bars: 4,
     patterns: [
         {
-            samples: ['crash_01', 'ride_01', 'snare_01', 'kick_01'],
+            samples: ['crash_01', 'ride_01', 'snare_05', 'kick_01'],
             rows: [
                 //  bar 1              bar 2              bar 3              bar 4
                 'x...............' + '................' + '................' + '................',

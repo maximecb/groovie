@@ -290,6 +290,11 @@ window.onhashchange = function ()
     // Whatever is playing belongs to the project being replaced
     stop_playback();
 
+    // Focus is left over from the project being replaced, and the controls it
+    // can be sitting on aren't rebuilt below, so it would stay there. On the
+    // play button it also swallows the spacebar shortcut.
+    document.activeElement?.blur();
+
     project = new_project;
     cur_pat = 0;
 
