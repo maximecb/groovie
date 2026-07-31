@@ -10,6 +10,9 @@ import {
     MAX_SONG_STEPS,
     MIN_PAN,
     MAX_PAN,
+    MIN_PAT_ROWS,
+    MIN_VOLUME,
+    MAX_VOLUME,
     STEPS_PER_BAR,
 } from "./model.js";
 
@@ -245,6 +248,17 @@ export function pan_label(pan)
     return (pan < 0? 'L' : 'R') + Math.abs(10 * pan);
 }
 
+// How a level reads on a mixer: decibels below the sample as recorded, with
+// the bottom of the travel named rather than numbered, since a row down there
+// is off rather than very quiet.
+export function volume_label(volume)
+{
+    if (volume <= MIN_VOLUME)
+        return 'off';
+
+    return `${volume}dB`;
+}
+
 // Generate the DOM for a pattern grid, replacing whatever the div held before.
 // The pattern index is what says which color the grid is drawn in, and is the
 // same one its timeline lane uses.
@@ -282,6 +296,12 @@ export function render_pattern(pat_div, pattern, pat_idx)
         let row_div = document.createElement('div');
         row_div.className = 'pat_row';
 
+        // Stands in for the delete button the rows above have, so that this
+        // button still lines up with the sample selects it sits under
+        let spacer = document.createElement('div');
+        spacer.className = 'del_row_gap';
+        row_div.appendChild(spacer);
+
         let button = document.createElement('button');
         button.className = 'add_row';
         button.textContent = '+ row';
@@ -304,59 +324,121 @@ export function render_pattern(pat_div, pattern, pat_idx)
         return row_div;
     }
 
-    // Create the stereo pan control on the right of a row. A slider rather than
-    // the knob design.md called for: the page is built out of sliders already,
+    // Create one of the mixer controls on the right of a row, i.e. a slider
+    // with the value it is set to written beside it. Sliders rather than the
+    // knobs design.md called for: the page is built out of sliders already,
     // and a slider can be dragged, tabbed to and arrowed along without any of
     // the pointer handling a knob would need to turn a drag into an angle.
-    function make_pan_ctl(row_idx)
+    //
+    // The readouts are small and a column of them is easy to lose track of, so
+    // each names the sample it belongs to in its tooltip, along with what the
+    // control does.
+    function make_row_ctl(row_idx, spec)
     {
         let ctl = document.createElement('div');
-        ctl.className = 'pan_ctl';
+        ctl.className = 'row_ctl';
 
         let slider = document.createElement('input');
         slider.type = 'range';
-        slider.className = 'pan_slider';
-        slider.min = MIN_PAN;
-        slider.max = MAX_PAN;
+        slider.className = spec.cls;
+        slider.min = spec.min;
+        slider.max = spec.max;
         slider.step = 1;
-        slider.value = pattern.pans[row_idx];
 
         let readout = document.createElement('span');
-        readout.className = 'pan_val';
+        readout.className = 'row_ctl_val';
 
-        // Say where the row sits, on the control and on the row as a whole: the
-        // readout is small and a grid of them is easy to lose track of, so the
-        // sample the position belongs to is named in the tooltip
-        function show_pan(pan)
+        // Each readout is reserved at the width of the longest value its own
+        // control can show, so that the value changing doesn't shift what's
+        // beside it and no control carries a spare column it never fills
+        ctl.style.setProperty('--val_width', spec.val_width);
+
+        function show(val)
         {
-            readout.textContent = pan_label(pan);
-            slider.title = `Stereo position of ${
-                get_sample_name(pattern.sample_idxs[row_idx])}: ${pan_label(pan)}`;
+            readout.textContent = spec.label(val);
+            slider.title = `${spec.title} of ${
+                get_sample_name(pattern.sample_idxs[row_idx])}: ${spec.label(val)}`;
             update_slider_fill(slider);
         }
 
-        slider.oninput = () =>
+        function set(val)
         {
-            let pan = slider.valueAsNumber;
-            pattern.set_row_pan(row_idx, pan);
-            show_pan(pan);
-        };
+            slider.value = val;
+            spec.set(row_idx, val);
+            show(val);
+        }
+
+        slider.oninput = () => set(slider.valueAsNumber);
 
         // Double-clicking a mixer control puts it back where it started, which
-        // is the only way to hit the centre exactly on a touch screen
-        slider.ondblclick = () =>
-        {
-            slider.value = 0;
-            pattern.set_row_pan(row_idx, 0);
-            show_pan(0);
-        };
+        // on a touch screen is the only way to hit that value exactly
+        slider.ondblclick = () => set(spec.reset);
 
-        show_pan(pattern.pans[row_idx]);
+        set(spec.get(row_idx));
 
         ctl.appendChild(slider);
         ctl.appendChild(readout);
 
         return ctl;
+    }
+
+    // Where a row sits in the stereo field, then how loud it is
+    function make_volume_ctl(row_idx)
+    {
+        return make_row_ctl(row_idx, {
+            cls: 'vol_slider',
+            title: 'Level',
+            val_width: '5ch',   // '-30dB'
+            min: MIN_VOLUME,
+            max: MAX_VOLUME,
+            reset: MAX_VOLUME,
+            label: volume_label,
+            get: idx => pattern.volumes[idx],
+            set: (idx, val) => pattern.set_row_volume(idx, val),
+        });
+    }
+
+    function make_pan_ctl(row_idx)
+    {
+        return make_row_ctl(row_idx, {
+            cls: 'pan_slider',
+            title: 'Stereo position',
+            val_width: '4ch',   // 'L100'
+            min: MIN_PAN,
+            max: MAX_PAN,
+            reset: 0,
+            label: pan_label,
+            get: idx => pattern.pans[idx],
+            set: (idx, val) => pattern.set_row_pan(idx, val),
+        });
+    }
+
+    // Create the button that removes a row, at the left end of it. Destructive
+    // and one click away, so it stays quiet until pointed at, the way the
+    // button that adds a row does.
+    //
+    // A pattern always keeps one row, so on a pattern down to its last the
+    // button is disabled rather than left out: every row indents by the width
+    // of this, and a row without one would sit out of line with the rest.
+    function make_del_row(row_idx)
+    {
+        let button = document.createElement('button');
+        button.className = 'del_row';
+        button.textContent = '×';
+        button.title = `Remove the ${
+            get_sample_name(pattern.sample_idxs[row_idx])} row`;
+        button.disabled = (pattern.num_rows <= MIN_PAT_ROWS);
+
+        button.onclick = () =>
+        {
+            pattern.delete_row(row_idx);
+
+            // Every row below this one has moved up, and the handlers above
+            // close over the index a row had, so the grid gets rebuilt
+            render_pattern(pat_div, pattern, pat_idx);
+        };
+
+        return button;
     }
 
     // Create a div representing one cell
@@ -399,6 +481,7 @@ export function render_pattern(pat_div, pattern, pat_idx)
     {
         let row_div = document.createElement('div');
         row_div.className = 'pat_row';
+        row_div.appendChild(make_del_row(row_idx));
         row_div.appendChild(make_sample_sel(row_idx));
 
         // The cells sit in their own div so that the beat separators, which are
@@ -418,7 +501,15 @@ export function render_pattern(pat_div, pattern, pat_idx)
 
         cell_divs.push(row_cells);
         row_div.appendChild(cells_div);
-        row_div.appendChild(make_pan_ctl(row_idx));
+        // The mixer controls are grouped so that they sit closer to each other
+        // than to the steps they belong to, rather than at the spacing the row
+        // puts between its own parts
+        let ctls_div = document.createElement('div');
+        ctls_div.className = 'row_ctls';
+        ctls_div.appendChild(make_pan_ctl(row_idx));
+        ctls_div.appendChild(make_volume_ctl(row_idx));
+
+        row_div.appendChild(ctls_div);
         pat_div.appendChild(row_div);
     }
 

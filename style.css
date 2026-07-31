@@ -242,23 +242,74 @@ h1 {
     font-size: inherit;
 }
 
-/* Stereo pan control, on the right of a row. The slider itself is styled down
-   with the other sliders, since it is one of those with a track of its own. */
-.pan_ctl {
+/* The mixer controls of a row, taken together. They sit tighter to each other
+   than the row spaces its own parts, so that they read as one group of
+   settings belonging to the row rather than as two more things after the
+   steps. */
+.row_ctls {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 
-/* Reserved at its widest value ('L100') and left-aligned, so that a column of
-   these lines up down the grid rather than shifting with the value */
-.pan_val {
+/* One of those controls, i.e. a slider and the value it is set to. The sliders
+   themselves are styled down with the other sliders, being ones of those with
+   a track of their own. */
+.row_ctl {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Left-aligned and reserved at the width of the longest value its own control
+   can show, which each one gives as --val_width: a column of these has to line
+   up down the grid and not shift as the values change, but reserving the wider
+   control's width for both would leave the narrower one trailing a blank
+   column into whatever sits beside it. */
+.row_ctl_val {
     display: inline-block;
-    min-width: 4ch;
+    min-width: var(--val_width, 5ch);
 
     color: #999;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
+}
+
+/* Button removing a row, at the left end of it, and the blank standing in for
+   it under the last row so that the button adding a row still lines up with
+   the sample selects above it. A square the height of a row, so that the
+   column of them reads as an edge to the grid rather than as a stack of
+   controls competing with the steps.
+
+   Quiet until pointed at, the way the button that adds a row is, since it
+   destroys work in one click and there is one of them on every row. The hover
+   rule leaves the disabled button alone so that the plainer disabled look at
+   the end of the sheet still wins over it. */
+.del_row,
+.del_row_gap {
+    box-sizing: border-box;
+    flex: none;
+    width: 22px;
+    height: 22px;
+}
+
+.del_row {
+    padding: 0;
+
+    background-color: transparent;
+    color: #777;
+    border: 1px solid #444;
+
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+.del_row:not(:disabled):hover {
+    background-color: #2E2E2E;
+    color: #E22;
+
+    /* The red the page marks a destructive control in */
+    border-color: #E22;
 }
 
 /* Button to add a row, at the bottom of the pattern grid. Dashed and dim, so
@@ -590,6 +641,13 @@ input[type="range"]:focus-visible {
    on one side of the centre, so it only ever uncovers one of the two colors.
    min() and max() sort the two ends of that part, the handle being either left
    of the centre or right of it. */
+/* The level slider is one of the sliders above with nothing changed but its
+   width: it fills from the left the way they do, and takes the same color ramp,
+   which puts a row near the top of its range at the red end. */
+input[type="range"].vol_slider {
+    width: 60px;
+}
+
 input[type="range"].pan_slider {
     /* The purple and the red of the logo, at the full strength the other
        sliders take them to */

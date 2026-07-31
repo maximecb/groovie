@@ -28,6 +28,8 @@ import {
     MAX_SWING,
     MIN_PAN,
     MAX_PAN,
+    MIN_VOLUME,
+    MAX_VOLUME,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MAX_PAT_ROWS,
@@ -73,6 +75,7 @@ function assert_same_project(actual, expected, label = '')
         assert.deepEqual(act.sample_idxs, exp.sample_idxs, `pattern ${pat_idx} samples${of}`);
         assert.deepEqual(act.rows, exp.rows, `pattern ${pat_idx} cells${of}`);
         assert.deepEqual(act.pans, exp.pans, `pattern ${pat_idx} panning${of}`);
+        assert.deepEqual(act.volumes, exp.volumes, `pattern ${pat_idx} levels${of}`);
     }
 
     assert.deepEqual(actual.lanes, expected.lanes, `timeline lanes${of}`);
@@ -160,6 +163,7 @@ const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
 const PAN_BITS = 5;
+const VOLUME_BITS = 5;
 const GRID_SCHEME_BITS = 2;
 const MOTIF_PERIOD_BITS = 2;
 const VAR_CHUNK_BITS = 4;
@@ -184,7 +188,8 @@ const ONE_EMPTY_PATTERN =
     field(0, SAMPLE_IDX_BITS) +         // sample index 0
     field(0, GRID_SCHEME_BITS) +        // the cells are written out flat
     '0' +                               // the row's one cell, off
-    '1';                                // the row is panned where it's expected
+    '1' +                               // the row is panned where it's expected
+    '1';                                // and is at the level expected too
 
 //============================================================================
 // Round trips
@@ -739,7 +744,78 @@ test("a link panning a row past hard over is refused", () =>
         field(0, NUM_ROWS_BITS) +           // one row
         '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
         field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
-        '0' + field(31, PAN_BITS);          // panned past MAX_PAN
+        '0' + field(31, PAN_BITS) +         // panned past MAX_PAN
+        '1';                                // at the level expected
+
+    decode_project(bits_to_b64(bits));
+
+    assert.equal(drain_asserts().length, 1);
+});
+
+//============================================================================
+// Levels
+//
+// A row's level is guessed the same way its panning is, and pays for itself
+// only when the guess is wrong.
+//============================================================================
+
+test("every level survives a round trip", () =>
+{
+    for (let volume = MIN_VOLUME; volume <= MAX_VOLUME; ++volume)
+    {
+        let project = make_project(120, [
+            { sample_idxs: [0], rows: [[1, 0]] },
+        ]);
+        project.patterns[0].set_row_volume(0, volume);
+
+        assert.equal(round_trip(project).patterns[0].volumes[0], volume, `level ${volume}`);
+    }
+});
+
+test("a row keeps its level across patterns", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [3], rows: [[1, 0]], lane: [1] },
+        { sample_idxs: [3], rows: [[0, 1]], lane: [0, 1] },
+    ]);
+
+    project.patterns[0].set_row_volume(0, -9);
+    project.patterns[1].set_row_volume(0, -9);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.patterns[0].volumes[0], -9);
+    assert.equal(decoded.patterns[1].volumes[0], -9);
+});
+
+test("a row turned down in only one pattern survives", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [3], rows: [[1, 0]], lane: [1] },
+        { sample_idxs: [3], rows: [[0, 1]], lane: [0, 1] },
+    ]);
+
+    project.patterns[1].set_row_volume(0, MIN_VOLUME);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.patterns[0].volumes[0], MAX_VOLUME);
+    assert.equal(decoded.patterns[1].volumes[0], MIN_VOLUME);
+});
+
+test("a link setting a row past the top of the range is refused", () =>
+{
+    let bits =
+        field(0, VERSION_BITS) +
+        field(80, TEMPO_BITS) +
+        field(0, SWING_BITS) +
+        field(0, NUM_PATTERNS_BITS) +
+        field(0, NUM_STEPS_BITS) +          // one step
+        field(0, NUM_ROWS_BITS) +           // one row
+        '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
+        field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
+        '1' +                               // panned where it's expected
+        '0' + field(31, VOLUME_BITS);       // a level above MAX_VOLUME
 
     decode_project(bits_to_b64(bits));
 
@@ -759,16 +835,17 @@ test("a link panning a row past hard over is refused", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled;BQAAeFCA';
+const GOLDEN_EMPTY = 'untitled;BQAAeFDA';
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled;BQAAAAAHAA';
+const GOLDEN_MINIMAL = 'untitled;BQAAAAAHgA';
 
 // Two patterns of different lengths, a title, a tempo and a swing off their
 // defaults, the widest sample index the format holds, and both patterns on the
-// timeline. One row of each pattern is panned off centre, so that this pins
-// the panning fields too, one of them hard over and one part of the way.
-const GOLDEN_MIXED = 'test_song;BkiCGIAFQFBAoogIH_MdkA';
+// timeline. One row of each pattern is panned off centre and one of each is
+// turned down, so that this pins those fields too: the panning hard over and
+// part of the way, and the level part of the way down and all the way.
+const GOLDEN_MIXED = 'test_song;BkiCGIAFYCggMUUQED_mOAyA';
 
 test("a new project encodes to the same link it always has", () =>
 {
@@ -796,9 +873,11 @@ test("the golden links still decode to the projects they were made from", () =>
     assert.deepEqual(mixed.patterns[0].sample_idxs, [0, 5]);
     assert.deepEqual(mixed.patterns[0].rows, [[1, 0, 1, 0], [0, 0, 0, 1]]);
     assert.deepEqual(mixed.patterns[0].pans, [0, MIN_PAN]);
+    assert.deepEqual(mixed.patterns[0].volumes, [0, -6]);
     assert.deepEqual(mixed.patterns[1].sample_idxs, [2 ** SAMPLE_IDX_BITS - 1]);
     assert.deepEqual(mixed.patterns[1].rows, [[1, 1, 0]]);
     assert.deepEqual(mixed.patterns[1].pans, [4]);
+    assert.deepEqual(mixed.patterns[1].volumes, [MIN_VOLUME]);
     assert.deepEqual(mixed.lanes, [[1, 1, 0, 1], [0, 0, 1]]);
 });
 

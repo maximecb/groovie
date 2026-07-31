@@ -52,6 +52,24 @@ export const MIN_PAN = -10;
 export const MAX_PAN = 10;
 export const DEFAULT_PAN = 0;
 
+// Level of a row, in decibels below the sample as it was recorded. A row
+// starts at the top of the range, since balancing a kit is a matter of pulling
+// things down rather than pushing them up, and the master volume is what the
+// whole thing is set with.
+//
+// Decibels rather than a percentage because loudness is heard that way: a step
+// of one is about the smallest change in level anyone can hear, so every
+// setting in this range is one you can tell from its neighbours. A percentage
+// spread over the same number of settings would spend most of them between 90%
+// and 100%, where nobody can hear the difference, and have almost none left
+// where a small change is a large one.
+//
+// The bottom of the range is silence rather than the -30 dB it reads as, which
+// is how a fader pulled all the way down behaves, and is what mutes a row.
+export const MIN_VOLUME = -30;
+export const MAX_VOLUME = 0;
+export const DEFAULT_VOLUME = 0;
+
 // Pattern length, in steps
 export const MIN_PAT_STEPS = 1;
 export const MAX_PAT_STEPS = 64;
@@ -125,6 +143,10 @@ export class Pattern
         // patterns, but it rarely does: a row keeps the position it was given
         // for the whole song, which is what the encoding is built to expect.
         this.pans = sample_idxs.map(() => DEFAULT_PAN);
+
+        // Level of each row, which belongs to a row the same way its panning
+        // does and is kept the same way
+        this.volumes = sample_idxs.map(() => DEFAULT_VOLUME);
     }
 
     // Create a pattern with the default set of samples
@@ -184,6 +206,7 @@ export class Pattern
         this.sample_idxs.push(sample_idx);
         this.rows.push(Array(this.num_steps).fill(0));
         this.pans.push(DEFAULT_PAN);
+        this.volumes.push(DEFAULT_VOLUME);
 
         return true;
     }
@@ -221,6 +244,15 @@ export class Pattern
         this.pans[row_idx] = pan;
     }
 
+    // Set the level of a given row, in decibels
+    set_row_volume(row_idx, volume)
+    {
+        console.assert(row_idx < this.num_rows);
+        console.assert(volume >= MIN_VOLUME);
+        console.assert(volume <= MAX_VOLUME);
+        this.volumes[row_idx] = volume;
+    }
+
     // Stereo position of a given row on the -1 to 1 scale the audio graph pans
     // on, rather than the tenths the model and the URL hold it in. Playback
     // asks a pattern for this so that audio.js doesn't have to import the
@@ -228,6 +260,36 @@ export class Pattern
     row_stereo_pan(row_idx)
     {
         return this.pans[row_idx] / MAX_PAN;
+    }
+
+    // Level of a given row as the gain the audio graph multiplies by, rather
+    // than the decibels the model and the URL hold it in. Asked of a pattern
+    // for the same reason row_stereo_pan is.
+    //
+    // A row at the bottom of the range is silent rather than very quiet, so
+    // that pulling one all the way down takes it out of the song.
+    row_gain(row_idx)
+    {
+        let volume = this.volumes[row_idx];
+
+        return volume <= MIN_VOLUME? 0 : 10 ** (volume / 20);
+    }
+
+    // Remove a row from the pattern.
+    // Returns false if the pattern is down to the last row it has to keep.
+    delete_row(row_idx)
+    {
+        console.assert(row_idx < this.num_rows);
+
+        if (this.num_rows <= MIN_PAT_ROWS)
+            return false;
+
+        this.sample_idxs.splice(row_idx, 1);
+        this.rows.splice(row_idx, 1);
+        this.pans.splice(row_idx, 1);
+        this.volumes.splice(row_idx, 1);
+
+        return true;
     }
 
     // Test if a row has no active step, i.e. plays nothing
@@ -254,6 +316,7 @@ export class Pattern
         let pat = new Pattern(this.sample_idxs.slice(), this.num_steps);
         pat.rows = this.rows.map(row => row.slice());
         pat.pans = this.pans.slice();
+        pat.volumes = this.volumes.slice();
 
         return pat;
     }
@@ -266,10 +329,11 @@ export class Pattern
     {
         let pat = new Pattern(this.sample_idxs.slice(), this.num_steps);
 
-        // Panning is part of the kit for the same reason the samples are, so a
-        // new pattern keeps where the rows were placed rather than pulling
-        // everything back to the centre
+        // Panning and level are part of the kit for the same reason the
+        // samples are, so a new pattern keeps how the rows were set rather than
+        // pulling everything back to the middle and back up to full
         pat.pans = this.pans.slice();
+        pat.volumes = this.volumes.slice();
 
         return pat;
     }
@@ -299,6 +363,7 @@ export class Pattern
         );
         pat.rows = row_idxs.map(row_idx => this.rows[row_idx].slice());
         pat.pans = row_idxs.map(row_idx => this.pans[row_idx]);
+        pat.volumes = row_idxs.map(row_idx => this.volumes[row_idx]);
 
         return pat;
     }
@@ -545,6 +610,7 @@ const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
 const PAN_BITS = 5;
+const VOLUME_BITS = 5;
 
 // How the cells of a row are written. Every row says which of these it used,
 // and the encoder takes whichever writes that row in the fewest bits, so a row
@@ -575,6 +641,7 @@ const MAX_VAR_CHUNKS = Math.ceil(Math.log2(MAX_SONG_STEPS + 1) / VAR_CHUNK_BITS)
 console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));
 console.assert(MAX_SWING - MIN_SWING < (1 << SWING_BITS));
 console.assert(MAX_PAN - MIN_PAN < (1 << PAN_BITS));
+console.assert(MAX_VOLUME - MIN_VOLUME < (1 << VOLUME_BITS));
 console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
 console.assert(MAX_PAT_STEPS <= (1 << NUM_STEPS_BITS));
 console.assert(MAX_PAT_ROWS <= (1 << NUM_ROWS_BITS));
@@ -897,6 +964,17 @@ function predicted_pan(prev_pat, row_idx)
     return DEFAULT_PAN;
 }
 
+// And likewise for its level, which is kept the same way panning is: a row
+// turned down in one pattern is turned down in the next, and a row nobody
+// touched is still at the top of the range.
+function predicted_volume(prev_pat, row_idx)
+{
+    if (prev_pat && row_idx < prev_pat.num_rows)
+        return prev_pat.volumes[row_idx];
+
+    return DEFAULT_VOLUME;
+}
+
 // Encode one timeline lane.
 //
 // Lanes are sparse: a pattern is off for most of a song, and where it's on it
@@ -1014,6 +1092,12 @@ export function encode_project(project)
         writer.write(pat.num_steps - 1, NUM_STEPS_BITS);
         writer.write(pat.num_rows - 1, NUM_ROWS_BITS);
 
+        // A row's fields are written in the order the editor lays them out in,
+        // left to right: the sample it plays, its cells, where it sits in the
+        // stereo field, and how loud it is. Nothing forces that, and the
+        // encoding would be no shorter either way, but a control added to one
+        // and not the other is what makes these two stop reading as the same
+        // thing. Anything added here belongs at the end of a row on screen.
         for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
         {
             let sample_idx = pat.sample_idxs[row_idx];
@@ -1033,6 +1117,14 @@ export function encode_project(project)
 
             if (!pan_predicted)
                 writer.write(pan - MIN_PAN, PAN_BITS);
+
+            let volume = pat.volumes[row_idx];
+            let vol_predicted = volume == predicted_volume(prev_pat, row_idx);
+
+            writer.write(vol_predicted? 1:0, 1);
+
+            if (!vol_predicted)
+                writer.write(volume - MIN_VOLUME, VOLUME_BITS);
         }
 
         // A pattern is followed by the lane placing it on the timeline
@@ -1074,6 +1166,7 @@ export function decode_project(b64_str)
         let sample_idxs = [];
         let rows = [];
         let pans = [];
+        let volumes = [];
 
         for (let row_idx = 0; row_idx < num_rows; ++row_idx)
         {
@@ -1089,16 +1182,23 @@ export function decode_project(b64_str)
             pans.push(reader.read(1)?
                 predicted_pan(prev_pat, row_idx) :
                 MIN_PAN + reader.read(PAN_BITS));
+
+            volumes.push(reader.read(1)?
+                predicted_volume(prev_pat, row_idx) :
+                MIN_VOLUME + reader.read(VOLUME_BITS));
         }
 
         let pat = new Pattern(sample_idxs, num_steps);
         pat.rows = rows;
 
-        // Set through the model rather than assigned, so that a pan field
-        // holding one of the values the encoder never writes is caught here
-        // rather than reaching the audio graph
+        // Set through the model rather than assigned, so that a field holding
+        // one of the values the encoder never writes is caught here rather than
+        // reaching the audio graph
         for (let row_idx = 0; row_idx < num_rows; ++row_idx)
+        {
             pat.set_row_pan(row_idx, pans[row_idx]);
+            pat.set_row_volume(row_idx, volumes[row_idx]);
+        }
 
         project.patterns.push(pat);
         project.lanes.push(decode_lane(reader, num_steps));

@@ -160,17 +160,23 @@ class SampleManager
 
     // Play a sample at a given time relative to the audio context clock.
     //
-    // The stereo position runs from -1 for hard left to 1 for hard right, on
-    // the scale the panner node works on rather than the tenths the model
-    // holds; Pattern.row_stereo_pan converts between the two. A sample playing
-    // dead centre is routed straight to the destination, so the nodes the
-    // panning costs are only paid for by the rows that are panned.
-    play_sample(sample_idx, start_time, dst_node, stereo_pan = 0)
+    // The stereo position runs from -1 for hard left to 1 for hard right, and
+    // the gain is a multiplier with 1 for the sample as it was recorded, both
+    // on the scale the nodes work on rather than the tenths and decibels the
+    // model holds; Pattern.row_stereo_pan and Pattern.row_gain convert between
+    // the two. A sample playing dead centre at full level is routed straight to
+    // the destination, so the nodes these cost are only paid for by the rows
+    // that were actually set.
+    play_sample(sample_idx, start_time, dst_node, stereo_pan = 0, gain = 1)
     {
         const buffer = this.get_buffer(sample_idx);
 
         // If the sample is not yet loaded, do nothing
         if (!buffer)
+            return;
+
+        // A row pulled all the way down is silent, so there is nothing to play
+        if (gain == 0)
             return;
 
         if (stereo_pan != 0)
@@ -179,6 +185,14 @@ class SampleManager
             panner.pan.value = stereo_pan;
             panner.connect(dst_node);
             dst_node = panner;
+        }
+
+        if (gain != 1)
+        {
+            const gain_node = get_audio_ctx().createGain();
+            gain_node.gain.value = gain;
+            gain_node.connect(dst_node);
+            dst_node = gain_node;
         }
 
         // Create a buffer source
@@ -670,7 +684,8 @@ function queue_pat_cells(pat, step_idx, step_time)
                 pat.sample_idxs[row_idx],
                 step_time,
                 global_gain,
-                pat.row_stereo_pan(row_idx)
+                pat.row_stereo_pan(row_idx),
+                pat.row_gain(row_idx)
             );
         }
     }

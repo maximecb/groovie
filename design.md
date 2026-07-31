@@ -26,16 +26,16 @@ Samples in patterns can be referenced with an integer index, probably
 of sample names to sample indices.
 
 What a link mostly holds is pattern rows, so that is where the compression is.
-A row is written as a guess at the sample it plays, its cells, and a guess at
-where it sits in the stereo field.
+A row is written as a guess at the sample it plays, its cells, and guesses at
+where it sits in the stereo field and how loud it is.
 
-The two guesses are the row at the same index of the previous pattern written,
+Each guess is the row at the same index of the previous pattern written,
 falling back to what a row starts out as when there is no previous pattern: the
-sample its index was handed from the default kit, and the centre. Each costs a
-single bit when it's right. Patterns are made by copying one another and a kit
-is usually left alone once assembled, so for most rows of most projects both
-guesses are right, and a project on the untouched default kit pays one bit per
-row for its samples rather than nine.
+sample its index was handed from the default kit, the centre, and full level.
+Each costs a single bit when it's right. Patterns are made by copying one
+another and a kit is usually left alone once assembled, so for most rows of
+most projects every guess is right, and a project on the untouched default kit
+pays one bit per row for its samples rather than nine.
 
 The cells are written in whichever of four schemes is shortest, named by a
 two-bit field in front of them:
@@ -114,11 +114,22 @@ rather than the knob originally planned: the page is built out of sliders
 already, and a slider can be dragged, tabbed to and arrowed along without any
 of the pointer handling a knob needs to turn a drag into an angle.
 
-Panning belongs to the row rather than to the sample, so the same sample can
-sit in two places in two patterns. It rarely does — a kit is mixed once and
+Beside it is a level control, reading out in decibels below the sample as
+recorded, with the bottom of its travel silent rather than merely quiet so that
+pulling a row down mutes it. Decibels rather than a percentage because that is
+how loudness is heard: a step of one decibel is about the smallest change
+anyone can hear, so every setting in the range is one that can be told from its
+neighbours, where a percentage spread over the same number of settings would
+put most of them between 90% and 100% where none of them can.
+
+Both belong to the row rather than to the sample, so the same sample can be
+placed and set two ways in two patterns. It rarely is — a kit is mixed once and
 left alone — which is what the encoding above is built to expect. A new pattern
-takes the panning of the one it was made from, for the same reason it takes its
-samples.
+takes the panning and levels of the one it was made from, for the same reason
+it takes its samples.
+
+At the end of a row is the button that removes it. A pattern always keeps one
+row, so the button is left off a pattern that is down to its last.
 
 The timeline view at the bottom arranges patterns into a song, with one lane per
 pattern. Because steps have a fixed duration, each timeline cell is as wide as

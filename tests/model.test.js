@@ -115,6 +115,43 @@ test("an added row is empty and as long as the pattern", () =>
     assert.ok(pat.row_is_inactive(1));
 });
 
+test("a row can be deleted down to the last one and no further", () =>
+{
+    let pat = new Pattern([4, 5, 6], MIN_PAT_STEPS);
+
+    assert.equal(pat.delete_row(1), true);
+    assert.deepEqual(pat.sample_idxs, [4, 6]);
+
+    assert.equal(pat.delete_row(0), true);
+    assert.deepEqual(pat.sample_idxs, [6]);
+
+    // A pattern always keeps a row, so the last one can't be deleted
+    assert.equal(pat.delete_row(0), false);
+    assert.deepEqual(pat.sample_idxs, [6]);
+});
+
+test("deleting a row takes everything belonging to it", () =>
+{
+    let pat = new Pattern([4, 5, 6], 2);
+
+    pat.toggle_cell(1, 0);
+    pat.set_row_pan(1, -6);
+    pat.set_row_volume(1, -12);
+    pat.toggle_cell(2, 1);
+    pat.set_row_pan(2, 7);
+    pat.set_row_volume(2, -3);
+
+    pat.delete_row(1);
+
+    // What was the third row is now the second, with its own cells, panning
+    // and level rather than the deleted row's
+    assert.equal(pat.num_rows, 2);
+    assert.deepEqual(pat.sample_idxs, [4, 6]);
+    assert.deepEqual(pat.rows[1], [0, 1]);
+    assert.deepEqual(pat.pans, [0, 7]);
+    assert.deepEqual(pat.volumes, [0, -3]);
+});
+
 test("a pattern always has a sample to hand a new row", () =>
 {
     // There are as many ROW_SAMPLES as a pattern can have rows, so filling a
