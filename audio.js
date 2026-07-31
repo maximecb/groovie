@@ -167,17 +167,20 @@ class SampleManager
     // the two. A sample playing dead centre at full level is routed straight to
     // the destination, so the nodes these cost are only paid for by the rows
     // that were actually set.
+    //
+    // Returns whether a voice was started, which is what the cap on a step is
+    // counted in: a row that makes no sound costs nothing (see queue_pat_cells).
     play_sample(sample_idx, start_time, dst_node, stereo_pan = 0, gain = 1)
     {
         const buffer = this.get_buffer(sample_idx);
 
         // If the sample is not yet loaded, do nothing
         if (!buffer)
-            return;
+            return false;
 
         // A row pulled all the way down is silent, so there is nothing to play
         if (gain == 0)
-            return;
+            return false;
 
         if (stereo_pan != 0)
         {
@@ -202,6 +205,8 @@ class SampleManager
 
         // Start playback at the specified time on the audio context clock
         source.start(start_time);
+
+        return true;
     }
 }
 
@@ -298,6 +303,24 @@ const LOOKAHEAD_TIME = 0.1;
 
 // How often the playback update runs, in milliseconds
 const UPDATE_INTERV_MS = 1000 / 25;
+
+// How many voices one step may start.
+//
+// Playing the song plays every pattern the timeline lays across a step, so what
+// a step can start is bounded by the project rather than by the pattern being
+// edited: 64 patterns of 16 rows is 1024 voices on a single step, which at the
+// top of the tempo range is some 19,000 sample starts a second, and the link
+// carrying that is a couple of thousand characters. Somebody opening a link
+// they were sent shouldn't be able to have their tab locked up by it.
+//
+// This is counted per step rather than per second because that's the musical
+// quantity: how many things land at once. A cap on the rate would thin out a
+// fast song and leave a slow one alone at the same density, which is a limit
+// nobody could make sense of by ear. The densest song in the corpus puts 10
+// voices on a step and a single pattern can only ever start 16, so this sits
+// several times above anything worth writing while keeping the worst case to a
+// few hundred voices sounding at once, which is what a phone can carry.
+export const MAX_STEP_VOICES = 64;
 
 // What playback is currently doing. A single pattern is played while it's
 // being edited, and the whole timeline is played to hear the song; both are the
@@ -643,7 +666,9 @@ function queue_pat_step(step_time)
         step_idx = 0;
     }
 
-    queue_pat_cells(pat, step_idx, step_time);
+    // A pattern has at most MAX_PAT_ROWS rows, so playing one on its own can
+    // never reach the cap. It's passed anyway so that there is one path here.
+    queue_pat_cells(pat, step_idx, step_time, MAX_STEP_VOICES);
 }
 
 // Queue one step of the song, i.e. of every pattern placed on the timeline at
@@ -660,33 +685,64 @@ function queue_song_step(step_time, song_len)
         song_start = next_step;
     }
 
+    // Voices are counted across the whole step, since it's everything landing
+    // at once that the cap is about, not any one pattern's share of it. The
+    // patterns are gone through in the order they're held in, so a step over
+    // the cap is one the last patterns of the project drop out of.
+    let num_voices = 0;
+
     for (let pat_idx = 0; pat_idx < play_project.num_patterns; ++pat_idx)
     {
         if (!play_project.pat_active_at(pat_idx, song_step))
             continue;
 
         let pat = play_project.patterns[pat_idx];
-        queue_pat_cells(pat, song_step % pat.num_steps, step_time);
+
+        num_voices += queue_pat_cells(
+            pat,
+            song_step % pat.num_steps,
+            step_time,
+            MAX_STEP_VOICES - num_voices
+        );
+
+        if (num_voices >= MAX_STEP_VOICES)
+            break;
     }
 
     song_step++;
 }
 
-// Trigger the sample of each active cell on one step of a pattern.
+// Trigger the sample of each active cell on one step of a pattern, stopping
+// once it has started as many voices as it is allowed to.
 // There is one row per sample, and the number of rows is variable.
-function queue_pat_cells(pat, step_idx, step_time)
+//
+// Returns how many voices were started, which is what the caller counts the
+// cap in. A row whose sample hasn't loaded or that was pulled all the way down
+// starts nothing, and so is not charged for: the cap is there to bound the work
+// and the noise a step makes, and a row making neither costs nothing on either.
+function queue_pat_cells(pat, step_idx, step_time, max_voices)
 {
+    let num_voices = 0;
+
     for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
     {
-        if (pat.get_cell(row_idx, step_idx))
-        {
-            samples.play_sample(
-                pat.sample_idxs[row_idx],
-                step_time,
-                global_gain,
-                pat.row_stereo_pan(row_idx),
-                pat.row_gain(row_idx)
-            );
-        }
+        if (num_voices >= max_voices)
+            break;
+
+        if (!pat.get_cell(row_idx, step_idx))
+            continue;
+
+        let started = samples.play_sample(
+            pat.sample_idxs[row_idx],
+            step_time,
+            global_gain,
+            pat.row_stereo_pan(row_idx),
+            pat.row_gain(row_idx)
+        );
+
+        if (started)
+            ++num_voices;
     }
+
+    return num_voices;
 }
