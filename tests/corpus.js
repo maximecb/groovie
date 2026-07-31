@@ -25,7 +25,16 @@
 // where a row starts out.
 
 import { get_sample_idx } from "../audio.js";
-import { Pattern, Project, STEPS_PER_BAR } from "../model.js";
+import {
+    Pattern,
+    Project,
+    MAX_SONG_STEPS,
+    MIN_TEMPO,
+    STEPS_PER_BAR,
+} from "../model.js";
+
+// How many bars the longest song there can be runs for
+const MAX_SONG_BARS = MAX_SONG_STEPS / STEPS_PER_BAR;
 
 // Read a row of steps written as 'x' for on and '.' for off
 export function cells(str)
@@ -59,6 +68,28 @@ export function lane_from_bar(start_bar, num_steps, song_bars)
         ...Array(first_cell).fill(0),
         ...Array(last_cell - first_cell + 1).fill(1),
     ];
+}
+
+// A lane placing a pattern over several stretches of a song, each written as
+// the bar it comes in at and the bar it drops out before. Lanes are written
+// out as grids wherever they fit on a line; this is for the ones that don't.
+export function lane_over_bars(num_steps, song_bars, ranges)
+{
+    let lane = [];
+
+    for (let [start_bar, end_bar] of ranges)
+    {
+        let first_cell = Math.ceil(start_bar * STEPS_PER_BAR / num_steps);
+        let last_cell = Math.floor(end_bar * STEPS_PER_BAR / num_steps) - 1;
+
+        while (lane.length < first_cell)
+            lane.push(0);
+
+        while (lane.length <= last_cell)
+            lane.push(1);
+    }
+
+    return lane;
 }
 
 // Every song says how many bars it runs for, which the tests check it still
@@ -670,6 +701,95 @@ export const CORPUS = [
             pans:    [ -7,   7],
             volumes: [-16, -16],
             lane: lane_from_bar(16, 12, 64),
+        },
+    ],
+},
+
+{
+    // The longest a song can be: the timeline filled to MAX_SONG_STEPS and
+    // played at the slowest tempo a project can be set to, which comes to 1024
+    // bars and a little over an hour and a half. It is here for what that
+    // costs rather than for what it plays. A lane is written as runs of cells
+    // rather than as the cells themselves (see encode_lane), so length is very
+    // nearly free, and nothing else here reaches the end of the range where a
+    // run takes several chunks to write and a lane holds a couple of thousand
+    // cells: this whole song is 97 bytes, against 138 for the psytrance one.
+    //
+    // What keeps an hour and a half from being one bar heard 1024 times is
+    // that the pattern lengths are pairwise coprime, so no two layers ever
+    // line up the same way twice. Only the first pattern sits square on the
+    // bar; every other one walks against it, and the arrangement is the layers
+    // coming in one at a time over the first 320 bars with a few of them
+    // dropping out later. The whole thing would come back to where it started
+    // after 1,784,742,960 steps, which at this tempo is 21 years.
+    name: 'the longest song there can be',
+    tempo: MIN_TEMPO,
+    song_bars: MAX_SONG_BARS,
+    patterns: [
+        {   // The pulse, and the one layer the others are heard against
+            samples: ['kick_01', 'snare_01'],
+            rows: [
+                'x...x...x...x...',
+                '....x.......x...',
+            ],
+            lane: lane_over_bars(16, MAX_SONG_BARS,
+                [[0, 512], [576, 832], [864, MAX_SONG_BARS]]),
+        },
+        {   // A step short of the bar, so it walks backwards through it
+            samples: ['hat_closed_01', 'maracas_01'],
+            rows: [
+                'x.x.x.x.x.x.x.x',
+                '..x...x...x...x',
+            ],
+            pans:    [-3,   7],
+            volumes: [-6, -11],
+            lane: lane_over_bars(15, MAX_SONG_BARS, [[4, 512], [544, MAX_SONG_BARS]]),
+        },
+        {
+            samples: ['hat_open_01'],
+            rows: ['......x......'],
+            pans: [4],
+            volumes: [-9],
+            lane: lane_over_bars(13, MAX_SONG_BARS, [[16, MAX_SONG_BARS]]),
+        },
+        {
+            samples: ['clap_01'],
+            rows: ['..x.....x..'],
+            pans: [6],
+            volumes: [-6],
+            lane: lane_over_bars(11, MAX_SONG_BARS, [[32, MAX_SONG_BARS]]),
+        },
+        {
+            samples: ['rimshot_01', 'cowbell_01'],
+            rows: [
+                'x...x.x...x.x....',
+                '........x........',
+            ],
+            pans:    [-6,   2],
+            volumes: [-8, -14],
+            lane: lane_over_bars(17, MAX_SONG_BARS, [[64, MAX_SONG_BARS]]),
+        },
+        {   // The shortest layer, and the only one that drops out for the
+            // whole of the breakdown rather than part of it
+            samples: ['tom_low_01'],
+            rows: ['x......'],
+            volumes: [-12],
+            lane: lane_over_bars(7, MAX_SONG_BARS, [[128, 512], [640, MAX_SONG_BARS]]),
+        },
+        {   // The two longest cycles are the pitched ones, so that what little
+            // of the song is not percussion turns over slowest of all
+            samples: ['twang_01'],
+            rows: ['..........x........'],
+            pans: [-8],
+            volumes: [-13],
+            lane: lane_over_bars(19, MAX_SONG_BARS, [[192, MAX_SONG_BARS]]),
+        },
+        {
+            samples: ['glass_01'],
+            rows: ['x..............x.......'],
+            pans: [9],
+            volumes: [-15],
+            lane: lane_over_bars(23, MAX_SONG_BARS, [[320, MAX_SONG_BARS]]),
         },
     ],
 },
