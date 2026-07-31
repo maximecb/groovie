@@ -723,7 +723,7 @@ export const CORPUS = [
     // dropping out later. The whole thing would come back to where it started
     // after 1,784,742,960 steps, which at this tempo is 21 years.
     name: 'the longest song there can be',
-    tempo: MIN_TEMPO,
+    tempo: 137,
     song_bars: MAX_SONG_BARS,
     patterns: [
         {   // The pulse, and the one layer the others are heard against
