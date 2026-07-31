@@ -236,9 +236,9 @@ export function fetch_project_samples(project)
 // Global volume/gain node
 let global_gain = null;
 
-// Master volume, in the [0, 1] range. This defaults to 50% to protect end
+// Master volume, in the [0, 1] range. This defaults to 45% to protect end
 // users when loading somebody else's project (see design.md).
-let volume = 0.5;
+let volume = 0.45;
 
 // Initialize the web audio context
 async function init_web_audio()
