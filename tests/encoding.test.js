@@ -72,6 +72,7 @@ function assert_same_project(actual, expected, label = '')
         assert.equal(act.num_steps, exp.num_steps, `pattern ${pat_idx} length${of}`);
         assert.deepEqual(act.sample_idxs, exp.sample_idxs, `pattern ${pat_idx} samples${of}`);
         assert.deepEqual(act.rows, exp.rows, `pattern ${pat_idx} cells${of}`);
+        assert.deepEqual(act.pans, exp.pans, `pattern ${pat_idx} panning${of}`);
     }
 
     assert.deepEqual(actual.lanes, expected.lanes, `timeline lanes${of}`);

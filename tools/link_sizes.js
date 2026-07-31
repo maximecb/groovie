@@ -68,8 +68,18 @@ function measure(song)
     };
 }
 
+let rows = CORPUS.map(measure);
+
+// The song column is as wide as the longest thing that goes in it, plus the
+// gap separating it from the next column, so that adding a song whose name is
+// longer than any of the others doesn't push every column after it out of line
+const NAME_WIDTH = 2 + Math.max(
+    `${rows.length} songs`.length,
+    ...rows.map(row => row.name.length)
+);
+
 const COLUMNS = [
-    { head: 'song',      key: 'name',         width: 30, left: true },
+    { head: 'song',      key: 'name',         width: NAME_WIDTH, left: true },
     { head: 'patterns',  key: 'patterns',     width: 9 },
     { head: 'steps',     key: 'song_steps',   width: 7 },
     { head: 'cells',     key: 'active_cells', width: 7 },
@@ -87,7 +97,6 @@ function row_text(vals)
     }).join('');
 }
 
-let rows = CORPUS.map(measure);
 let rule = '-'.repeat(COLUMNS.reduce((sum, col) => sum + col.width, 0));
 
 // The links first, so that a song can be opened before reading what it costs.

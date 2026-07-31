@@ -17,6 +17,11 @@
 // samples happen to come first. That ties this file to the sample table: a
 // sample removed from it takes the tests down with it, which is the price of
 // the corpus being playable.
+//
+// A pattern can also give its rows stereo positions, in the tenths the model
+// holds them in, from -10 for hard left to 10 for hard right. A pattern that
+// says nothing about them is played down the middle, which is where a row
+// starts out.
 
 import { get_sample_idx } from "../audio.js";
 import { Pattern, Project, STEPS_PER_BAR } from "../model.js";
@@ -425,6 +430,110 @@ export const CORPUS = [
     ],
 },
 
+{
+    // The only song here that pans anything, and so the one that says what
+    // panning costs a link. Deep house at 124: a kit held down the middle with
+    // the hats opened out either side of it, and a pair of bongo rows playing
+    // the same drum against itself from opposite sides of the field, which is
+    // what the two rows on one sample are for. The turnaround is three toms
+    // laid left to right, so the fill crosses the field as it falls.
+    //
+    // The breakdown drops the kick by emptying its row rather than removing
+    // it, which is what dropping a part looks like in the editor. That shifts
+    // every row of that pattern up one once the empty row is stripped out, so
+    // this is also the song that shows what a link pays when a pattern stops
+    // lining up with the one before it.
+    //
+    // It is the only song here that swings, house having been made on machines
+    // with a shuffle control since the beginning. The setting is a light one,
+    // in the range those machines are usually left at: swing holds back the
+    // odd steps, so all it reaches here is the syncopated sixteenths of the
+    // bongos and one late clap, and the four to the floor underneath them
+    // stays where it was.
+    name: 'a 32 bar house groove panned wide',
+    tempo: 124,
+    swing: 56,
+    song_bars: 32,
+    patterns: [
+        {   // the groove
+            samples: [
+                'kick_04',
+                'clap_01',
+                'hat_closed_01',
+                'hat_open_01',
+                'bongo_01',
+                'bongo_01',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                'x...x...x...x...' + 'x...x...x...x...',
+                '....x.......x...' + '....x.......x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                '......x.......x.' + '......x.......x.',
+                'x..x......x.....' + 'x..x......x.....',
+                '......x.....x..x' + '......x.....x..x',
+            ],
+            pans: [0, 0, 2, -3, -9, 9],
+            lane: 'xxxx........xxxx',
+        },
+        {   // the same groove opened up, with a shaker across the top right
+            samples: [
+                'kick_04',
+                'clap_01',
+                'hat_closed_01',
+                'hat_open_01',
+                'bongo_01',
+                'bongo_01',
+                'maracas_01',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                'x...x...x...x...' + 'x...x...x...x...',
+                '....x.......x...' + '....x.......x..x',
+                '..x...x...x...x.' + '..x...x...x.x.x.',
+                '......x.......x.' + '......x.......x.',
+                'x..x......x.....' + 'x..x......x.....',
+                '......x.....x..x' + '......x.....x..x',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+            ],
+            pans: [0, 0, 2, -3, -9, 9, 5],
+            lane: '....xxxx........',
+        },
+        {   // the breakdown, the kick emptied out rather than taken away
+            samples: [
+                'kick_04',
+                'clap_01',
+                'hat_closed_01',
+                'hat_open_01',
+                'bongo_01',
+                'bongo_01',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                '................' + '................',
+                '....x.......x...' + '....x.......x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                '......x.......x.' + '......x.......x.',
+                'x..x......x.....' + 'x..x..x...x.....',
+                '......x.....x..x' + '......x.....x..x',
+            ],
+            pans: [0, 0, 2, -3, -9, 9],
+            lane: '........xxx.....',
+        },
+        {   // the turnaround, falling from left to right across the toms
+            samples: ['tom_low_01', 'tom_mid_01', 'tom_hi_01', 'clap_01'],
+            rows: [
+                'x.......x.......',
+                '..x.......x.....',
+                '....x.......x...',
+                '..............x.',
+            ],
+            pans: [-8, 0, 8, 0],
+            lane: '......................xx........',
+        },
+    ],
+},
+
 ];
 
 // Turn one of the entries above into a project
@@ -439,12 +548,17 @@ export function build_song(song)
     project.patterns = [];
     project.lanes = [];
 
-    for (let { samples, rows, lane } of song.patterns)
+    for (let { samples, rows, lane, pans } of song.patterns)
     {
         console.assert(samples.length == rows.length);
+        console.assert(!pans || pans.length == rows.length);
 
         let pat = new Pattern(samples.map(name => get_sample_idx(name)), rows[0].length);
         pat.rows = rows.map(cells);
+
+        // A pattern that says nothing about panning keeps every row centred
+        if (pans)
+            pans.forEach((pan, row_idx) => pat.set_row_pan(row_idx, pan));
 
         project.patterns.push(pat);
         project.lanes.push(typeof lane == 'string'? lane_cells(lane) : lane);
