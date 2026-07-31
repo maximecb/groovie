@@ -19,9 +19,10 @@
 // the corpus being playable.
 //
 // A pattern can also give its rows stereo positions, in the tenths the model
-// holds them in, from -10 for hard left to 10 for hard right. A pattern that
-// says nothing about them is played down the middle, which is where a row
-// starts out.
+// holds them in, from -10 for hard left to 10 for hard right, and levels, in
+// the decibels it holds those in, from -30 for silence up to 0. A pattern that
+// says nothing about either is played down the middle at full level, which is
+// where a row starts out.
 
 import { get_sample_idx } from "../audio.js";
 import { Pattern, Project, STEPS_PER_BAR } from "../model.js";
@@ -534,6 +535,145 @@ export const CORPUS = [
     ],
 },
 
+{
+    // The one song here that is mixed rather than just placed: every row sits
+    // at a level of its own, which no other song sets at all. Psytrance at 145,
+    // where the kick and the bass under it hold the middle at full level and
+    // everything else is pulled down and pushed out to the sides around them.
+    //
+    // The engine is the rolling sixteenth bass answering the kick, which the
+    // whole genre is built on: kick, rest, bass, bass, four times a bar. The
+    // blips are one sample on two rows, the second a step behind the first and
+    // quieter, which is a stereo delay written out as two rows.
+    //
+    // It is also the longest arrangement here, and the only one carrying a
+    // layer whose length doesn't divide the bar: the twelve step percussion
+    // runs from the first drop to the end, coming back into line with the bar
+    // every three of them.
+    name: 'a 64 bar psytrance arrangement',
+    tempo: 145,
+    song_bars: 64,
+    patterns: [
+        {   // the engine
+            samples: [
+                'kick_05',
+                'kick_12',
+                'hat_open_03',
+                'hat_closed_03',
+                'rimshot_03',
+                'maracas_02',
+            ],
+            rows: [
+                'x...x...x...x...',
+                '..xx..xx..xx..xx',
+                '..x...x...x...x.',
+                '.x.x.x.x.x.x.x.x',
+                '............x...',
+                '...x...x...x...x',
+            ],
+            pans:    [0, 0, -2,   3,  -6,   5],
+            volumes: [0, -3, -8, -12, -10, -14],
+            lane: 'xxxxxxxx',
+        },
+        {   // the same, with a blip echoing across the field
+            samples: [
+                'kick_05',
+                'kick_12',
+                'hat_open_03',
+                'hat_closed_03',
+                'rimshot_03',
+                'maracas_02',
+                'zap_04',
+                'zap_04',
+            ],
+            rows: [
+                'x...x...x...x...',
+                '..xx..xx..xx..xx',
+                '..x...x...x...x.',
+                '.x.x.x.x.x.x.x.x',
+                '............x...',
+                '...x...x...x...x',
+                '....x.......x...',
+                '......x.......x.',
+            ],
+            pans:    [0, 0, -2,   3,  -6,   5,  -9,   9],
+            volumes: [0, -3, -8, -12, -10, -14, -13, -16],
+            lane: '........' + 'xxxxxxxx' + '........' + 'xxxxxxxx' +
+                  '........' + '........' + '....xxxx' + 'xxxxxxxx',
+        },
+        {   // the roll, the bass filling out and the toms coming over the top
+            samples: [
+                'kick_05',
+                'kick_12',
+                'hat_open_03',
+                'hat_closed_03',
+                'rimshot_03',
+                'maracas_02',
+                'tom_mid_04',
+                'bongo_03',
+            ],
+            rows: [
+                'x...x...x...x...',
+                '..xx..xx..xx.xxx',
+                '..x...x...x...x.',
+                '.x.x.x.x.x.x.x.x',
+                '............x...',
+                '...x...x...x...x',
+                '...........x.x..',
+                'x..x..x..x..x..x',
+            ],
+            pans:    [0, 0, -2,   3,  -6,   5,  -4,   7],
+            volumes: [0, -3, -8, -12, -10, -14,  -9, -12],
+            lane: '........' + '........' + 'xxxxxxxx' + '........' +
+                  '........' + '....xxxx' + 'xxxx....' + '........',
+        },
+        {   // the breakdown: the engine gone, and a different kit left running
+            //  quietly and wide
+            samples: [
+                'ride_02',
+                'claves_02',
+                'bongo_03',
+                'perc_03',
+                'crash_01',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                'x.......x.......' + 'x.......x.......',
+                '..x.......x...x.' + '..x.......x.....',
+                '....x.......x...' + '....x.....x.....',
+                '..............x.' + '..........x.....',
+                'x...............' + '................',
+            ],
+            pans:    [  0,  -8,   8,  -5,  0],
+            volumes: [-10, -12, -12, -14, -6],
+            lane: '........' + '........' + 'xxxx....' + '........',
+        },
+        {   // the build back into it
+            samples: ['snare_distort_01', 'hat_closed_03', 'clap_03'],
+            rows: [
+                'x...x...x.x.x.xx',
+                '.x.x.x.x.x.x.x.x',
+                '............x.x.',
+            ],
+            pans:    [ 0,   3,  0],
+            volumes: [-6, -12, -8],
+            lane: '........' + '........' + '........' + '........' +
+                  '........' + 'xxxx....',
+        },
+        {   // twelve steps against the bar, running from the first drop to the
+            // end and landing back on the beat every three bars
+            samples: ['cowbell_02', 'claves_02'],
+            rows: [
+                'x....x....x.',
+                '..x..x..x...',
+            ],
+            pans:    [ -7,   7],
+            volumes: [-16, -16],
+            lane: lane_from_bar(16, 12, 64),
+        },
+    ],
+},
+
 ];
 
 // Turn one of the entries above into a project
@@ -548,17 +688,22 @@ export function build_song(song)
     project.patterns = [];
     project.lanes = [];
 
-    for (let { samples, rows, lane, pans } of song.patterns)
+    for (let { samples, rows, lane, pans, volumes } of song.patterns)
     {
         console.assert(samples.length == rows.length);
         console.assert(!pans || pans.length == rows.length);
+        console.assert(!volumes || volumes.length == rows.length);
 
         let pat = new Pattern(samples.map(name => get_sample_idx(name)), rows[0].length);
         pat.rows = rows.map(cells);
 
-        // A pattern that says nothing about panning keeps every row centred
+        // A pattern that says nothing about panning keeps every row centred,
+        // and one that says nothing about levels leaves them all at the top
         if (pans)
             pans.forEach((pan, row_idx) => pat.set_row_pan(row_idx, pan));
+
+        if (volumes)
+            volumes.forEach((vol, row_idx) => pat.set_row_volume(row_idx, vol));
 
         project.patterns.push(pat);
         project.lanes.push(typeof lane == 'string'? lane_cells(lane) : lane);
