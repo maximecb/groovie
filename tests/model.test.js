@@ -15,6 +15,12 @@ import {
     MIN_SWING,
     MAX_SWING,
     DEFAULT_SWING,
+    MIN_PAN,
+    MAX_PAN,
+    DEFAULT_PAN,
+    MIN_VOLUME,
+    MAX_VOLUME,
+    DEFAULT_VOLUME,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MIN_PAT_ROWS,
@@ -184,15 +190,26 @@ test("a copied pattern does not share state with the original", () =>
 {
     let pat = new Pattern([0, 1], 4);
     pat.toggle_cell(0, 0);
+    pat.set_row_pan(1, -4);
+    pat.set_row_volume(1, -9);
 
     let copy = pat.copy();
     copy.toggle_cell(0, 1);
     copy.set_row_sample(1, 7);
+    copy.set_row_pan(1, MAX_PAN);
+    copy.set_row_volume(1, MIN_VOLUME);
 
     assert.deepEqual(pat.rows[0], [1, 0, 0, 0]);
     assert.deepEqual(copy.rows[0], [1, 1, 0, 0]);
     assert.equal(pat.sample_idxs[1], 1);
     assert.equal(copy.sample_idxs[1], 7);
+
+    // Panning and level belong to a row the way its sample does, so the copy
+    // takes them along and then holds its own
+    assert.deepEqual(pat.pans, [DEFAULT_PAN, -4]);
+    assert.deepEqual(pat.volumes, [DEFAULT_VOLUME, -9]);
+    assert.deepEqual(copy.pans, [DEFAULT_PAN, MAX_PAN]);
+    assert.deepEqual(copy.volumes, [DEFAULT_VOLUME, MIN_VOLUME]);
 });
 
 test("an empty copy keeps the samples and length but none of the cells", () =>
@@ -210,6 +227,25 @@ test("an empty copy keeps the samples and length but none of the cells", () =>
     assert.equal(pat.get_cell(0, 0), 1);
 });
 
+test("an empty copy keeps how the rows are mixed", () =>
+{
+    // Panning and level are part of the kit for the same reason the samples
+    // are, so a pattern made from this one opens mixed the way this one is
+    // rather than back in the centre and back up at full
+    let pat = new Pattern([3, 4], 7);
+    pat.set_row_pan(0, -8);
+    pat.set_row_volume(1, -5);
+
+    let copy = pat.empty_copy();
+
+    assert.deepEqual(copy.pans, [-8, DEFAULT_PAN]);
+    assert.deepEqual(copy.volumes, [DEFAULT_VOLUME, -5]);
+
+    // Mixing the new pattern leaves the one it came from alone
+    copy.set_row_pan(0, MAX_PAN);
+    assert.equal(pat.pans[0], -8);
+});
+
 test("stripping a pattern drops the rows that play nothing", () =>
 {
     let pat = new Pattern([10, 11, 12], 4);
@@ -224,6 +260,33 @@ test("stripping a pattern drops the rows that play nothing", () =>
     assert.equal(pat.num_rows, 3);
 });
 
+test("stripping a pattern keeps each surviving row's own mixing", () =>
+{
+    // The rows dropped here are not the last ones, so panning and level have
+    // to travel with the row they belong to rather than stay at the index it
+    // used to have. Stripping is done on the way into a link, so a row taking
+    // the wrong ones would mix somebody's song differently on every open.
+    let pat = new Pattern([10, 11, 12, 13], 4);
+
+    pat.set_row_pan(0, MIN_PAN);
+    pat.set_row_volume(0, -20);
+
+    pat.toggle_cell(1, 0);
+    pat.set_row_pan(1, 6);
+    pat.set_row_volume(1, -12);
+
+    pat.set_row_pan(2, MAX_PAN);
+
+    pat.toggle_cell(3, 2);
+    pat.set_row_volume(3, MIN_VOLUME);
+
+    let stripped = pat.strip_inactive();
+
+    assert.deepEqual(stripped.sample_idxs, [11, 13]);
+    assert.deepEqual(stripped.pans, [6, DEFAULT_PAN]);
+    assert.deepEqual(stripped.volumes, [-12, MIN_VOLUME]);
+});
+
 test("stripping an empty pattern leaves its first row", () =>
 {
     let pat = new Pattern([10, 11], 4);
@@ -231,6 +294,92 @@ test("stripping an empty pattern leaves its first row", () =>
 
     assert.equal(stripped.num_rows, MIN_PAT_ROWS);
     assert.deepEqual(stripped.sample_idxs, [10]);
+});
+
+//============================================================================
+// Row mixing
+//
+// A row's panning is held in tenths and its level in decibels, which is what
+// the UI shows and what a link carries. The audio graph works in neither, so a
+// pattern is asked to convert: see row_stereo_pan and row_gain in model.js.
+// These are the only place the two scales meet, and getting one wrong changes
+// how everything sounds without changing anything anyone can see.
+//============================================================================
+
+test("a row's stereo position is handed over on the scale a panner uses", () =>
+{
+    let pat = new Pattern([0, 1, 2, 3], MIN_PAT_STEPS);
+
+    pat.set_row_pan(0, MIN_PAN);
+    pat.set_row_pan(1, MAX_PAN);
+    pat.set_row_pan(2, MAX_PAN / 2);
+
+    // Hard over is -1 and 1, halfway over is half of that, and a row nobody
+    // has touched sits in the middle
+    assert.equal(pat.row_stereo_pan(0), -1);
+    assert.equal(pat.row_stereo_pan(1), 1);
+    assert.equal(pat.row_stereo_pan(2), 0.5);
+    assert.equal(pat.row_stereo_pan(3), 0);
+
+    // A panner takes nothing outside that range, so no position may leave it
+    for (let pan = MIN_PAN; pan <= MAX_PAN; ++pan)
+    {
+        pat.set_row_pan(0, pan);
+        assert.ok(Math.abs(pat.row_stereo_pan(0)) <= 1, `pan ${pan}`);
+    }
+});
+
+test("a row's level is handed over as an amplitude", () =>
+{
+    let pat = new Pattern([0, 1, 2], MIN_PAT_STEPS);
+
+    // A row nobody has touched plays the sample as it was recorded
+    assert.equal(pat.row_gain(0), 1);
+
+    // The decibels here measure amplitude rather than power: -20 dB is a tenth
+    // of the amplitude and -6 dB about half of it. Halving the divisor in the
+    // conversion would make every row that was turned down far quieter than
+    // its label says, which nothing else here would catch.
+    pat.set_row_volume(1, -20);
+    assert.ok(Math.abs(pat.row_gain(1) - 0.1) < 1e-9);
+
+    pat.set_row_volume(2, -6);
+    assert.ok(Math.abs(pat.row_gain(2) - 0.5) < 0.01);
+});
+
+test("a row pulled all the way down is silent rather than very quiet", () =>
+{
+    // The bottom of the range is what mutes a row, so it has to come out as no
+    // signal at all rather than as the -30 dB it reads as: audio.js skips a
+    // cell whose gain is zero, and -30 dB is quiet but still audible in a mix.
+    let pat = new Pattern([0, 1], MIN_PAT_STEPS);
+
+    pat.set_row_volume(0, MIN_VOLUME);
+    pat.set_row_volume(1, MIN_VOLUME + 1);
+
+    assert.equal(pat.row_gain(0), 0);
+    assert.ok(pat.row_gain(1) > 0);
+});
+
+test("every level in the range is quieter than the one above it", () =>
+{
+    // A step of a decibel is about the smallest change in level anyone can
+    // hear, which is what the range is spaced on: every setting has to be a
+    // different level from its neighbours, and none may be louder than the
+    // sample as it was recorded.
+    let pat = new Pattern([0], MIN_PAT_STEPS);
+    let prev_gain = Infinity;
+
+    for (let volume = MAX_VOLUME; volume >= MIN_VOLUME; --volume)
+    {
+        pat.set_row_volume(0, volume);
+        let gain = pat.row_gain(0);
+
+        assert.ok(gain < prev_gain, `${volume}dB is not below the level above it`);
+        assert.ok(gain >= 0 && gain <= 1, `${volume}dB is outside the range`);
+
+        prev_gain = gain;
+    }
 });
 
 //============================================================================
@@ -486,6 +635,43 @@ test("a pattern outside the allowed size is refused", () =>
 
     new Pattern(Array(MAX_PAT_ROWS + 1).fill(0), MIN_PAT_STEPS);
     assert.equal(drain_asserts().length, 1);
+});
+
+test("a stereo position outside the allowed range is refused", () =>
+{
+    let pat = new Pattern([0], MIN_PAT_STEPS);
+
+    pat.set_row_pan(0, MIN_PAN - 1);
+    assert.equal(drain_asserts().length, 1);
+
+    pat.set_row_pan(0, MAX_PAN + 1);
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a level outside the allowed range is refused", () =>
+{
+    let pat = new Pattern([0], MIN_PAT_STEPS);
+
+    pat.set_row_volume(0, MIN_VOLUME - 1);
+    assert.equal(drain_asserts().length, 1);
+
+    pat.set_row_volume(0, MAX_VOLUME + 1);
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("mixing a row the pattern does not have is refused", () =>
+{
+    let pat = new Pattern([0], MIN_PAT_STEPS);
+
+    pat.set_row_pan(pat.num_rows, DEFAULT_PAN);
+    assert.equal(drain_asserts().length, 1);
+
+    pat.set_row_volume(pat.num_rows, DEFAULT_VOLUME);
+    assert.equal(drain_asserts().length, 1);
+
+    // How many rows a pattern has is how many samples it plays, so neither of
+    // those gave it a row by writing past the end of it
+    assert.equal(pat.num_rows, 1);
 });
 
 test("a pattern index past the end of the project is refused", () =>
