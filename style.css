@@ -578,27 +578,45 @@ input[type="range"]:focus-visible {
 
    Its track is lit from the centre out rather than from the left, the centre
    being where the value means "not panned" and either side of it a move away
-   from that. min() and max() sort the two ends of the lit part, the handle
-   being either left of centre or right of it. The color is flat rather than
-   the ramp the others take, which would make hard right look like more of
-   something than hard left. */
+   from that. A row panned left lights up purple and one panned right lights up
+   red, so which way a row has been moved reads off the color without having to
+   find the handle. The other sliders cross between those same two colors as
+   they climb; this one puts one at each end of the travel instead.
+
+   The track is two layers rather than one gradient, since CSS has no way to
+   ask which side of the centre a value fell on. The layer underneath is
+   painted purple over its left half and red over its right, and the layer on
+   top blacks out everything the value hasn't reached. The lit part is always
+   on one side of the centre, so it only ever uncovers one of the two colors.
+   min() and max() sort the two ends of that part, the handle being either left
+   of the centre or right of it. */
 input[type="range"].pan_slider {
-    --pan_color: #B400FF;
+    /* The purple and the red of the logo, at the full strength the other
+       sliders take them to */
+    --pan_left_color: #B400FF;
+    --pan_right_color: #FF0000;
+
     width: 60px;
 }
 input[type="range"].pan_slider::-webkit-slider-runnable-track {
-    background: linear-gradient(90deg,
-        #000 min(50%, var(--val, 50%)),
-        var(--pan_color) min(50%, var(--val, 50%)),
-        var(--pan_color) max(50%, var(--val, 50%)),
-        #000 max(50%, var(--val, 50%)));
+    background:
+        linear-gradient(90deg,
+            #000 min(50%, var(--val, 50%)),
+            transparent min(50%, var(--val, 50%)),
+            transparent max(50%, var(--val, 50%)),
+            #000 max(50%, var(--val, 50%))),
+        linear-gradient(90deg,
+            var(--pan_left_color) 50%, var(--pan_right_color) 50%);
 }
 input[type="range"].pan_slider::-moz-range-track {
-    background: linear-gradient(90deg,
-        #000 min(50%, var(--val, 50%)),
-        var(--pan_color) min(50%, var(--val, 50%)),
-        var(--pan_color) max(50%, var(--val, 50%)),
-        #000 max(50%, var(--val, 50%)));
+    background:
+        linear-gradient(90deg,
+            #000 min(50%, var(--val, 50%)),
+            transparent min(50%, var(--val, 50%)),
+            transparent max(50%, var(--val, 50%)),
+            #000 max(50%, var(--val, 50%))),
+        linear-gradient(90deg,
+            var(--pan_left_color) 50%, var(--pan_right_color) 50%);
 }
 
 /* The title of the composition and the button that puts it in a link. These
