@@ -38,6 +38,7 @@ import {
     highlight_step,
     highlight_song_step,
     highlight_pat_tabs,
+    update_slider_fill,
 } from "./view.js";
 
 //============================================================================
@@ -174,17 +175,6 @@ function select_new_pattern(pat_idx)
     render_all();
 }
 
-// Tell a slider's track how much of it to fill, style.css drawing the color
-// ramp from that. This is how far along its range the handle sits, which CSS
-// can't read off a range input by itself.
-function update_slider_fill(slider)
-{
-    let min = Number(slider.min);
-    let max = Number(slider.max);
-    let frac = (slider.valueAsNumber - min) / (max - min);
-    slider.style.setProperty('--val', `${100 * frac}%`);
-}
-
 // Re-render everything from the project state
 function render_all()
 {
@@ -248,11 +238,14 @@ for (let num_steps = MIN_PAT_STEPS; num_steps <= MAX_PAT_STEPS; ++num_steps)
     num_steps_sel.appendChild(option);
 }
 
-// Keep every slider's fill up to date as it's dragged. Hooked up in one place
-// rather than in each slider's own handler: how a control draws itself is the
-// same job for all three, and none of them has to remember to do it. Their
-// starting positions are set here too, the two a project owns being set again
-// by render_all() once one is loaded.
+// Keep the fill of the sliders at the top of the page up to date as they're
+// dragged. Hooked up in one place rather than in each slider's own handler:
+// how a control draws itself is the same job for all three, and none of them
+// has to remember to do it. Their starting positions are set here too, the two
+// a project owns being set again by render_all() once one is loaded.
+//
+// This only reaches the sliders the page loads with. The pan sliders are built
+// per row as a pattern is rendered, and keep their own fill up to date.
 for (let slider of document.querySelectorAll('input[type="range"]'))
 {
     slider.addEventListener('input', () => update_slider_fill(slider));

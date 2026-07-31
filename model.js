@@ -42,6 +42,16 @@ export const MIN_SWING = 50;
 export const MAX_SWING = 75;
 export const DEFAULT_SWING = 50;
 
+// Stereo position of a row, in tenths from hard left to hard right. Zero is
+// the centre, which is where a row starts and where most of them stay: a kit
+// is mixed by moving a few rows off centre, not by placing every one of them.
+// Tenths are fine enough that dragging the control feels smooth and coarse
+// enough to label the way a mixer does, and leave the centre a value a row can
+// actually hold, which an even number of positions would not.
+export const MIN_PAN = -10;
+export const MAX_PAN = 10;
+export const DEFAULT_PAN = 0;
+
 // Pattern length, in steps
 export const MIN_PAT_STEPS = 1;
 export const MAX_PAT_STEPS = 64;
@@ -109,6 +119,12 @@ export class Pattern
 
         // Grid cells, one row of steps per sample
         this.rows = sample_idxs.map(() => Array(num_steps).fill(0));
+
+        // Stereo position of each row. Panning is a property of the row rather
+        // than of the sample, so the same sample can sit in two places in two
+        // patterns, but it rarely does: a row keeps the position it was given
+        // for the whole song, which is what the encoding is built to expect.
+        this.pans = sample_idxs.map(() => DEFAULT_PAN);
     }
 
     // Create a pattern with the default set of samples
@@ -167,6 +183,7 @@ export class Pattern
 
         this.sample_idxs.push(sample_idx);
         this.rows.push(Array(this.num_steps).fill(0));
+        this.pans.push(DEFAULT_PAN);
 
         return true;
     }
@@ -195,6 +212,24 @@ export class Pattern
         this.sample_idxs[row_idx] = sample_idx;
     }
 
+    // Set the stereo position of a given row
+    set_row_pan(row_idx, pan)
+    {
+        console.assert(row_idx < this.num_rows);
+        console.assert(pan >= MIN_PAN);
+        console.assert(pan <= MAX_PAN);
+        this.pans[row_idx] = pan;
+    }
+
+    // Stereo position of a given row on the -1 to 1 scale the audio graph pans
+    // on, rather than the tenths the model and the URL hold it in. Playback
+    // asks a pattern for this so that audio.js doesn't have to import the
+    // model to know what a pan value means, which would make the two circular.
+    row_stereo_pan(row_idx)
+    {
+        return this.pans[row_idx] / MAX_PAN;
+    }
+
     // Test if a row has no active step, i.e. plays nothing
     row_is_inactive(row_idx)
     {
@@ -218,6 +253,7 @@ export class Pattern
     {
         let pat = new Pattern(this.sample_idxs.slice(), this.num_steps);
         pat.rows = this.rows.map(row => row.slice());
+        pat.pans = this.pans.slice();
 
         return pat;
     }
@@ -228,7 +264,14 @@ export class Pattern
     // would throw away whatever kit the user has assembled.
     empty_copy()
     {
-        return new Pattern(this.sample_idxs.slice(), this.num_steps);
+        let pat = new Pattern(this.sample_idxs.slice(), this.num_steps);
+
+        // Panning is part of the kit for the same reason the samples are, so a
+        // new pattern keeps where the rows were placed rather than pulling
+        // everything back to the centre
+        pat.pans = this.pans.slice();
+
+        return pat;
     }
 
     // Produce a copy of this pattern with the rows that play nothing removed.
@@ -255,6 +298,7 @@ export class Pattern
             this.num_steps
         );
         pat.rows = row_idxs.map(row_idx => this.rows[row_idx].slice());
+        pat.pans = row_idxs.map(row_idx => this.pans[row_idx]);
 
         return pat;
     }
@@ -473,9 +517,15 @@ export class Project
 //
 // Projects are shared by encoding them into the fragment portion of the URL,
 // as `#<title>,<base64url data>`. The data is a bit-packed representation of
-// the project. This is deliberately a simple scheme to start with, and can be
-// made more clever about compression later (see design.md); the version field
-// makes it possible to change it without breaking already-shared links.
+// the project, and the version field makes it possible to change the format
+// without breaking already-shared links.
+//
+// What a link mostly holds is pattern rows, so that is where the compression
+// is. A row is written as a guess at the sample it plays and a guess at where
+// it sits in the stereo field, each costing one bit when it's right, followed
+// by its cells in whichever of four schemes writes them in the fewest bits
+// (see encode_row_cells). Rows repeat both across a song and within one, and
+// these are what that repetition is worth.
 //
 // Encoding is lossy in one respect: anything that plays nothing is dropped,
 // both silent rows and entirely silent patterns, so a decoded project can be
@@ -494,6 +544,27 @@ const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
+const PAN_BITS = 5;
+
+// How the cells of a row are written. Every row says which of these it used,
+// and the encoder takes whichever writes that row in the fewest bits, so a row
+// with no structure to it costs the two bits of this field and nothing else.
+const GRID_SCHEME_BITS = 2;
+const GRID_LITERAL = 0;     // One bit per step, as-is
+const GRID_MOTIF = 1;       // A short cell repeated the length of the row
+const GRID_GROUP_8 = 2;     // Groups of 8 steps, each either new or a repeat
+const GRID_GROUP_16 = 3;    // The same, in groups of 16
+
+// Lengths the repeated cell of a motif row can have. Drum rows repeat at these
+// intervals and not at the ones between them, so two bits cover it: a quarter
+// note pulse is 4, a half bar is 8, a bar is 16.
+const MOTIF_PERIOD_BITS = 2;
+const MOTIF_PERIODS = [2, 4, 8, 16];
+
+// Step counts the group schemes above work in. Eight steps is half a bar,
+// which is the interval a row most often repeats at while still varying
+// somewhere, and sixteen is the bar it sits in.
+const GROUP_SIZES = { [GRID_GROUP_8]: 8, [GRID_GROUP_16]: 16 };
 
 // Size of the chunks values of no bounded size are written in, and how many
 // chunks one such value can take up before it can't be anything we wrote. A
@@ -503,9 +574,11 @@ const MAX_VAR_CHUNKS = Math.ceil(Math.log2(MAX_SONG_STEPS + 1) / VAR_CHUNK_BITS)
 
 console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));
 console.assert(MAX_SWING - MIN_SWING < (1 << SWING_BITS));
+console.assert(MAX_PAN - MIN_PAN < (1 << PAN_BITS));
 console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
 console.assert(MAX_PAT_STEPS <= (1 << NUM_STEPS_BITS));
 console.assert(MAX_PAT_ROWS <= (1 << NUM_ROWS_BITS));
+console.assert(MOTIF_PERIODS.length == (1 << MOTIF_PERIOD_BITS));
 
 // Writes unsigned integer fields into a bit string, most significant bit first
 class BitWriter
@@ -629,6 +702,201 @@ class BitReader
     }
 }
 
+// Length of the cell a row repeats, or 0 if it doesn't repeat. This is the
+// shortest cell that works, which is also the cheapest one to write.
+//
+// The cell doesn't have to divide the row: it is laid down from the start of
+// the row and cut off wherever the row ends, so a 4 step cell also writes a 6
+// step row holding those four steps followed by the first two of them again.
+function motif_period(row, num_steps)
+{
+    for (let period of MOTIF_PERIODS)
+    {
+        // The periods are in ascending order, so once one is as long as the
+        // row every one after it is too
+        if (period >= num_steps)
+            break;
+
+        let tiles = true;
+
+        for (let step_idx = period; step_idx < num_steps; ++step_idx)
+        {
+            if (!row[step_idx] != !row[step_idx % period])
+            {
+                tiles = false;
+                break;
+            }
+        }
+
+        if (tiles)
+            return period;
+    }
+
+    return 0;
+}
+
+// Test if the group of steps starting at a given step is the same as the group
+// before it. The last group of a row can be shorter than the others, in which
+// case only the steps it holds are compared.
+function group_repeats(row, num_steps, start, size)
+{
+    for (let step_idx = start; step_idx < Math.min(start + size, num_steps); ++step_idx)
+    {
+        if (!row[step_idx] != !row[step_idx - size])
+            return false;
+    }
+
+    return true;
+}
+
+// Number of bits the group scheme of a given size writes a row in, i.e. one
+// group as-is followed by one bit per group after it, plus the groups that
+// bit couldn't stand in for
+function group_cost(row, num_steps, size)
+{
+    let num_bits = Math.min(size, num_steps);
+
+    for (let start = size; start < num_steps; start += size)
+    {
+        num_bits += 1;
+
+        if (!group_repeats(row, num_steps, start, size))
+            num_bits += Math.min(size, num_steps - start);
+    }
+
+    return num_bits;
+}
+
+// Write the cells of one row, in whichever scheme writes it in the fewest
+// bits. A row with no repetition in it falls to GRID_LITERAL, so the choice
+// costs GRID_SCHEME_BITS and can never make a row longer than writing it flat.
+function encode_row_cells(writer, row, num_steps)
+{
+    function write_steps(from, to)
+    {
+        for (let step_idx = from; step_idx < to; ++step_idx)
+            writer.write(row[step_idx]? 1:0, 1);
+    }
+
+    let period = motif_period(row, num_steps);
+
+    let costs = {
+        [GRID_LITERAL]: num_steps,
+        [GRID_MOTIF]: period? MOTIF_PERIOD_BITS + period : Infinity,
+        [GRID_GROUP_8]: group_cost(row, num_steps, GROUP_SIZES[GRID_GROUP_8]),
+        [GRID_GROUP_16]: group_cost(row, num_steps, GROUP_SIZES[GRID_GROUP_16]),
+    };
+
+    // Ties go to the plainest scheme that holds the row, so that a row with
+    // nothing to compress about it always writes the same way
+    let scheme = GRID_LITERAL;
+    for (let candidate of [GRID_MOTIF, GRID_GROUP_8, GRID_GROUP_16])
+    {
+        if (costs[candidate] < costs[scheme])
+            scheme = candidate;
+    }
+
+    writer.write(scheme, GRID_SCHEME_BITS);
+
+    if (scheme == GRID_LITERAL)
+    {
+        write_steps(0, num_steps);
+        return;
+    }
+
+    if (scheme == GRID_MOTIF)
+    {
+        writer.write(MOTIF_PERIODS.indexOf(period), MOTIF_PERIOD_BITS);
+        write_steps(0, period);
+        return;
+    }
+
+    let size = GROUP_SIZES[scheme];
+    write_steps(0, Math.min(size, num_steps));
+
+    for (let start = size; start < num_steps; start += size)
+    {
+        let repeats = group_repeats(row, num_steps, start, size);
+        writer.write(repeats? 1:0, 1);
+
+        if (!repeats)
+            write_steps(start, Math.min(start + size, num_steps));
+    }
+}
+
+// Read back the cells of one row written by encode_row_cells
+function decode_row_cells(reader, num_steps)
+{
+    let scheme = reader.read(GRID_SCHEME_BITS);
+    let row = Array(num_steps).fill(0);
+
+    if (scheme == GRID_LITERAL)
+    {
+        for (let step_idx = 0; step_idx < num_steps; ++step_idx)
+            row[step_idx] = reader.read(1);
+
+        return row;
+    }
+
+    if (scheme == GRID_MOTIF)
+    {
+        let period = MOTIF_PERIODS[reader.read(MOTIF_PERIOD_BITS)];
+
+        // A cell as long as the row is one the encoder would have written flat,
+        // and a longer one holds steps the row doesn't have
+        if (period >= num_steps)
+            throw RangeError('encoded row repeats a cell as long as itself');
+
+        let motif = [];
+        for (let step_idx = 0; step_idx < period; ++step_idx)
+            motif.push(reader.read(1));
+
+        for (let step_idx = 0; step_idx < num_steps; ++step_idx)
+            row[step_idx] = motif[step_idx % period];
+
+        return row;
+    }
+
+    let size = GROUP_SIZES[scheme];
+
+    for (let step_idx = 0; step_idx < Math.min(size, num_steps); ++step_idx)
+        row[step_idx] = reader.read(1);
+
+    for (let start = size; start < num_steps; start += size)
+    {
+        let repeats = reader.read(1);
+
+        for (let step_idx = start; step_idx < Math.min(start + size, num_steps); ++step_idx)
+            row[step_idx] = repeats? row[step_idx - size] : reader.read(1);
+    }
+
+    return row;
+}
+
+// What the encoding expects a row's sample to be, which is what it costs a
+// single bit to say. Patterns are made by copying one another, so a row nearly
+// always plays what the row at the same index of the previous pattern plays,
+// and the rows of the first pattern nearly always play the samples they were
+// handed when the pattern was created.
+function predicted_sample(prev_pat, row_idx)
+{
+    if (prev_pat && row_idx < prev_pat.num_rows)
+        return prev_pat.sample_idxs[row_idx];
+
+    return get_sample_idx(ROW_SAMPLES[row_idx]);
+}
+
+// Likewise for where a row sits in the stereo field. Panning belongs to the
+// kit rather than to a pattern, so a row panned in one pattern is panned the
+// same way in the next, and a row nobody moved is in the centre.
+function predicted_pan(prev_pat, row_idx)
+{
+    if (prev_pat && row_idx < prev_pat.num_rows)
+        return prev_pat.pans[row_idx];
+
+    return DEFAULT_PAN;
+}
+
 // Encode one timeline lane.
 //
 // Lanes are sparse: a pattern is off for most of a song, and where it's on it
@@ -732,6 +1000,12 @@ export function encode_project(project)
     writer.write(project.swing - MIN_SWING, SWING_BITS);
     writer.write(pat_idxs.length - 1, NUM_PATTERNS_BITS);
 
+    // The pattern written before the one being written, which is what the
+    // samples and the panning of a row are guessed from. This is the previous
+    // pattern as it went into the link, stripped and with the silent patterns
+    // left out, so that the decoder can arrive at the same guess.
+    let prev_pat = null;
+
     for (let pat_idx of pat_idxs)
     {
         // Rows that play nothing are not worth the space they take up in a URL
@@ -742,15 +1016,29 @@ export function encode_project(project)
 
         for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
         {
-            writer.write(pat.sample_idxs[row_idx], SAMPLE_IDX_BITS);
+            let sample_idx = pat.sample_idxs[row_idx];
+            let is_predicted = sample_idx == predicted_sample(prev_pat, row_idx);
 
-            // One bit per step of this row
-            for (let step_idx = 0; step_idx < pat.num_steps; ++step_idx)
-                writer.write(pat.rows[row_idx][step_idx]? 1:0, 1);
+            writer.write(is_predicted? 1:0, 1);
+
+            if (!is_predicted)
+                writer.write(sample_idx, SAMPLE_IDX_BITS);
+
+            encode_row_cells(writer, pat.rows[row_idx], pat.num_steps);
+
+            let pan = pat.pans[row_idx];
+            let pan_predicted = pan == predicted_pan(prev_pat, row_idx);
+
+            writer.write(pan_predicted? 1:0, 1);
+
+            if (!pan_predicted)
+                writer.write(pan - MIN_PAN, PAN_BITS);
         }
 
         // A pattern is followed by the lane placing it on the timeline
         encode_lane(writer, project.lanes[pat_idx]);
+
+        prev_pat = pat;
     }
 
     return writer.to_base64url();
@@ -774,6 +1062,10 @@ export function decode_project(b64_str)
     project.patterns = [];
     project.lanes = [];
 
+    // The pattern read before this one, which its rows are guessed from the
+    // same way the encoder guessed them (see predicted_sample)
+    let prev_pat = null;
+
     for (let pat_idx = 0; pat_idx < num_patterns; ++pat_idx)
     {
         let num_steps = reader.read(NUM_STEPS_BITS) + 1;
@@ -781,24 +1073,37 @@ export function decode_project(b64_str)
 
         let sample_idxs = [];
         let rows = [];
+        let pans = [];
 
         for (let row_idx = 0; row_idx < num_rows; ++row_idx)
         {
             // An index with no sample behind it is not an error: indices are
             // reserved permanently, so a project shared before a sample was
             // removed must still load, minus the row that used it
-            sample_idxs.push(reader.read(SAMPLE_IDX_BITS));
+            sample_idxs.push(reader.read(1)?
+                predicted_sample(prev_pat, row_idx) :
+                reader.read(SAMPLE_IDX_BITS));
 
-            let row = [];
-            for (let step_idx = 0; step_idx < num_steps; ++step_idx)
-                row.push(reader.read(1));
-            rows.push(row);
+            rows.push(decode_row_cells(reader, num_steps));
+
+            pans.push(reader.read(1)?
+                predicted_pan(prev_pat, row_idx) :
+                MIN_PAN + reader.read(PAN_BITS));
         }
 
         let pat = new Pattern(sample_idxs, num_steps);
         pat.rows = rows;
+
+        // Set through the model rather than assigned, so that a pan field
+        // holding one of the values the encoder never writes is caught here
+        // rather than reaching the audio graph
+        for (let row_idx = 0; row_idx < num_rows; ++row_idx)
+            pat.set_row_pan(row_idx, pans[row_idx]);
+
         project.patterns.push(pat);
         project.lanes.push(decode_lane(reader, num_steps));
+
+        prev_pat = pat;
     }
 
     return project;

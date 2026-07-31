@@ -158,14 +158,28 @@ class SampleManager
         return this.sample_bufs[sample_idx];
     }
 
-    // Play a sample at a given time relative to the audio context clock
-    play_sample(sample_idx, start_time, dst_node)
+    // Play a sample at a given time relative to the audio context clock.
+    //
+    // The stereo position runs from -1 for hard left to 1 for hard right, on
+    // the scale the panner node works on rather than the tenths the model
+    // holds; Pattern.row_stereo_pan converts between the two. A sample playing
+    // dead centre is routed straight to the destination, so the nodes the
+    // panning costs are only paid for by the rows that are panned.
+    play_sample(sample_idx, start_time, dst_node, stereo_pan = 0)
     {
         const buffer = this.get_buffer(sample_idx);
 
         // If the sample is not yet loaded, do nothing
         if (!buffer)
             return;
+
+        if (stereo_pan != 0)
+        {
+            const panner = get_audio_ctx().createStereoPanner();
+            panner.pan.value = stereo_pan;
+            panner.connect(dst_node);
+            dst_node = panner;
+        }
 
         // Create a buffer source
         const source = get_audio_ctx().createBufferSource();
@@ -651,6 +665,13 @@ function queue_pat_cells(pat, step_idx, step_time)
     for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
     {
         if (pat.get_cell(row_idx, step_idx))
-            samples.play_sample(pat.sample_idxs[row_idx], step_time, global_gain);
+        {
+            samples.play_sample(
+                pat.sample_idxs[row_idx],
+                step_time,
+                global_gain,
+                pat.row_stereo_pan(row_idx)
+            );
+        }
     }
 }

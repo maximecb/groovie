@@ -8,6 +8,8 @@ import {
     MAX_PAT_ROWS,
     MAX_PATTERNS,
     MAX_SONG_STEPS,
+    MIN_PAN,
+    MAX_PAN,
     STEPS_PER_BAR,
 } from "./model.js";
 
@@ -217,6 +219,32 @@ function get_sample_sel_template()
     return sample_sel_template;
 }
 
+// Tell a slider's track how much of it to fill, style.css drawing the color
+// from that. This is how far along its range the handle sits, which CSS can't
+// read off a range input by itself.
+//
+// This lives here rather than in main.js because the pan sliders are built
+// here, one per row, every time a pattern is rendered: a slider that arrives
+// after the page has loaded has to be given its fill by whatever made it.
+export function update_slider_fill(slider)
+{
+    let min = Number(slider.min);
+    let max = Number(slider.max);
+    let frac = (slider.valueAsNumber - min) / (max - min);
+    slider.style.setProperty('--val', `${100 * frac}%`);
+}
+
+// How a stereo position reads on a mixer: a side and how far towards it, as a
+// percentage, with the centre named rather than numbered. The model holds pan
+// in tenths, which is what makes these whole numbers.
+export function pan_label(pan)
+{
+    if (pan == 0)
+        return 'C';
+
+    return (pan < 0? 'L' : 'R') + Math.abs(10 * pan);
+}
+
 // Generate the DOM for a pattern grid, replacing whatever the div held before.
 // The pattern index is what says which color the grid is drawn in, and is the
 // same one its timeline lane uses.
@@ -274,6 +302,61 @@ export function render_pattern(pat_div, pattern, pat_idx)
         row_div.appendChild(button);
 
         return row_div;
+    }
+
+    // Create the stereo pan control on the right of a row. A slider rather than
+    // the knob design.md called for: the page is built out of sliders already,
+    // and a slider can be dragged, tabbed to and arrowed along without any of
+    // the pointer handling a knob would need to turn a drag into an angle.
+    function make_pan_ctl(row_idx)
+    {
+        let ctl = document.createElement('div');
+        ctl.className = 'pan_ctl';
+
+        let slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'pan_slider';
+        slider.min = MIN_PAN;
+        slider.max = MAX_PAN;
+        slider.step = 1;
+        slider.value = pattern.pans[row_idx];
+
+        let readout = document.createElement('span');
+        readout.className = 'pan_val';
+
+        // Say where the row sits, on the control and on the row as a whole: the
+        // readout is small and a grid of them is easy to lose track of, so the
+        // sample the position belongs to is named in the tooltip
+        function show_pan(pan)
+        {
+            readout.textContent = pan_label(pan);
+            slider.title = `Stereo position of ${
+                get_sample_name(pattern.sample_idxs[row_idx])}: ${pan_label(pan)}`;
+            update_slider_fill(slider);
+        }
+
+        slider.oninput = () =>
+        {
+            let pan = slider.valueAsNumber;
+            pattern.set_row_pan(row_idx, pan);
+            show_pan(pan);
+        };
+
+        // Double-clicking a mixer control puts it back where it started, which
+        // is the only way to hit the centre exactly on a touch screen
+        slider.ondblclick = () =>
+        {
+            slider.value = 0;
+            pattern.set_row_pan(row_idx, 0);
+            show_pan(0);
+        };
+
+        show_pan(pattern.pans[row_idx]);
+
+        ctl.appendChild(slider);
+        ctl.appendChild(readout);
+
+        return ctl;
     }
 
     // Create a div representing one cell
@@ -335,14 +418,13 @@ export function render_pattern(pat_div, pattern, pat_idx)
 
         cell_divs.push(row_cells);
         row_div.appendChild(cells_div);
+        row_div.appendChild(make_pan_ctl(row_idx));
         pat_div.appendChild(row_div);
     }
 
     // A pattern that can't grow any further gets no button
     if (pattern.num_rows < MAX_PAT_ROWS)
         pat_div.appendChild(make_add_row());
-
-    // TODO: stereo pan knob on the right of each row
 }
 
 //============================================================================

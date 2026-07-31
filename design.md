@@ -25,11 +25,37 @@ Samples in patterns can be referenced with an integer index, probably
 9 bits long (up to 512 samples). The `sample_list.js` file serves as a map
 of sample names to sample indices.
 
-Some compression ideas:
-- Reuse row M from pattern N, or straight up reuse data from some previous bit index
-- Take up to min(16, pat_len) bits of row K from codebook
-  - We can use 3 to 6 bits to do our codebook lookup.
-- Repeat these 4 bits to fill up to 16 steps.
+What a link mostly holds is pattern rows, so that is where the compression is.
+A row is written as a guess at the sample it plays, its cells, and a guess at
+where it sits in the stereo field.
+
+The two guesses are the row at the same index of the previous pattern written,
+falling back to what a row starts out as when there is no previous pattern: the
+sample its index was handed from the default kit, and the centre. Each costs a
+single bit when it's right. Patterns are made by copying one another and a kit
+is usually left alone once assembled, so for most rows of most projects both
+guesses are right, and a project on the untouched default kit pays one bit per
+row for its samples rather than nine.
+
+The cells are written in whichever of four schemes is shortest, named by a
+two-bit field in front of them:
+
+- Flat, one bit per step.
+- A short cell of 2, 4, 8 or 16 steps repeated to the end of the row. The cell
+  doesn't have to divide the row: it is cut wherever the row ends.
+- Groups of 8 steps, the first written out and each one after it preceded by a
+  bit saying whether it is the same as the group before it.
+- The same, in groups of 16.
+
+The repeated cell is what holds a row that is the same all the way through, and
+the groups hold one that repeats but varies somewhere, which a repeated cell
+can't express at all: three identical half bars and a fill on the fourth is the
+most common shape there is. Measured over `tests/corpus.js`, the four together
+write the cells of a song in 40% fewer bits than one bit per step, against 24%
+for the repeated cell alone and 34% for the groups alone.
+
+A scheme is only ever chosen when it comes out shorter, and the flat scheme is
+always available, so the two-bit field is the most this can cost a row.
 
 The timeline is encoded one lane at a time, right after the pattern the lane
 places. Lanes are sparse: a pattern is off for most of a song, and where it's
@@ -81,8 +107,18 @@ queued behind it. Selecting the pattern already playing cancels a pending
 launch.
 
 On the left side of the pattern editor, there will be drop-down boxes to select
-the sample associated with each row. On the right side, there will be a stereo
-pan knob, adjustable per-row with the mouse.
+the sample associated with each row. On the right side of each row is a stereo
+pan control, reading out where the row sits the way a mixer labels it (`L60`,
+`C`, `R30`) and returning to the centre when double-clicked. It is a slider
+rather than the knob originally planned: the page is built out of sliders
+already, and a slider can be dragged, tabbed to and arrowed along without any
+of the pointer handling a knob needs to turn a drag into an angle.
+
+Panning belongs to the row rather than to the sample, so the same sample can
+sit in two places in two patterns. It rarely does — a kit is mixed once and
+left alone — which is what the encoding above is built to expect. A new pattern
+takes the panning of the one it was made from, for the same reason it takes its
+samples.
 
 The timeline view at the bottom arranges patterns into a song, with one lane per
 pattern. Because steps have a fixed duration, each timeline cell is as wide as

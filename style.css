@@ -242,6 +242,25 @@ h1 {
     font-size: inherit;
 }
 
+/* Stereo pan control, on the right of a row. The slider itself is styled down
+   with the other sliders, since it is one of those with a track of its own. */
+.pan_ctl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Reserved at its widest value ('L100') and left-aligned, so that a column of
+   these lines up down the grid rather than shifting with the value */
+.pan_val {
+    display: inline-block;
+    min-width: 4ch;
+
+    color: #999;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Button to add a row, at the bottom of the pattern grid. Dashed and dim, so
    that it reads as an empty grid slot rather than as a control of its own. */
 .add_row {
@@ -546,6 +565,40 @@ input[type="range"]:focus-visible::-moz-range-track {
    browser would draw around the whole control is left off */
 input[type="range"]:focus-visible {
     outline: none;
+}
+
+/* The pan slider, which is one of the sliders above with two things changed.
+   Every rule here has to name the element as well as the class: `input[...]`
+   counts for as much as a class does, so a rule saying only `.pan_slider`
+   would lose to the ones above it rather than override them.
+
+   It is much narrower than the sliders at the top of the page. There is one
+   per row, and it sits beside the steps, so the width it takes is width the
+   grid doesn't get.
+
+   Its track is lit from the centre out rather than from the left, the centre
+   being where the value means "not panned" and either side of it a move away
+   from that. min() and max() sort the two ends of the lit part, the handle
+   being either left of centre or right of it. The color is flat rather than
+   the ramp the others take, which would make hard right look like more of
+   something than hard left. */
+input[type="range"].pan_slider {
+    --pan_color: #B400FF;
+    width: 60px;
+}
+input[type="range"].pan_slider::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg,
+        #000 min(50%, var(--val, 50%)),
+        var(--pan_color) min(50%, var(--val, 50%)),
+        var(--pan_color) max(50%, var(--val, 50%)),
+        #000 max(50%, var(--val, 50%)));
+}
+input[type="range"].pan_slider::-moz-range-track {
+    background: linear-gradient(90deg,
+        #000 min(50%, var(--val, 50%)),
+        var(--pan_color) min(50%, var(--val, 50%)),
+        var(--pan_color) max(50%, var(--val, 50%)),
+        #000 max(50%, var(--val, 50%)));
 }
 
 /* The title of the composition and the button that puts it in a link. These

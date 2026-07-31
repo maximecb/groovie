@@ -26,6 +26,8 @@ import {
     MAX_TEMPO,
     MIN_SWING,
     MAX_SWING,
+    MIN_PAN,
+    MAX_PAN,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MAX_PAT_ROWS,
@@ -81,6 +83,38 @@ function round_trip(project)
     return decode_project(encode_project(project));
 }
 
+// What a project is once the encoding has had its way with it, i.e. with
+// everything that plays nothing left out (see model.js). A song written out by
+// hand has every row in use and so is unchanged by this, but one built in the
+// editor tends to carry rows nobody ever filled in, and those don't come back.
+function as_encoded(project)
+{
+    let out = new Project();
+    out.set_tempo(project.tempo);
+    out.set_swing(project.swing);
+    out.patterns = [];
+    out.lanes = [];
+
+    for (let pat_idx = 0; pat_idx < project.num_patterns; ++pat_idx)
+    {
+        if (project.patterns[pat_idx].is_inactive())
+            continue;
+
+        out.patterns.push(project.patterns[pat_idx].strip_inactive());
+        out.lanes.push(project.lanes[pat_idx]);
+    }
+
+    // A project always has at least one pattern, so one where nothing plays
+    // keeps its first pattern rather than becoming patternless
+    if (out.patterns.length == 0)
+    {
+        out.patterns.push(project.patterns[0].strip_inactive());
+        out.lanes.push(project.lanes[0]);
+    }
+
+    return out;
+}
+
 // Build a project out of patterns given as their samples, cells and lane, so
 // that a test can say what it's encoding in one place
 function make_project(tempo, pats)
@@ -124,6 +158,9 @@ const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
+const PAN_BITS = 5;
+const GRID_SCHEME_BITS = 2;
+const MOTIF_PERIOD_BITS = 2;
 const VAR_CHUNK_BITS = 4;
 
 // Write a value into a fixed-width field, most significant bit first
@@ -142,8 +179,11 @@ const ONE_EMPTY_PATTERN =
     field(0, NUM_PATTERNS_BITS) +       // one pattern
     field(0, NUM_STEPS_BITS) +          // one step
     field(0, NUM_ROWS_BITS) +           // one row
+    '0' +                               // the sample isn't the predicted one
     field(0, SAMPLE_IDX_BITS) +         // sample index 0
-    '0';                                // the row's one cell, off
+    field(0, GRID_SCHEME_BITS) +        // the cells are written out flat
+    '0' +                               // the row's one cell, off
+    '1';                                // the row is panned where it's expected
 
 //============================================================================
 // Round trips
@@ -298,10 +338,12 @@ test("a drum and bass roller keeps every row it plays", () =>
 
 test("every song in the corpus survives a round trip", () =>
 {
+    // A song with a row nobody filled in comes back without it, so what a
+    // round trip has to preserve is the song minus what plays nothing
     for (let song of CORPUS)
     {
         let project = build_song(song);
-        assert_same_project(round_trip(project), project, song.name);
+        assert_same_project(round_trip(project), as_encoded(project), song.name);
     }
 });
 
@@ -488,6 +530,222 @@ test("a pattern keeps its length even when its cells are dropped", () =>
 });
 
 //============================================================================
+// Row cells
+//
+// A row's cells go into a link in whichever of four schemes writes them in the
+// fewest bits, and which one that was is written in front of them. The schemes
+// work in cells and groups that a row's length need not be a whole number of,
+// so what these are mostly about is rows whose length doesn't line up with the
+// scheme that got picked.
+//============================================================================
+
+// Cells of a row written as a string, so that a case below reads as the grid
+// it stands for rather than as a list of numbers
+function row_cells(str)
+{
+    return Array.from(str, ch => ch == 'x'? 1:0);
+}
+
+// A row on its own, round-tripped through a link
+function round_trip_row(cells)
+{
+    let project = make_project(120, [{ sample_idxs: [0], rows: [cells] }]);
+
+    return round_trip(project).patterns[0].rows[0];
+}
+
+test("a row repeating a short cell survives a round trip", () =>
+{
+    // Every cell length the format holds, laid down over a row that is a whole
+    // number of them long and over one that cuts the last repeat short
+    for (let period of [2, 4, 8, 16])
+    {
+        let cell = Array.from({ length: period }, (_, i) => i == 0? 1:0);
+
+        for (let num_steps of [period + 1, 3 * period, 4 * period - 1, 64])
+        {
+            let cells = Array.from({ length: num_steps }, (_, i) => cell[i % period]);
+            assert.deepEqual(round_trip_row(cells), cells, `cell of ${period} over ${num_steps}`);
+        }
+    }
+});
+
+test("a row repeating in groups survives a round trip", () =>
+{
+    // Three identical half bars and a fourth that fills, which is the shape
+    // the group schemes are there for and the one no repeated cell can hold
+    let cells = row_cells(
+        'x...x...' + 'x...x...' + 'x...x...' + 'x...x.xx');
+
+    assert.deepEqual(round_trip_row(cells), cells);
+});
+
+test("a row that repeats past where it ends survives a round trip", () =>
+{
+    // A row whose last group is cut short, so that the group standing in for
+    // it is only the same as it as far as the row goes
+    let cells = row_cells('x.x.x.x.' + 'x.x.x.x.' + 'x.x.');
+
+    assert.deepEqual(round_trip_row(cells), cells);
+});
+
+test("rows of every length survive a round trip whatever they hold", () =>
+{
+    // A row is written in cells of up to 16 steps and groups of up to 16, and
+    // a length that is not a whole number of either is what would catch a
+    // scheme writing one step too many or one too few. Every length the format
+    // holds is tried, against rows shaped to reach each of the schemes and one
+    // shaped to reach none of them.
+    let seed = 1;
+    let next = () => (seed = (seed * 1103515245 + 12345) % 2147483648) % 2;
+
+    for (let num_steps = MIN_PAT_STEPS; num_steps <= MAX_PAT_STEPS; ++num_steps)
+    {
+        let cases = [
+            Array(num_steps).fill(0),
+            Array(num_steps).fill(1),
+            Array.from({ length: num_steps }, (_, i) => i % 2),
+            Array.from({ length: num_steps }, (_, i) => i % 4 == 0? 1:0),
+            Array.from({ length: num_steps }, (_, i) => i % 16 == 0? 1:0),
+            Array.from({ length: num_steps }, (_, i) => i < num_steps / 2? 1:0),
+            Array.from({ length: num_steps }, () => next()),
+        ];
+
+        for (let cells of cases)
+            assert.deepEqual(round_trip_row(cells), cells, `${num_steps} steps: ${cells.join('')}`);
+    }
+});
+
+test("a row that repeats goes into a shorter link than one that doesn't", () =>
+{
+    let repeating = make_project(120, [
+        { sample_idxs: [0], rows: [row_cells('x...'.repeat(8))] },
+    ]);
+
+    // The same number of cells over the same length, placed so that the row
+    // holds no repeat of any length the schemes work in
+    let scattered = make_project(120, [
+        { sample_idxs: [0], rows: [row_cells('x..x..x...x....x.....x......x...')] },
+    ]);
+
+    assert.ok(
+        encode_project(repeating).length < encode_project(scattered).length,
+        'a repeating row should cost less than a scattered one'
+    );
+});
+
+test("a link repeating a cell as long as its row is refused", () =>
+{
+    // The encoder writes a row like this out flat instead, a cell that long
+    // being no shorter, so a link claiming one has been edited by hand
+    let bits =
+        field(0, VERSION_BITS) +
+        field(80, TEMPO_BITS) +
+        field(0, SWING_BITS) +
+        field(0, NUM_PATTERNS_BITS) +
+        field(1, NUM_STEPS_BITS) +          // two steps
+        field(0, NUM_ROWS_BITS) +           // one row
+        '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
+        field(1, GRID_SCHEME_BITS) +        // the cells repeat a short cell
+        field(0, MOTIF_PERIOD_BITS) +       // ...of two steps, as long as the row
+        '10';
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /repeats a cell as long as itself/
+    );
+});
+
+//============================================================================
+// Panning
+//
+// Where a row sits in the stereo field is guessed from the row at the same
+// index of the previous pattern, and costs a single bit whenever that guess is
+// right, which for most rows of most projects it is.
+//============================================================================
+
+test("every stereo position survives a round trip", () =>
+{
+    for (let pan = MIN_PAN; pan <= MAX_PAN; ++pan)
+    {
+        let project = make_project(120, [
+            { sample_idxs: [0], rows: [[1, 0]] },
+        ]);
+        project.patterns[0].set_row_pan(0, pan);
+
+        assert.equal(round_trip(project).patterns[0].pans[0], pan, `pan ${pan}`);
+    }
+});
+
+test("a new row is in the centre and costs nothing to say so", () =>
+{
+    let centred = make_project(120, [{ sample_idxs: [0], rows: [[1, 0]] }]);
+    let panned = make_project(120, [{ sample_idxs: [0], rows: [[1, 0]] }]);
+    panned.patterns[0].set_row_pan(0, MAX_PAN);
+
+    assert.equal(centred.patterns[0].pans[0], 0);
+    assert.ok(
+        encode_project(centred).length <= encode_project(panned).length,
+        'a centred row should not cost more than a panned one'
+    );
+});
+
+test("a row keeps its panning across patterns", () =>
+{
+    // The second pattern's row is panned the same way as the first's, which is
+    // the guess the encoding makes, so this is about the guess being unpacked
+    // as the value rather than as the centre
+    let project = make_project(120, [
+        { sample_idxs: [3], rows: [[1, 0]], lane: [1] },
+        { sample_idxs: [3], rows: [[0, 1]], lane: [0, 1] },
+    ]);
+
+    project.patterns[0].set_row_pan(0, -7);
+    project.patterns[1].set_row_pan(0, -7);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.patterns[0].pans[0], -7);
+    assert.equal(decoded.patterns[1].pans[0], -7);
+});
+
+test("a row panned differently from the pattern before it survives", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [3], rows: [[1, 0]], lane: [1] },
+        { sample_idxs: [3], rows: [[0, 1]], lane: [0, 1] },
+    ]);
+
+    project.patterns[0].set_row_pan(0, MIN_PAN);
+    project.patterns[1].set_row_pan(0, MAX_PAN);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.patterns[0].pans[0], MIN_PAN);
+    assert.equal(decoded.patterns[1].pans[0], MAX_PAN);
+});
+
+test("a link panning a row past hard over is refused", () =>
+{
+    // The pan field is wider than the positions a row can hold, so a link can
+    // name one that isn't a position at all
+    let bits =
+        field(0, VERSION_BITS) +
+        field(80, TEMPO_BITS) +
+        field(0, SWING_BITS) +
+        field(0, NUM_PATTERNS_BITS) +
+        field(0, NUM_STEPS_BITS) +          // one step
+        field(0, NUM_ROWS_BITS) +           // one row
+        '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
+        field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
+        '0' + field(31, PAN_BITS);          // panned past MAX_PAN
+
+    decode_project(bits_to_b64(bits));
+
+    assert.equal(drain_asserts().length, 1);
+});
+
+//============================================================================
 // Golden links
 //
 // These strings are frozen: a link that was shared has to keep opening as the
@@ -500,15 +758,16 @@ test("a pattern keeps its length even when its cells are dropped", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled;BQAAeA1AAAA';
+const GOLDEN_EMPTY = 'untitled;BQAAeFCA';
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled;BQAAAAAw';
+const GOLDEN_MINIMAL = 'untitled;BQAAAAAHAA';
 
 // Two patterns of different lengths, a title, a tempo and a swing off their
 // defaults, the widest sample index the format holds, and both patterns on the
-// timeline
-const GOLDEN_MIXED = 'test_song;BkiCGIAoCjRRAQf_ZAA';
+// timeline. One row of each pattern is panned off centre, so that this pins
+// the panning fields too, one of them hard over and one part of the way.
+const GOLDEN_MIXED = 'test_song;BkiCGIAFQFBAoogIH_MdkA';
 
 test("a new project encodes to the same link it always has", () =>
 {
@@ -535,8 +794,10 @@ test("the golden links still decode to the projects they were made from", () =>
     assert.equal(mixed.num_patterns, 2);
     assert.deepEqual(mixed.patterns[0].sample_idxs, [0, 5]);
     assert.deepEqual(mixed.patterns[0].rows, [[1, 0, 1, 0], [0, 0, 0, 1]]);
+    assert.deepEqual(mixed.patterns[0].pans, [0, MIN_PAN]);
     assert.deepEqual(mixed.patterns[1].sample_idxs, [2 ** SAMPLE_IDX_BITS - 1]);
     assert.deepEqual(mixed.patterns[1].rows, [[1, 1, 0]]);
+    assert.deepEqual(mixed.patterns[1].pans, [4]);
     assert.deepEqual(mixed.lanes, [[1, 1, 0, 1], [0, 0, 1]]);
 });
 

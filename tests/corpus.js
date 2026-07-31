@@ -350,6 +350,81 @@ export const CORPUS = [
     })),
 },
 
+{
+    // What a first-time user ends up with, which every other song here is the
+    // opposite of. The default kit is taken as it comes and the rows that
+    // weren't wanted are left sitting there empty rather than removed, since
+    // the editor has no way to remove one. Three patterns that are edits of
+    // one another, none of them ever playing a sample other than the one its
+    // row was handed.
+    //
+    // The other songs are all custom kits with every row in use, so this is
+    // the one that says what empty rows and an untouched kit cost. Two of its
+    // rows are never played at all and a third is played by a single pattern.
+    name: 'a default kit barely touched',
+    tempo: 120,
+    song_bars: 8,
+    patterns: [
+        {   // the beat
+            samples: [
+                'kick_01',
+                'snare_01',
+                'hat_closed_01',
+                'hat_open_01',
+                'clap_01',
+                'rimshot_01',
+            ],
+            rows: [
+                'x.......x.......',
+                '....x.......x...',
+                'x.x.x.x.x.x.x.x.',
+                '................',
+                '................',
+                '................',
+            ],
+            lane: 'xx..xx..',
+        },
+        {   // the same beat with a clap over it and a kick pushed late
+            samples: [
+                'kick_01',
+                'snare_01',
+                'hat_closed_01',
+                'hat_open_01',
+                'clap_01',
+                'rimshot_01',
+            ],
+            rows: [
+                'x.......x...x...',
+                '....x.......x...',
+                'x.x.x.x.x.x.x.x.',
+                '................',
+                '....x.......x...',
+                '................',
+            ],
+            lane: '..xx..x.',
+        },
+        {   // a fill to end on
+            samples: [
+                'kick_01',
+                'snare_01',
+                'hat_closed_01',
+                'hat_open_01',
+                'clap_01',
+                'rimshot_01',
+            ],
+            rows: [
+                'x.......x.......',
+                '....x.......x.xx',
+                'x.x.x.x.x.xxxxxx',
+                '................',
+                '................',
+                '................',
+            ],
+            lane: '.......x',
+        },
+    ],
+},
+
 ];
 
 // Turn one of the entries above into a project
