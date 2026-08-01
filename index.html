@@ -184,7 +184,7 @@
         <!-- Inside the page column like the groups above, so that the notice
              sits under their left edge and the visit count under their right -->
         <div class="footer">
-            <div>
+            <div class="foot_credits">
                 &copy; 2026
                 <!-- These all open in a new tab: the project being edited lives
                      in this page's URL, so leaving the page would take it with
@@ -194,19 +194,21 @@
                 &middot;
                 <a href="https://github.com/maximecb/groovie"
                    target="_blank" rel="noopener">Source on GitHub</a>
-
-                <!-- The commit the site was published from, linking to itself
-                     on GitHub. It sits beside the source link because that is
-                     what it is: another way to the code, and a narrower one.
-
-                     tools/publish.sh writes this in as it stages the file,
-                     separator and all, so that there is nothing here to be
-                     left stranded when there is no commit to name. A commit
-                     can't name itself in a file it contains, so this being
-                     empty is also what says the page is being served from a
-                     checkout rather than from something publish.sh put up. -->
-                <span class="commit"><!--commit--></span>
             </div>
+
+            <!-- The commit the site was published from, linking to itself on
+                 GitHub. It reads as part of the credits beside it, and is a
+                 box of its own rather than words inside them so that it can
+                 leave that line and go down with the visit count on a screen
+                 too narrow to hold all of it at once.
+
+                 tools/publish.sh writes this in as it stages the file,
+                 separator and all, so that there is nothing here to be left
+                 stranded when there is no commit to name. A commit can't name
+                 itself in a file it contains, so this being empty is also what
+                 says the page is being served from a checkout rather than from
+                 something publish.sh put up. -->
+            <span class="commit"><!--commit--></span>
 
             <!-- How many times the page has been opened, filled in by main.js.
                  Empty until the count comes back, and left empty if it doesn't. -->

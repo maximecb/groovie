@@ -847,6 +847,7 @@ input[type="range"].pan_slider::-moz-range-track {
     flex-wrap: wrap;
     justify-content: space-between;
     row-gap: 4px;
+    column-gap: 6px;
 
     /* Sits in the page column with the groups and carries their side margins,
        which is what lines the two ends of the footer up with the edges of the
@@ -857,6 +858,27 @@ input[type="range"].pan_slider::-moz-range-track {
     color: #888;
     font-family: monospace;
     font-size: 11px;
+}
+
+/* The commit is a box of its own beside the credits rather than words inside
+   them, so that it can come off that line when there isn't room for it. This
+   is what keeps it reading as part of them anyway: an automatic margin eats
+   the space that would otherwise be spread between the two, leaving the pair
+   together on the left with the visit count against the right edge.
+
+   Where the commit isn't there to hold that space, the spacing above puts the
+   count back against the right edge on its own, which is where it used to be. */
+.commit {
+    margin-right: auto;
+}
+
+/* What joins the commit to the credits it follows. It is drawn here rather
+   than written into the page because it only makes sense while the two are on
+   the same line: once the commit drops onto a line of its own it would lead
+   that line with a separator separating nothing. */
+.commit::before {
+    content: "\00B7";
+    margin-right: 6px;
 }
 
 /* A page with no commit written into it was not published by tools/publish.sh.
@@ -1013,11 +1035,27 @@ button:disabled:hover {
         display: block;
     }
 
-    /* Which build is up is worth knowing while deploying, and deploying isn't
-       done from a phone. The footer is already close to wrapping onto two
-       lines at this width, so the hash gives up its place to the visit count. */
+    /* The credits are about as wide as a phone on their own, so they take the
+       first line to themselves and the commit and the visit count go on the
+       second. Both sit at the left of it: a footer this narrow reads as a list
+       rather than as two ends held apart, and holding them apart is what would
+       strand the count out on the right of a line of its own on the builds
+       that have no commit to put beside it. */
+    .foot_credits {
+        flex-basis: 100%;
+    }
+
+    .footer {
+        justify-content: flex-start;
+    }
+
     .commit {
-        display: none;
+        margin-right: 0;
+    }
+
+    /* Nothing to join it to any more, the credits being a line above */
+    .commit::before {
+        content: none;
     }
 
     /* Written against the grid rather than the rows, so that the button can

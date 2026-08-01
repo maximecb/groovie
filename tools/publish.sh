@@ -182,15 +182,17 @@ readonly COMMIT_MARKER='<!--commit-->'
 grep -q "$COMMIT_MARKER" "$stage/index.html" ||
     fail "index.html has no '$COMMIT_MARKER' for the commit to go in."
 
-# The separator is the character itself rather than the &middot; the page uses
-# elsewhere, because '&' means "everything that matched" on the replacement
-# side of a sed script: an entity written here would come back as the marker it
-# was meant to replace. The file is UTF-8 and says so, so the character is no
-# worse off than the entity would be.
+# Only the commit itself goes in. What separates it from the credits beside it
+# is drawn by the stylesheet, which is what lets that separator go away on a
+# screen narrow enough to put the commit on a line of its own.
+#
+# Nothing written here may hold an '&': on the replacement side of a sed script
+# it means "everything that matched", so an HTML entity would come back out as
+# the marker it was meant to replace.
 if [ -n "$commit_url" ]; then
-    commit_html="· <a href=\"$commit_url\" target=\"_blank\" rel=\"noopener\">$source_commit</a>"
+    commit_html="<a href=\"$commit_url\" target=\"_blank\" rel=\"noopener\">$source_commit</a>"
 else
-    commit_html="· $source_commit"
+    commit_html="$source_commit"
 fi
 
 sed "s|$COMMIT_MARKER|$commit_html|" "$stage/index.html" > "$stage/index.html.new" ||
