@@ -11,6 +11,11 @@ timeline below it. When it sounds right, hit "Copy link": the whole project is e
 into the hash portion of the URL, so anyone you send the link to can play it and remix
 it. Nothing is uploaded anywhere, and there is nothing to sign up for.
 
+I hope this can be a valuable tool for teaching people about rhythm and music
+production, and a fun one for enthusiasts to sketch ideas with. If you think this
+project is cool and you want to support my open source work, you can
+[sponsor me on GitHub](https://github.com/sponsors/maximecb).
+
 ## Features
 
 Free-running polymeters. Steps have a fixed duration rather than a fixed number per

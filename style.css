@@ -833,6 +833,12 @@ input[type="range"].pan_slider::-moz-range-track {
     display: flex;
     align-items: baseline;
 
+    /* The credits and the visit count together are about as wide as a phone,
+       so they're allowed to fall onto two lines rather than the credits
+       breaking mid-line against a count pinned beside them */
+    flex-wrap: wrap;
+    row-gap: 4px;
+
     /* Sits in the page column with the groups and carries their side margins,
        which is what lines the two ends of the footer up with the edges of the
        boxes above it, whatever width the page is being shown at */
