@@ -68,7 +68,15 @@ function measure(song)
     };
 }
 
-let rows = CORPUS.map(measure);
+// Songs are numbered so that a link can be told which row of the table below
+// it belongs to. The number is formatted once, here, and used in both places,
+// so the two lists can't come out numbered differently.
+const NUM_WIDTH = String(CORPUS.length).length;
+
+let rows = CORPUS.map((song, song_idx) => ({
+    num: `${song_idx + 1}`.padStart(NUM_WIDTH) + '.',
+    ...measure(song),
+}));
 
 // The song column is as wide as the longest thing that goes in it, plus the
 // gap separating it from the next column, so that adding a song whose name is
@@ -79,6 +87,9 @@ const NAME_WIDTH = 2 + Math.max(
 );
 
 const COLUMNS = [
+    // The number carries its own dot and is padded to the width of the largest
+    // one, so this column is written out as-is rather than aligned as a value
+    { head: '#',         key: 'num',          width: NUM_WIDTH + 3, left: true },
     { head: 'song',      key: 'name',         width: NAME_WIDTH, left: true },
     { head: 'patterns',  key: 'patterns',     width: 9 },
     { head: 'steps',     key: 'song_steps',   width: 7 },
@@ -104,7 +115,7 @@ let rule = '-'.repeat(COLUMNS.reduce((sum, col) => sum + col.width, 0));
 console.log();
 
 for (let row of rows)
-    console.log(row.url);
+    console.log(`${row.num} ${row.url}`);
 
 console.log();
 console.log(row_text(Object.fromEntries(COLUMNS.map(col => [col.key, col.head]))));
@@ -120,6 +131,7 @@ console.log(rule);
 const sum = key => rows.reduce((total, row) => total + row[key], 0);
 
 console.log(row_text({
+    num: '',
     name: `${rows.length} songs`,
     patterns: sum('patterns'),
     song_steps: sum('song_steps'),
