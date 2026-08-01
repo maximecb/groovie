@@ -835,8 +835,17 @@ input[type="range"].pan_slider::-moz-range-track {
 
     /* The credits and the visit count together are about as wide as a phone,
        so they're allowed to fall onto two lines rather than the credits
-       breaking mid-line against a count pinned beside them */
+       breaking mid-line against a count pinned beside them.
+
+       What spaces them is what puts the count in the right place on either
+       layout: side by side it holds the two apart, so the count sits against
+       the right edge as before, and once the count is on a line of its own it
+       falls to the left with nothing to be spaced against. A count stranded
+       out on the right of its own row is what this avoids, and it does it
+       without a width to break at, which the count doesn't have: how wide it
+       runs depends on how many digits the number has grown to. */
     flex-wrap: wrap;
+    justify-content: space-between;
     row-gap: 4px;
 
     /* Sits in the page column with the groups and carries their side margins,
@@ -848,11 +857,6 @@ input[type="range"].pan_slider::-moz-range-track {
     color: #888;
     font-family: monospace;
     font-size: 11px;
-}
-
-/* The visit count, at the right end of the footer */
-.footer #hit_count {
-    margin-left: auto;
 }
 
 /* Links here are dim like the text around them, rather than taking the
@@ -884,6 +888,63 @@ button:hover {
 }
 button:active {
     background-color: #444;
+}
+
+/* The two buttons that start playback. Every control on the page is the same
+   grey box, which leaves someone opening Groovie for the first time nothing to
+   tell them where to begin, so these carry a colored outline. Full brightness,
+   to stand against the grey of everything around it. The purple is the one the
+   logo and the pattern strip are already in, which keeps the page to the colors
+   it has: it draws the eye by being the only outline that isn't grey, rather
+   than by being a color from somewhere else.
+
+   The fill and the text are left alone. A colored box among grey ones would be
+   a louder thing than the page wants, and the outline is enough. The fill and
+   the text are also what's left for hover to move, which the rule for every
+   button already does: the outline is at its brightest here, so there is
+   nowhere for it to go on the way in. */
+.play_btn:not(:disabled) {
+    border-color: #B400FF;
+}
+
+/* What the outline can't say on its own is what the button does, purple having
+   no meaning here the way green would have. The transport symbols do say it,
+   and they say it to someone who has never read the page.
+
+   Drawn here rather than put in the label, since the label is replaced whenever
+   playback starts or stops and would carry the glyph off with it. The escapes
+   are the triangle and the square, each followed by the variation selector that
+   asks for the text form of it: left alone, both arrive as color emoji on Apple
+   systems, which is a picture of a button inside a button. */
+.play_btn::after {
+    content: "\25B6\FE0E";
+    margin-left: 7px;
+
+    /* Both glyphs sit low against the word beside them: they're drawn to center
+       on the middle of a line of text, which is below the middle of a word in
+       capitals and lowercase with no descender in it. Nudged up by eye to sit
+       with the word instead. Shifted rather than laid out differently, so that
+       the button keeps the height it has, and in em so that the correction
+       stays with the glyph if the text around it is ever set larger. */
+    position: relative;
+    top: -0.08em;
+}
+
+/* Playing, i.e. the button now says Stop. Red is what the rest of the page
+   already uses for the pattern being heard, so a red button is the same fact
+   said in the same color. Placed after the rules above so that it wins over
+   them at equal specificity. */
+.play_btn.playing::after {
+    content: "\25A0\FE0E";
+}
+.play_btn.playing:not(:disabled) {
+    border-color: #E22;
+    color: #E22;
+}
+.play_btn.playing:not(:disabled):hover {
+    background-color: #2E2E2E;
+    border-color: #E22;
+    color: #E22;
 }
 
 /* An action that isn't available right now, e.g. deleting the last pattern of

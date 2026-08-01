@@ -551,6 +551,10 @@ function update_play_buttons()
     play_pat.textContent = is_playing_pattern()? 'Stop':'Play';
     play_song_btn.textContent = is_playing_song()? 'Stop':'Play';
 
+    // Marks the button the stylesheet draws as stopping rather than starting
+    play_pat.classList.toggle('playing', is_playing_pattern());
+    play_song_btn.classList.toggle('playing', is_playing_song());
+
     // Nothing is placed on the timeline, so there is no song to play. The
     // button stays live while the song plays, since emptying the timeline
     // during playback has to leave a way to stop it.
