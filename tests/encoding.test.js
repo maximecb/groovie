@@ -30,6 +30,14 @@ import {
     MAX_PAN,
     MIN_VOLUME,
     MAX_VOLUME,
+    MIN_SEND,
+    MAX_SEND,
+    DEFAULT_SEND,
+    MIN_DELAY_TIME,
+    MAX_DELAY_TIME,
+    MIN_DELAY_FB,
+    MAX_DELAY_FB,
+    DELAY_FB_STEP,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MAX_PAT_ROWS,
@@ -164,6 +172,7 @@ const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
 const PAN_BITS = 5;
 const VOLUME_BITS = 5;
+const SEND_BITS = 5;
 const GRID_SCHEME_BITS = 2;
 const MOTIF_PERIOD_BITS = 2;
 const VAR_CHUNK_BITS = 4;
@@ -181,6 +190,7 @@ const ONE_EMPTY_PATTERN =
     field(0, VERSION_BITS) +            // encoding version
     field(80, TEMPO_BITS) +             // tempo, offset from MIN_TEMPO
     field(0, SWING_BITS) +              // swing, offset from MIN_SWING
+    '1' +                               // the delay is set the way it starts
     field(0, NUM_PATTERNS_BITS) +       // one pattern
     field(0, NUM_STEPS_BITS) +          // one step
     field(0, NUM_ROWS_BITS) +           // one row
@@ -189,7 +199,8 @@ const ONE_EMPTY_PATTERN =
     field(0, GRID_SCHEME_BITS) +        // the cells are written out flat
     '0' +                               // the row's one cell, off
     '1' +                               // the row is panned where it's expected
-    '1';                                // and is at the level expected too
+    '1' +                               // and is at the level expected too
+    '1';                                // and sends the delay what's expected
 
 //============================================================================
 // Round trips
@@ -648,6 +659,7 @@ test("a link repeating a cell as long as its row is refused", () =>
         field(0, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        '1' +                               // the delay is set the way it starts
         field(0, NUM_PATTERNS_BITS) +
         field(1, NUM_STEPS_BITS) +          // two steps
         field(0, NUM_ROWS_BITS) +           // one row
@@ -739,13 +751,15 @@ test("a link panning a row past hard over is refused", () =>
         field(0, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        '1' +                               // the delay is set the way it starts
         field(0, NUM_PATTERNS_BITS) +
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
         '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
         field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
         '0' + field(31, PAN_BITS) +         // panned past MAX_PAN
-        '1';                                // at the level expected
+        '1' +                               // at the level expected
+        '1';                                // sending the delay what's expected
 
     decode_project(bits_to_b64(bits));
 
@@ -809,13 +823,139 @@ test("a link setting a row past the top of the range is refused", () =>
         field(0, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        '1' +                               // the delay is set the way it starts
         field(0, NUM_PATTERNS_BITS) +
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
         '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
         field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
         '1' +                               // panned where it's expected
-        '0' + field(31, VOLUME_BITS);       // a level above MAX_VOLUME
+        '0' + field(31, VOLUME_BITS) +      // a level above MAX_VOLUME
+        '1';                                // sending the delay what's expected
+
+    decode_project(bits_to_b64(bits));
+
+    assert.equal(drain_asserts().length, 1);
+});
+
+//============================================================================
+// Delay
+//
+// How much of a row goes to the delay is guessed the way its panning and its
+// level are. The delay's own settings belong to the project, and are guessed
+// as a pair against the settings a project starts with, most projects never
+// having touched them.
+//============================================================================
+
+test("every delay send survives a round trip", () =>
+{
+    for (let send = MIN_SEND; send <= MAX_SEND; ++send)
+    {
+        let project = make_project(120, [
+            { sample_idxs: [0], rows: [[1, 0]] },
+        ]);
+        project.patterns[0].set_row_send(0, send);
+
+        assert.equal(round_trip(project).patterns[0].sends[0], send, `send ${send}`);
+    }
+});
+
+test("a new row is dry and costs nothing to say so", () =>
+{
+    let dry = make_project(120, [{ sample_idxs: [0], rows: [[1, 0]] }]);
+    let sent = make_project(120, [{ sample_idxs: [0], rows: [[1, 0]] }]);
+    sent.patterns[0].set_row_send(0, MAX_SEND);
+
+    assert.equal(dry.patterns[0].sends[0], DEFAULT_SEND);
+    assert.ok(
+        encode_project(dry).length <= encode_project(sent).length,
+        'a dry row should not cost more than one sent to the delay'
+    );
+});
+
+test("a row keeps its delay send across patterns", () =>
+{
+    // The second pattern's row is sent as far as the first's, which is the
+    // guess the encoding makes, so this is about the guess being unpacked as
+    // the value rather than as a dry row
+    let project = make_project(120, [
+        { sample_idxs: [3], rows: [[1, 0]], lane: [1] },
+        { sample_idxs: [3], rows: [[0, 1]], lane: [0, 1] },
+    ]);
+
+    project.patterns[0].set_row_send(0, -9);
+    project.patterns[1].set_row_send(0, -9);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.patterns[0].sends[0], -9);
+    assert.equal(decoded.patterns[1].sends[0], -9);
+});
+
+test("a row sent to the delay in only one pattern survives", () =>
+{
+    let project = make_project(120, [
+        { sample_idxs: [3], rows: [[1, 0]], lane: [1] },
+        { sample_idxs: [3], rows: [[0, 1]], lane: [0, 1] },
+    ]);
+
+    project.patterns[1].set_row_send(0, MAX_SEND);
+
+    let decoded = round_trip(project);
+
+    assert.equal(decoded.patterns[0].sends[0], DEFAULT_SEND);
+    assert.equal(decoded.patterns[1].sends[0], MAX_SEND);
+});
+
+test("every delay setting survives a round trip", () =>
+{
+    for (let time = MIN_DELAY_TIME; time <= MAX_DELAY_TIME; ++time)
+    {
+        for (let fb = MIN_DELAY_FB; fb <= MAX_DELAY_FB; fb += DELAY_FB_STEP)
+        {
+            let project = make_project(120, [
+                { sample_idxs: [0], rows: [[1, 0]] },
+            ]);
+            project.set_delay_time(time);
+            project.set_delay_feedback(fb);
+
+            let decoded = round_trip(project);
+
+            assert.equal(decoded.delay_time, time, `time ${time}, feedback ${fb}`);
+            assert.equal(decoded.delay_feedback, fb, `time ${time}, feedback ${fb}`);
+        }
+    }
+});
+
+test("a project that left the delay alone costs nothing to say so", () =>
+{
+    let untouched = make_project(120, [{ sample_idxs: [0], rows: [[1, 0]] }]);
+    let set = make_project(120, [{ sample_idxs: [0], rows: [[1, 0]] }]);
+
+    set.set_delay_time(MAX_DELAY_TIME);
+    set.set_delay_feedback(MAX_DELAY_FB);
+
+    assert.ok(
+        encode_project(untouched).length <= encode_project(set).length,
+        'a project at the default delay should not cost more than one that set it'
+    );
+});
+
+test("a link setting a row past the top of the send range is refused", () =>
+{
+    let bits =
+        field(0, VERSION_BITS) +
+        field(80, TEMPO_BITS) +
+        field(0, SWING_BITS) +
+        '1' +                               // the delay is set the way it starts
+        field(0, NUM_PATTERNS_BITS) +
+        field(0, NUM_STEPS_BITS) +          // one step
+        field(0, NUM_ROWS_BITS) +           // one row
+        '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
+        field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
+        '1' +                               // panned where it's expected
+        '1' +                               // at the level expected
+        '0' + field(31, SEND_BITS);         // a send above MAX_SEND
 
     decode_project(bits_to_b64(bits));
 
@@ -835,17 +975,18 @@ test("a link setting a row past the top of the range is refused", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled;BQAAeFDA';
+const GOLDEN_EMPTY = 'untitled;BQBAPChw';
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled;BQAAAAAHgA';
+const GOLDEN_MINIMAL = 'untitled;BQBAAAAD4A';
 
-// Two patterns of different lengths, a title, a tempo and a swing off their
-// defaults, the widest sample index the format holds, and both patterns on the
-// timeline. One row of each pattern is panned off centre and one of each is
-// turned down, so that this pins those fields too: the panning hard over and
-// part of the way, and the level part of the way down and all the way.
-const GOLDEN_MIXED = 'test_song;BkiCGIAFYCggMUUQED_mOAyA';
+// Two patterns of different lengths, a title, a tempo, a swing and a delay off
+// their defaults, the widest sample index the format holds, and both patterns
+// on the timeline. One row of each pattern is panned off centre, one of each is
+// turned down, and one of each is sent to the delay, so that this pins those
+// fields too: the panning hard over and part of the way, the level part of the
+// way down and all the way, and a send both guessed and written out.
+const GOLDEN_MIXED = 'test_song;BkiXgIYgAVwFBAYSoogIH_McA3kA';
 
 test("a new project encodes to the same link it always has", () =>
 {
@@ -869,15 +1010,19 @@ test("the golden links still decode to the projects they were made from", () =>
     assert.equal(mixed.title, 'test song');
     assert.equal(mixed.tempo, 140);
     assert.equal(mixed.swing, 67);
+    assert.equal(mixed.delay_time, 11);
+    assert.equal(mixed.delay_feedback, 60);
     assert.equal(mixed.num_patterns, 2);
     assert.deepEqual(mixed.patterns[0].sample_idxs, [0, 5]);
     assert.deepEqual(mixed.patterns[0].rows, [[1, 0, 1, 0], [0, 0, 0, 1]]);
     assert.deepEqual(mixed.patterns[0].pans, [0, MIN_PAN]);
     assert.deepEqual(mixed.patterns[0].volumes, [0, -6]);
+    assert.deepEqual(mixed.patterns[0].sends, [DEFAULT_SEND, -12]);
     assert.deepEqual(mixed.patterns[1].sample_idxs, [2 ** SAMPLE_IDX_BITS - 1]);
     assert.deepEqual(mixed.patterns[1].rows, [[1, 1, 0]]);
     assert.deepEqual(mixed.patterns[1].pans, [4]);
     assert.deepEqual(mixed.patterns[1].volumes, [MIN_VOLUME]);
+    assert.deepEqual(mixed.patterns[1].sends, [-3]);
     assert.deepEqual(mixed.lanes, [[1, 1, 0, 1], [0, 0, 1]]);
 });
 

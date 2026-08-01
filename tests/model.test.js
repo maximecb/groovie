@@ -21,6 +21,17 @@ import {
     MIN_VOLUME,
     MAX_VOLUME,
     DEFAULT_VOLUME,
+    MIN_SEND,
+    MAX_SEND,
+    DEFAULT_SEND,
+    MIN_DELAY_TIME,
+    MAX_DELAY_TIME,
+    DEFAULT_DELAY_TIME,
+    MIN_DELAY_FB,
+    MAX_DELAY_FB,
+    DEFAULT_DELAY_FB,
+    DELAY_FB_STEP,
+    DELAY_STEP_FRACTIONS,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MIN_PAT_ROWS,
@@ -274,8 +285,10 @@ test("stripping a pattern keeps each surviving row's own mixing", () =>
     pat.toggle_cell(1, 0);
     pat.set_row_pan(1, 6);
     pat.set_row_volume(1, -12);
+    pat.set_row_send(1, -9);
 
     pat.set_row_pan(2, MAX_PAN);
+    pat.set_row_send(2, MAX_SEND);
 
     pat.toggle_cell(3, 2);
     pat.set_row_volume(3, MIN_VOLUME);
@@ -285,6 +298,7 @@ test("stripping a pattern keeps each surviving row's own mixing", () =>
     assert.deepEqual(stripped.sample_idxs, [11, 13]);
     assert.deepEqual(stripped.pans, [6, DEFAULT_PAN]);
     assert.deepEqual(stripped.volumes, [-12, MIN_VOLUME]);
+    assert.deepEqual(stripped.sends, [-9, DEFAULT_SEND]);
 });
 
 test("stripping an empty pattern leaves its first row", () =>
@@ -382,6 +396,36 @@ test("every level in the range is quieter than the one above it", () =>
     }
 });
 
+test("a row starts out dry and is handed to the delay as an amplitude", () =>
+{
+    let pat = new Pattern([0, 1, 2], MIN_PAT_STEPS);
+
+    // A row nobody sent anywhere feeds the delay nothing, which is what keeps
+    // a project made before there was a delay sounding the way it did
+    assert.equal(pat.sends[0], DEFAULT_SEND);
+    assert.equal(pat.row_send_gain(0), 0);
+
+    // The same decibels the level is measured in, converted the same way
+    pat.set_row_send(1, MAX_SEND);
+    assert.equal(pat.row_send_gain(1), 1);
+
+    pat.set_row_send(2, -20);
+    assert.ok(Math.abs(pat.row_send_gain(2) - 0.1) < 1e-9);
+});
+
+test("a row sent to the bottom of its travel feeds the delay nothing", () =>
+{
+    // audio.js builds no send nodes for a row whose send is zero, so the
+    // bottom of the range has to come out as no signal rather than as -30 dB
+    let pat = new Pattern([0, 1], MIN_PAT_STEPS);
+
+    pat.set_row_send(0, MIN_SEND);
+    pat.set_row_send(1, MIN_SEND + 1);
+
+    assert.equal(pat.row_send_gain(0), 0);
+    assert.ok(pat.row_send_gain(1) > 0);
+});
+
 //============================================================================
 // Project
 //============================================================================
@@ -404,6 +448,74 @@ test("the tempo sets the playback rate in steps per second", () =>
 
     // 120 BPM is 2 beats a second, and a beat is STEPS_PER_BEAT steps
     assert.equal(project.steps_per_sec, 2 * STEPS_PER_BEAT);
+});
+
+test("the delay time is a fraction of a step and follows the tempo", () =>
+{
+    let project = new Project();
+    project.set_tempo(120);
+
+    // At 120 BPM a step is an eighth of a second, so a delay of one step holds
+    // a sound for that long and one of four steps holds it for four of them
+    let one_step = DELAY_STEP_FRACTIONS.findIndex(([n, d]) => n == 1 && d == 1);
+    project.set_delay_time(one_step);
+    assert.ok(Math.abs(project.delay_time_secs - 0.125) < 1e-9);
+
+    let four_steps = DELAY_STEP_FRACTIONS.findIndex(([n, d]) => n == 4 && d == 1);
+    project.set_delay_time(four_steps);
+    assert.ok(Math.abs(project.delay_time_secs - 0.5) < 1e-9);
+
+    // The delay is set in steps rather than in seconds, so playing the same
+    // project twice as fast brings its echoes twice as close together
+    project.set_tempo(240);
+    assert.ok(Math.abs(project.delay_time_secs - 0.25) < 1e-9);
+});
+
+test("the longest delay at the slowest tempo fits the line that holds it", () =>
+{
+    // A DelayNode is given the longest time it can ever be asked for when it is
+    // built and cannot grow afterwards (see MAX_DELAY_SECS in audio.js). The
+    // worst case is the longest setting at the slowest tempo, and a setting
+    // past what the line holds would come out silently clamped.
+    let project = new Project();
+    project.set_tempo(MIN_TEMPO);
+    project.set_delay_time(MAX_DELAY_TIME);
+
+    assert.ok(
+        project.delay_time_secs <= 8,
+        `the longest delay is ${project.delay_time_secs}s, past the 8s line`
+    );
+});
+
+test("every delay time is longer than the one before it", () =>
+{
+    // The control is a slider running along this table, so a setting further
+    // along it that came out shorter would run the control backwards
+    let project = new Project();
+    let prev_secs = 0;
+
+    for (let time = MIN_DELAY_TIME; time <= MAX_DELAY_TIME; ++time)
+    {
+        project.set_delay_time(time);
+        let secs = project.delay_time_secs;
+
+        assert.ok(secs > prev_secs, `delay time ${time} is not past the one before it`);
+        prev_secs = secs;
+    }
+});
+
+test("the delay feedback stays short of running away", () =>
+{
+    // A loop fed back at or past unity builds on itself without bound, and the
+    // settings come out of a link somebody else made. The ceiling is on the
+    // range rather than clamped later, so there is no setting to get wrong.
+    let project = new Project();
+
+    for (let fb = MIN_DELAY_FB; fb <= MAX_DELAY_FB; fb += DELAY_FB_STEP)
+    {
+        project.set_delay_feedback(fb);
+        assert.ok(project.delay_feedback_gain < 1, `feedback ${fb}% is not below unity`);
+    }
 });
 
 test("swing holds a step back by its share of a step pair", () =>
@@ -656,6 +768,44 @@ test("a level outside the allowed range is refused", () =>
     assert.equal(drain_asserts().length, 1);
 
     pat.set_row_volume(0, MAX_VOLUME + 1);
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a delay send outside the allowed range is refused", () =>
+{
+    let pat = new Pattern([0], MIN_PAT_STEPS);
+
+    pat.set_row_send(0, MIN_SEND - 1);
+    assert.equal(drain_asserts().length, 1);
+
+    pat.set_row_send(0, MAX_SEND + 1);
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a delay setting outside the allowed range is refused", () =>
+{
+    let project = new Project();
+
+    project.set_delay_time(MIN_DELAY_TIME - 1);
+    assert.equal(drain_asserts().length, 1);
+
+    project.set_delay_time(MAX_DELAY_TIME + 1);
+    assert.equal(drain_asserts().length, 1);
+
+    project.set_delay_feedback(MIN_DELAY_FB - DELAY_FB_STEP);
+    assert.equal(drain_asserts().length, 1);
+
+    project.set_delay_feedback(MAX_DELAY_FB + DELAY_FB_STEP);
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a delay feedback between two settings is refused", () =>
+{
+    // Only the settings the control stops at have room in a link, so a value
+    // between two of them would fail the encoding rather than be caught here
+    let project = new Project();
+
+    project.set_delay_feedback(MIN_DELAY_FB + 1);
     assert.equal(drain_asserts().length, 1);
 });
 

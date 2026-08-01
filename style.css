@@ -19,7 +19,7 @@ html {
        1145px, and about 50px of the page goes on the margins, borders and
        padding between it and the window, so 1220px is where the longest pattern
        anyone writes in fours stops having to be scrolled to be seen. */
-    --page_max: 940px;
+    --page_max: 980px;
 
     /* Width of the sample drop-down at the left of a pattern row, which the
        button adding a row below the grid matches so that the two line up.
@@ -582,6 +582,17 @@ h1 {
     font-variant-numeric: tabular-nums;
 }
 
+/* Readout of a control whose value is named rather than numbered, i.e. the
+   delay time. Reserved at the width of the longest name it can show, which is
+   a fraction over two digits and the word after it, e.g. '3/16 steps'. Left
+   aligned rather than right, the values being words. */
+.wide_val {
+    display: inline-block;
+    min-width: 10ch;
+
+    font-variant-numeric: tabular-nums;
+}
+
 /* The sliders are drawn from scratch rather than left to the browser, which
    would bring a rounded handle and a blue of its own to a page made of squares
    in two colors. The part of the track behind the handle is lit, the way the
@@ -719,6 +730,13 @@ input[type="range"]:focus-visible {
    width: it fills from the left the way they do, and takes the same color ramp,
    which puts a row near the top of its range at the red end. */
 input[type="range"].vol_slider {
+    width: 60px;
+}
+
+/* The delay send slider, which is the level slider again: it fills from the
+   left and takes the same color ramp, a row sent hard to the delay lighting up
+   at the red end the way a row at full level does. */
+input[type="range"].send_slider {
     width: 60px;
 }
 
@@ -937,10 +955,13 @@ button:disabled:hover {
 
     /* The mix of a row has to fit across the screen without scrolling, which is
        the whole point of showing it on its own, and these are what there is to
-       give: a slider this size still has room to be dragged. */
+       give: a slider this size still has room to be dragged. Three of them and
+       their readouts is most of the width of a phone, which is what these are
+       narrower than the level and pan sliders once were. */
     input[type="range"].pan_slider,
-    input[type="range"].vol_slider {
-        width: 50px;
+    input[type="range"].vol_slider,
+    input[type="range"].send_slider {
+        width: 44px;
     }
 
     /* On the narrowest phones that still leaves the row a few pixels over. The

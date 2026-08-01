@@ -30,6 +30,7 @@ import {
     MAX_PAT_ROWS,
     MAX_TEMPO,
     MIN_VOLUME,
+    MIN_SEND,
 } from "../model.js";
 
 import {
@@ -271,4 +272,128 @@ test("no song anyone would write comes near the cap", async () =>
             `${song.name} peaks at ${peak} voices on a step, against a cap of ${MAX_STEP_VOICES}`
         );
     }
+});
+
+//============================================================================
+// The delay
+//
+// One delay for the whole project, fed by whatever the rows send it. What
+// these are about is where a voice is tapped from and that a project sending
+// it nothing never builds it at all: the nodes are what a phone pays for.
+//============================================================================
+
+// Follow a voice out to the output, so that the chain it was routed through
+// can be read as the list of node types it passed through
+function voice_chain(voice)
+{
+    let chain = [];
+
+    for (let node = voice; node; node = node.dst)
+        chain.push(node.type);
+
+    return chain;
+}
+
+// The nodes hanging off the side of a voice's chain, i.e. everything it feeds
+// that isn't the way onwards to the output
+function voice_taps(voice)
+{
+    let taps = [];
+
+    for (let node = voice; node; node = node.dst)
+        taps.push(...node.dsts.slice(1));
+
+    return taps;
+}
+
+// Play one step of a single pattern whose one row plays a kick, mixed the way
+// the caller asks for, and hand back the voice it started
+async function mixed_voice({ pan = 0, volume = 0, send = MIN_SEND })
+{
+    let project = new Project();
+    project.set_tempo(ONE_STEP_TEMPO);
+
+    let pat = new Pattern([KICK], 1);
+    pat.rows = [[1]];
+    pat.set_row_pan(0, pan);
+    pat.set_row_volume(0, volume);
+    pat.set_row_send(0, send);
+    project.patterns = [pat];
+
+    await play_pattern(project, 0);
+    stop_playback();
+
+    let voices = drain_voices();
+    assert.equal(voices.length, 1);
+
+    return voices[0];
+}
+
+test("a dry row centred at full level is routed straight to the output", async () =>
+{
+    // The nodes a row costs are paid for by the rows that were actually set,
+    // and a row nobody touched has been set to nothing
+    let voice = await mixed_voice({});
+
+    // The one gain here is the master volume, which every voice goes through
+    assert.deepEqual(voice_chain(voice), ['source', 'gain', 'destination']);
+    assert.deepEqual(voice_taps(voice), []);
+});
+
+test("a row sent to the delay is tapped after its level and its panning", async () =>
+{
+    // Echoes have to sit where the row sits and come down with it as it is
+    // turned down, so the send is taken from the far end of the chain rather
+    // than from the source
+    let voice = await mixed_voice({ pan: 5, volume: -6, send: -6 });
+
+    // The row's own level, then its panning, then the master volume
+    assert.deepEqual(
+        voice_chain(voice),
+        ['source', 'gain', 'panner', 'gain', 'destination']
+    );
+
+    let taps = voice_taps(voice);
+    assert.equal(taps.length, 1);
+    assert.equal(taps[0].type, 'gain');
+
+    // The tap is on the panner, which is the last thing the row owns before
+    // its sound is handed to the master volume
+    let panner = voice.dst.dst;
+    assert.equal(panner.type, 'panner');
+    assert.equal(panner.dsts.length, 2);
+});
+
+test("a row sent to the delay is panned even when it sits dead centre", async () =>
+{
+    // A centred row does without a panner when it is dry, but its echoes would
+    // then arrive somewhere other than where it is
+    let voice = await mixed_voice({ pan: 0, send: -12 });
+
+    assert.ok(voice_chain(voice).includes('panner'));
+});
+
+test("the delay is built once and shared by the rows that use it", async () =>
+{
+    let project = new Project();
+    project.set_tempo(ONE_STEP_TEMPO);
+
+    let pat = new Pattern([KICK, SNARE], 1);
+    pat.rows = [[1], [1]];
+    pat.set_row_send(0, -6);
+    pat.set_row_send(1, -12);
+    project.patterns = [pat];
+
+    await play_pattern(project, 0);
+    stop_playback();
+
+    let voices = drain_voices();
+    assert.equal(voices.length, 2);
+
+    // Both sends land on the same node, there being one delay for the project
+    // rather than one per row
+    let [first, second] = voices.map(voice => voice_taps(voice)[0].dst);
+
+    assert.equal(first, second);
+    assert.equal(first.type, 'gain');
 });

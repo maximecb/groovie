@@ -70,6 +70,83 @@ export const MIN_VOLUME = -30;
 export const MAX_VOLUME = 0;
 export const DEFAULT_VOLUME = 0;
 
+// How much of a row is fed to the delay, in decibels, on the same scale and
+// with the same bottom-is-off rule its level is on.
+//
+// This is a send rather than a wet/dry mix: the row itself always reaches the
+// output at full level, and this says how loud a copy of it is fed to the
+// delay, whose echoes are added on top. A drum is never replaced by its own
+// echo, which is what a mix control at the top of its range would do, so the
+// only thing worth controlling is how much echo sits behind it.
+//
+// A row starts with its send all the way down, so a project that was never
+// given a delay sounds exactly as it did before there was one.
+export const MIN_SEND = -30;
+export const MAX_SEND = 0;
+export const DEFAULT_SEND = MIN_SEND;
+
+// Delay times, as fractions of a step, in increasing order.
+//
+// The delay is set in steps rather than in milliseconds so that it follows the
+// tempo: an echo written at 120 BPM is still on the beat when the same song is
+// played at 140. Steps are what this app measures time in, and a step is a
+// sixteenth note, so a whole-step delay is a sixteenth, two steps an eighth,
+// three the dotted eighth most delays are set to, and four a quarter note.
+//
+// Fractions of a step matter as much as whole ones. A step is 125ms at 120
+// BPM, and the shortest delays worth having are all below that: around a
+// quarter of a step doubles a hit and thickens it, a half-step is the slapback
+// that sits on snares and claps, and an eighth of a step is short enough to
+// read as stereo width rather than as an echo at all.
+//
+// The middle of the range is the finest, since that's where an echo is heard
+// as a rhythm of its own. The odd ratios there are not filler: a delay set to
+// five quarters or seven quarters of a step drifts against the pattern it sits
+// on, the same way patterns of different lengths drift against each other.
+//
+// Held as numerator and denominator rather than as a number so that the
+// control can name a setting the way a musician would, e.g. "3/2 steps".
+export const DELAY_STEP_FRACTIONS = [
+    [1, 16], [1, 8], [3, 16], [1, 4], [1, 3], [1, 2], [2, 3], [3, 4],
+    [1, 1], [5, 4], [4, 3], [3, 2], [5, 3], [7, 4],
+    [2, 1], [9, 4], [7, 3], [5, 2], [8, 3],
+    [3, 1], [7, 2],
+    [4, 1], [9, 2], [5, 1], [16, 3],
+    [6, 1], [7, 1], [8, 1], [10, 1], [12, 1], [14, 1], [16, 1],
+];
+
+// A delay time is held as an index into the table above, so this is the range
+// that index runs over. The dotted eighth in the middle is where a delay is
+// most often set, and is what a project starts at.
+export const MIN_DELAY_TIME = 0;
+export const MAX_DELAY_TIME = DELAY_STEP_FRACTIONS.length - 1;
+export const DEFAULT_DELAY_TIME = DELAY_STEP_FRACTIONS.findIndex(
+    ([num, den]) => num == 3 && den == 1
+);
+
+// How much of the delay's output is fed back into it, as a percentage, which
+// is what decides how many times an echo repeats before it dies away.
+//
+// The top of the range is well short of 100, where a delay stops decaying and
+// starts building on itself without bound. That is a ceiling on the range
+// rather than a clamp applied later, so that no setting a project can hold or
+// a link can carry is one that runs away. Steps of five, which is about the
+// smallest change in the tail anyone would go looking for.
+export const MIN_DELAY_FB = 0;
+export const MAX_DELAY_FB = 75;
+export const DELAY_FB_STEP = 5;
+export const DEFAULT_DELAY_FB = 40;
+
+// The delay time control is a slider, so the table it runs along has to be in
+// increasing order: a setting further to the right that came out shorter would
+// make the control run backwards over part of its travel
+console.assert(
+    DELAY_STEP_FRACTIONS.every(([num, den], i) =>
+        i == 0 || DELAY_STEP_FRACTIONS[i - 1][0] / DELAY_STEP_FRACTIONS[i - 1][1] < num / den
+    ),
+    'DELAY_STEP_FRACTIONS is expected to be in increasing order'
+);
+
 // Pattern length, in steps
 export const MIN_PAT_STEPS = 1;
 export const MAX_PAT_STEPS = 64;
@@ -147,6 +224,9 @@ export class Pattern
         // Level of each row, which belongs to a row the same way its panning
         // does and is kept the same way
         this.volumes = sample_idxs.map(() => DEFAULT_VOLUME);
+
+        // How much of each row is fed to the delay, kept the same way again
+        this.sends = sample_idxs.map(() => DEFAULT_SEND);
     }
 
     // Create a pattern with the default set of samples
@@ -207,6 +287,7 @@ export class Pattern
         this.rows.push(Array(this.num_steps).fill(0));
         this.pans.push(DEFAULT_PAN);
         this.volumes.push(DEFAULT_VOLUME);
+        this.sends.push(DEFAULT_SEND);
 
         return true;
     }
@@ -253,6 +334,15 @@ export class Pattern
         this.volumes[row_idx] = volume;
     }
 
+    // Set how much of a given row is fed to the delay, in decibels
+    set_row_send(row_idx, send)
+    {
+        console.assert(row_idx < this.num_rows);
+        console.assert(send >= MIN_SEND);
+        console.assert(send <= MAX_SEND);
+        this.sends[row_idx] = send;
+    }
+
     // Stereo position of a given row on the -1 to 1 scale the audio graph pans
     // on, rather than the tenths the model and the URL hold it in. Playback
     // asks a pattern for this so that audio.js doesn't have to import the
@@ -275,6 +365,19 @@ export class Pattern
         return volume <= MIN_VOLUME? 0 : 10 ** (volume / 20);
     }
 
+    // How much of a given row is fed to the delay, as the gain the audio graph
+    // multiplies the copy it sends there by, rather than the decibels the model
+    // holds. Asked of a pattern for the same reason the two above are.
+    //
+    // A row at the bottom of the range feeds the delay nothing rather than
+    // very little, so a row nobody sent anywhere costs no nodes to play.
+    row_send_gain(row_idx)
+    {
+        let send = this.sends[row_idx];
+
+        return send <= MIN_SEND? 0 : 10 ** (send / 20);
+    }
+
     // Remove a row from the pattern.
     // Returns false if the pattern is down to the last row it has to keep.
     delete_row(row_idx)
@@ -288,6 +391,7 @@ export class Pattern
         this.rows.splice(row_idx, 1);
         this.pans.splice(row_idx, 1);
         this.volumes.splice(row_idx, 1);
+        this.sends.splice(row_idx, 1);
 
         return true;
     }
@@ -317,6 +421,7 @@ export class Pattern
         pat.rows = this.rows.map(row => row.slice());
         pat.pans = this.pans.slice();
         pat.volumes = this.volumes.slice();
+        pat.sends = this.sends.slice();
 
         return pat;
     }
@@ -329,11 +434,12 @@ export class Pattern
     {
         let pat = new Pattern(this.sample_idxs.slice(), this.num_steps);
 
-        // Panning and level are part of the kit for the same reason the
-        // samples are, so a new pattern keeps how the rows were set rather than
-        // pulling everything back to the middle and back up to full
+        // Panning, level and delay send are part of the kit for the same reason
+        // the samples are, so a new pattern keeps how the rows were set rather
+        // than pulling everything back to the middle and back up to full
         pat.pans = this.pans.slice();
         pat.volumes = this.volumes.slice();
+        pat.sends = this.sends.slice();
 
         return pat;
     }
@@ -364,6 +470,7 @@ export class Pattern
         pat.rows = row_idxs.map(row_idx => this.rows[row_idx].slice());
         pat.pans = row_idxs.map(row_idx => this.pans[row_idx]);
         pat.volumes = row_idxs.map(row_idx => this.volumes[row_idx]);
+        pat.sends = row_idxs.map(row_idx => this.sends[row_idx]);
 
         return pat;
     }
@@ -388,6 +495,21 @@ export class Project
         // off-beat of the song's step grid rather than of whichever pattern
         // happens to be playing across it.
         this.swing = DEFAULT_SWING;
+
+        // Delay time, as an index into DELAY_STEP_FRACTIONS, and how much of
+        // the delay is fed back into itself, as a percentage.
+        //
+        // There is one delay for the whole project, which every row feeds
+        // through its own send, the way a mixer has one effect on a bus rather
+        // than one per channel. Two rows echoing at different times is not what
+        // a delay is for, and a project's worth of them is a project's worth of
+        // delay lines to run.
+        //
+        // It belongs to the project rather than to a pattern for the reason
+        // swing does: the delay is set in steps, and the step grid is the
+        // song's rather than any one pattern's.
+        this.delay_time = DEFAULT_DELAY_TIME;
+        this.delay_feedback = DEFAULT_DELAY_FB;
 
         this.patterns = [Pattern.with_default_samples()];
 
@@ -417,6 +539,25 @@ export class Project
         console.assert(swing >= MIN_SWING);
         console.assert(swing <= MAX_SWING);
         this.swing = swing;
+    }
+
+    // Set the delay time, as an index into DELAY_STEP_FRACTIONS
+    set_delay_time(delay_time)
+    {
+        console.assert(delay_time >= MIN_DELAY_TIME);
+        console.assert(delay_time <= MAX_DELAY_TIME);
+        this.delay_time = delay_time;
+    }
+
+    // Set the delay feedback, as a percentage. Only the settings the control
+    // stops at can be encoded, so a value between two of them is caught here
+    // rather than when a link is made.
+    set_delay_feedback(delay_feedback)
+    {
+        console.assert(delay_feedback >= MIN_DELAY_FB);
+        console.assert(delay_feedback <= MAX_DELAY_FB);
+        console.assert(delay_feedback % DELAY_FB_STEP == 0);
+        this.delay_feedback = delay_feedback;
     }
 
     // Number of patterns this project holds
@@ -497,6 +638,29 @@ export class Project
     get swing_delay()
     {
         return 2 * this.swing / 100 - 1;
+    }
+
+    // How long the delay holds a sound for, in seconds. The delay is set in
+    // steps, so this follows the tempo: the echoes of a song played faster
+    // come closer together rather than falling off the grid.
+    //
+    // Swing is deliberately not accounted for. It moves when a step is heard
+    // without moving the grid the steps are counted on, and the delay is set
+    // against that grid, which is what a delay synced to a drum machine's
+    // clock does. Echoes therefore land on the straight positions of the grid
+    // even while the pattern above them swings.
+    get delay_time_secs()
+    {
+        let [num, den] = DELAY_STEP_FRACTIONS[this.delay_time];
+
+        return (num / den) / this.steps_per_sec;
+    }
+
+    // Delay feedback as the gain the audio graph multiplies by, rather than
+    // the percentage the model and the URL hold it in
+    get delay_feedback_gain()
+    {
+        return this.delay_feedback / 100;
     }
 
     //========================================================================
@@ -586,11 +750,12 @@ export class Project
 // without breaking already-shared links.
 //
 // What a link mostly holds is pattern rows, so that is where the compression
-// is. A row is written as a guess at the sample it plays and a guess at where
-// it sits in the stereo field, each costing one bit when it's right, followed
-// by its cells in whichever of four schemes writes them in the fewest bits
-// (see encode_row_cells). Rows repeat both across a song and within one, and
-// these are what that repetition is worth.
+// is. Everything about a row but its cells is written as a guess, costing a
+// single bit when the guess is right: the sample it plays, where it sits in
+// the stereo field, how loud it is and how much of it goes to the delay. Its
+// cells go in whichever of four schemes writes them in the fewest bits (see
+// encode_row_cells). Rows repeat both across a song and within one, and these
+// are what that repetition is worth.
 //
 // Encoding is lossy in one respect: anything that plays nothing is dropped,
 // both silent rows and entirely silent patterns, so a decoded project can be
@@ -611,6 +776,9 @@ const NUM_ROWS_BITS = 4;
 const SAMPLE_IDX_BITS = 9;
 const PAN_BITS = 5;
 const VOLUME_BITS = 5;
+const SEND_BITS = 5;
+const DELAY_TIME_BITS = 5;
+const DELAY_FB_BITS = 4;
 
 // How the cells of a row are written. Every row says which of these it used,
 // and the encoder takes whichever writes that row in the fewest bits, so a row
@@ -642,6 +810,9 @@ console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));
 console.assert(MAX_SWING - MIN_SWING < (1 << SWING_BITS));
 console.assert(MAX_PAN - MIN_PAN < (1 << PAN_BITS));
 console.assert(MAX_VOLUME - MIN_VOLUME < (1 << VOLUME_BITS));
+console.assert(MAX_SEND - MIN_SEND < (1 << SEND_BITS));
+console.assert(DELAY_STEP_FRACTIONS.length == (1 << DELAY_TIME_BITS));
+console.assert(MAX_DELAY_FB / DELAY_FB_STEP < (1 << DELAY_FB_BITS));
 console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
 console.assert(MAX_PAT_STEPS <= (1 << NUM_STEPS_BITS));
 console.assert(MAX_PAT_ROWS <= (1 << NUM_ROWS_BITS));
@@ -975,6 +1146,18 @@ function predicted_volume(prev_pat, row_idx)
     return DEFAULT_VOLUME;
 }
 
+// And likewise for how much of it goes to the delay. A row sent to the delay
+// in one pattern is sent there in the next, since what gets an echo is a part
+// of the kit rather than of the pattern, and a row nobody sent anywhere is
+// still dry.
+function predicted_send(prev_pat, row_idx)
+{
+    if (prev_pat && row_idx < prev_pat.num_rows)
+        return prev_pat.sends[row_idx];
+
+    return DEFAULT_SEND;
+}
+
 // Encode one timeline lane.
 //
 // Lanes are sparse: a pattern is off for most of a song, and where it's on it
@@ -1076,6 +1259,22 @@ export function encode_project(project)
     writer.write(ENCODING_VERSION, VERSION_BITS);
     writer.write(project.tempo - MIN_TEMPO, TEMPO_BITS);
     writer.write(project.swing - MIN_SWING, SWING_BITS);
+
+    // How the delay is set, which costs a single bit in a project that left it
+    // where it started. Most projects do: a row has to be sent to the delay
+    // before any of this is audible at all, so the settings are only worth
+    // writing out for a project that went looking for them.
+    let delay_default = project.delay_time == DEFAULT_DELAY_TIME &&
+                        project.delay_feedback == DEFAULT_DELAY_FB;
+
+    writer.write(delay_default? 1:0, 1);
+
+    if (!delay_default)
+    {
+        writer.write(project.delay_time, DELAY_TIME_BITS);
+        writer.write(project.delay_feedback / DELAY_FB_STEP, DELAY_FB_BITS);
+    }
+
     writer.write(pat_idxs.length - 1, NUM_PATTERNS_BITS);
 
     // The pattern written before the one being written, which is what the
@@ -1094,10 +1293,11 @@ export function encode_project(project)
 
         // A row's fields are written in the order the editor lays them out in,
         // left to right: the sample it plays, its cells, where it sits in the
-        // stereo field, and how loud it is. Nothing forces that, and the
-        // encoding would be no shorter either way, but a control added to one
-        // and not the other is what makes these two stop reading as the same
-        // thing. Anything added here belongs at the end of a row on screen.
+        // stereo field, how loud it is, and how much of it goes to the delay.
+        // Nothing forces that, and the encoding would be no shorter either way,
+        // but a control added to one and not the other is what makes these two
+        // stop reading as the same thing. Anything added here belongs at the
+        // end of a row on screen.
         for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
         {
             let sample_idx = pat.sample_idxs[row_idx];
@@ -1125,6 +1325,14 @@ export function encode_project(project)
 
             if (!vol_predicted)
                 writer.write(volume - MIN_VOLUME, VOLUME_BITS);
+
+            let send = pat.sends[row_idx];
+            let send_predicted = send == predicted_send(prev_pat, row_idx);
+
+            writer.write(send_predicted? 1:0, 1);
+
+            if (!send_predicted)
+                writer.write(send - MIN_SEND, SEND_BITS);
         }
 
         // A pattern is followed by the lane placing it on the timeline
@@ -1150,6 +1358,14 @@ export function decode_project(b64_str)
     project.set_tempo(MIN_TEMPO + reader.read(TEMPO_BITS));
     project.set_swing(MIN_SWING + reader.read(SWING_BITS));
 
+    // A project that left the delay where it started says so in one bit, and
+    // is already holding the settings it would have written
+    if (!reader.read(1))
+    {
+        project.set_delay_time(reader.read(DELAY_TIME_BITS));
+        project.set_delay_feedback(reader.read(DELAY_FB_BITS) * DELAY_FB_STEP);
+    }
+
     let num_patterns = reader.read(NUM_PATTERNS_BITS) + 1;
     project.patterns = [];
     project.lanes = [];
@@ -1167,6 +1383,7 @@ export function decode_project(b64_str)
         let rows = [];
         let pans = [];
         let volumes = [];
+        let sends = [];
 
         for (let row_idx = 0; row_idx < num_rows; ++row_idx)
         {
@@ -1186,6 +1403,10 @@ export function decode_project(b64_str)
             volumes.push(reader.read(1)?
                 predicted_volume(prev_pat, row_idx) :
                 MIN_VOLUME + reader.read(VOLUME_BITS));
+
+            sends.push(reader.read(1)?
+                predicted_send(prev_pat, row_idx) :
+                MIN_SEND + reader.read(SEND_BITS));
         }
 
         let pat = new Pattern(sample_idxs, num_steps);
@@ -1198,6 +1419,7 @@ export function decode_project(b64_str)
         {
             pat.set_row_pan(row_idx, pans[row_idx]);
             pat.set_row_volume(row_idx, volumes[row_idx]);
+            pat.set_row_send(row_idx, sends[row_idx]);
         }
 
         project.patterns.push(pat);

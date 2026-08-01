@@ -23,6 +23,10 @@
 // the decibels it holds those in, from -30 for silence up to 0. A pattern that
 // says nothing about either is played down the middle at full level, which is
 // where a row starts out.
+//
+// Rows can be sent to the delay the same way, in the decibels a send is held
+// in, and the song can say how the delay itself is set. A song that says
+// nothing about either is played dry.
 
 import { get_sample_idx } from "../audio.js";
 import {
@@ -706,6 +710,152 @@ export const CORPUS = [
 },
 
 {
+    // Dub techno at 124, and the one song here built around the delay rather
+    // than merely using it. The delay is set to three steps, the dotted eighth
+    // that walks against a sixteenth grid, and fed back far enough that a hit
+    // is still audible three or four repeats later, which is what fills the
+    // space this arrangement deliberately leaves empty.
+    //
+    // What that pins for the encoding is a project whose delay is off its
+    // defaults and whose rows are sent to it by differing amounts, including
+    // rows sent the same way across patterns, which is the guess a send costs
+    // a single bit when it is right. The rimshot and the stab are what get the
+    // echoes; the kick and the hats stay dry, the way they would on a desk,
+    // since a kick fed to a delay this long only turns the low end to mud.
+    name: 'a dub techno arrangement',
+    tempo: 124,
+    delay_time: 19,         // three steps, i.e. a dotted eighth
+    delay_feedback: 60,
+    song_bars: 32,
+    patterns: [
+        {   // the four to the floor the rest is heard against
+            samples: ['kick_04', 'hat_closed_02', 'clap_01'],
+            rows: [
+                'x...x...x...x...',
+                '..x...x...x...x.',
+                '....x.......x...',
+            ],
+            pans:    [ 0, -4,  2],
+            volumes: [ 0, -9, -6],
+            lane: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        },
+        {   // the rimshot the delay is really for, on the off-beats
+            samples: ['rimshot_01'],
+            rows: ['..x.......x....x'],
+            pans:    [ 5],
+            volumes: [-8],
+            sends:   [-6],
+            lane: '....xxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        },
+        {   // a metallic stab, sent harder and played sparsely so the repeats
+            // have room to be heard on their own
+            samples: ['metal_01', 'claves_01'],
+            rows: [
+                '............x...',
+                '......x.........',
+            ],
+            pans:    [ -6,  6],
+            volumes: [-12, -14],
+            sends:   [ -3, -12],
+            lane: '........xxxxxxxx....xxxxxxxxxxxx',
+        },
+        {   // the same stab row sent the same way, which is what a send costs
+            // a single bit to say
+            samples: ['metal_01', 'perc_02'],
+            rows: [
+                '........x.......',
+                '..x..x..........',
+            ],
+            pans:    [ -6,  7],
+            volumes: [-12, -15],
+            sends:   [ -3, -18],
+            lane: '................xxxxxxxx........',
+        },
+    ],
+},
+
+{
+    // Two step garage at 136, which is here for a combination nothing else has:
+    // it is the only song that swings and echoes at once. Swing moves when a
+    // step is heard without moving the grid the steps are counted on, and the
+    // delay is set against that grid, so the echoes land straight while the
+    // pattern above them shuffles. That is what a delay synced to a drum
+    // machine's clock has always done, and this is the song that would notice
+    // if it stopped.
+    //
+    // The delay is set to three steps, the dotted eighth: it doesn't divide the
+    // bar, so an echo lands three steps after whatever started it and crosses
+    // the four-square grid rather than doubling it. About 331ms at this tempo,
+    // which is long enough for a repeat to read as an answer to the hit rather
+    // than as part of it.
+    //
+    // Every row is placed across the stereo field and all but the kicks are
+    // sent to the delay, by amounts that change between the two core patterns
+    // while their panning and levels don't. That is the case worth having here:
+    // a pattern whose rows are guessed right in two fields and wrong in the
+    // third, which is what a variation actually looks like.
+    name: 'a 32 bar two step arrangement',
+    tempo: 136,
+    swing: 62,
+    delay_time: 19,         // three steps, i.e. a dotted eighth
+    delay_feedback: 35,
+    song_bars: 32,
+    patterns: [
+        {   // the two step itself: kick off the downbeat, snare on 2 and 4
+            samples: ['kick_09', 'snare_08', 'hat_closed_04', 'rimshot_03'],
+            rows: [
+                'x.........x.....' + 'x.....x.........',
+                '....x.......x...' + '....x.......x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                '...........x....' + '......x....x..x.',
+            ],
+            pans:    [  0,  -2,   6,  -7],
+            volumes: [  0,  -3, -10, -13],
+            sends:   [-30, -15, -22,  -7],
+            lane: 'xxxxxxxx....xxxx',
+        },
+        {   // the same kit busier, for the middle of the arrangement. The
+            // panning and levels are untouched, so those cost a bit a row.
+            samples: ['kick_09', 'snare_08', 'hat_closed_04', 'rimshot_03'],
+            rows: [
+                'x.........x.....' + 'x.....x...x.....',
+                '....x.......x...' + '....x.......x.x.',
+                '..x...x...x...x.' + '..x.x.x...x.x.x.',
+                '......x....x....' + '...x..x....x..x.',
+            ],
+            pans:    [  0,  -2,   6,  -7],
+            volumes: [  0,  -3, -10, -13],
+            sends:   [-30, -10, -22,  -4],
+            lane: '........xxxx',
+        },
+        {   // three bars of percussion walking against the two bar patterns
+            samples: ['maracas_02', 'bongo_02', 'claves_02'],
+            rows: [
+                '..x..x..x..x..x.' + '..x..x..x..x..x.' + '..x..x..x.x.x.x.',
+                '.....x......x...' + '.....x..x...x...' + '.....x......x.x.',
+                '..........x.....' + '................' + '..........x..x..',
+            ],
+            pans:    [ -9,   8,  -5],
+            volumes: [-14, -11, -17],
+            sends:   [-24, -12,  -6],
+            lane: '..xxxxxxxx',
+        },
+        {   // stabs, sent hardest of anything here and played sparsely so the
+            // repeats have room to walk before the next one lands on them
+            samples: ['vocal_what_01', 'zap_03'],
+            rows: [
+                'x...............' + '................' + '............x...' + '................',
+                '................' + '..........x.....' + '................' + '......x.....x...',
+            ],
+            pans:    [  4, -10],
+            volumes: [ -8, -13],
+            sends:   [ -4,  -2],
+            lane: '..xx..xx',
+        },
+    ],
+},
+
+{
     // The longest a song can be: the timeline filled to MAX_SONG_STEPS and
     // played at the slowest tempo a project can be set to, which comes to 1024
     // bars and a little over an hour and a half. It is here for what that
@@ -713,7 +863,7 @@ export const CORPUS = [
     // rather than as the cells themselves (see encode_lane), so length is very
     // nearly free, and nothing else here reaches the end of the range where a
     // run takes several chunks to write and a lane holds a couple of thousand
-    // cells: this whole song is 97 bytes, against 138 for the psytrance one.
+    // cells: this whole song is 99 bytes, against 142 for the psytrance one.
     //
     // What keeps an hour and a half from being one bar heard 1024 times is
     // that the pattern lengths are pairwise coprime, so no two layers ever
@@ -808,11 +958,18 @@ export function build_song(song)
     project.patterns = [];
     project.lanes = [];
 
-    for (let { samples, rows, lane, pans, volumes } of song.patterns)
+    if (song.delay_time !== undefined)
+        project.set_delay_time(song.delay_time);
+
+    if (song.delay_feedback !== undefined)
+        project.set_delay_feedback(song.delay_feedback);
+
+    for (let { samples, rows, lane, pans, volumes, sends } of song.patterns)
     {
         console.assert(samples.length == rows.length);
         console.assert(!pans || pans.length == rows.length);
         console.assert(!volumes || volumes.length == rows.length);
+        console.assert(!sends || sends.length == rows.length);
 
         let pat = new Pattern(samples.map(name => get_sample_idx(name)), rows[0].length);
         pat.rows = rows.map(cells);
@@ -824,6 +981,10 @@ export function build_song(song)
 
         if (volumes)
             volumes.forEach((vol, row_idx) => pat.set_row_volume(row_idx, vol));
+
+        // And one that says nothing about the delay leaves every row dry
+        if (sends)
+            sends.forEach((send, row_idx) => pat.set_row_send(row_idx, send));
 
         project.patterns.push(pat);
         project.lanes.push(typeof lane == 'string'? lane_cells(lane) : lane);

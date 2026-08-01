@@ -170,7 +170,7 @@ class SampleManager
     //
     // Returns whether a voice was started, which is what the cap on a step is
     // counted in: a row that makes no sound costs nothing (see queue_pat_cells).
-    play_sample(sample_idx, start_time, dst_node, stereo_pan = 0, gain = 1)
+    play_sample(sample_idx, start_time, dst_node, stereo_pan = 0, gain = 1, send = 0)
     {
         const buffer = this.get_buffer(sample_idx);
 
@@ -182,11 +182,26 @@ class SampleManager
         if (gain == 0)
             return false;
 
-        if (stereo_pan != 0)
+        // A row feeding the delay is tapped after its level and its panning, so
+        // that its echoes sit where the row sits and come down with it as it is
+        // turned down. That takes a panner even on a row sitting dead centre,
+        // which a dry row does without: echoes arriving somewhere other than
+        // where the sound they came from is would read as a second instrument
+        // rather than as that one repeating.
+        if (stereo_pan != 0 || send > 0)
         {
             const panner = get_audio_ctx().createStereoPanner();
             panner.pan.value = stereo_pan;
             panner.connect(dst_node);
+
+            if (send > 0)
+            {
+                const send_node = get_audio_ctx().createGain();
+                send_node.gain.value = send;
+                send_node.connect(get_delay_input());
+                panner.connect(send_node);
+            }
+
             dst_node = panner;
         }
 
@@ -273,6 +288,118 @@ export function set_volume(new_volume)
     // The gain node only exists once the audio context is initialized
     if (global_gain)
         global_gain.gain.setValueAtTime(volume, get_audio_ctx().currentTime);
+}
+
+//============================================================================
+// Delay
+//
+// One delay for the whole project, fed by whichever rows were sent to it (see
+// MIN_SEND in model.js). It sits on the master gain like any other voice, so
+// the master volume brings the echoes down with everything else, and it is
+// left running when playback stops so that a tail rings out instead of being
+// cut off mid-repeat.
+//============================================================================
+
+// Longest delay the line has to be able to hold, in seconds. A DelayNode is
+// given this when it's built and can't grow afterwards, so it's the worst case
+// rather than the usual one: the longest setting is 16 steps, and a step is at
+// its longest at the bottom of the tempo range, which puts it at 6 seconds.
+const MAX_DELAY_SECS = 8;
+
+// Where the repeats lose their top end, in Hz.
+//
+// Every pass through the delay is rolled off here, so an echo arrives darker
+// than what it came from and darker again on the pass after that, the way a
+// tape or a bucket-brigade delay behaves. This isn't a nicety on a drum
+// machine: drums are almost entirely transient, and a feedback loop with
+// nothing damping it stacks those transients into a bright hash within three
+// or four repeats. It isn't a control, because there is no setting of it worth
+// having the tail get harsher for.
+const DELAY_DAMP_FREQ = 4500;
+
+// The delay nodes, built on first use. A project that sends nothing to the
+// delay never builds them, and so pays nothing for a delay it can't hear.
+let delay_input = null;
+let delay_node = null;
+let delay_fb = null;
+
+// What the delay is currently set to, kept here the way the master volume is:
+// the setting is held whether or not the nodes exist, so that a delay built
+// later comes up already set the way the project asks for.
+let delay_time = 0;
+let delay_fb_gain = 0;
+
+// Node the voices sent to the delay are connected to, building the delay if
+// this is the first of them
+function get_delay_input()
+{
+    if (delay_input)
+        return delay_input;
+
+    let ctx = get_audio_ctx();
+
+    // What comes in is summed here and handed to the line. This is a node of
+    // its own rather than the line itself so that the voices have something to
+    // connect to that isn't part of the feedback loop below.
+    delay_input = ctx.createGain();
+
+    delay_node = ctx.createDelay(MAX_DELAY_SECS);
+    delay_node.delayTime.value = delay_time;
+
+    // The loop: what comes out of the line is rolled off, brought down, and put
+    // back in. Web Audio allows a cycle only if there is a delay in it, which
+    // is what makes this legal to build at all.
+    let damp = ctx.createBiquadFilter();
+    damp.type = 'lowpass';
+    damp.frequency.value = DELAY_DAMP_FREQ;
+
+    delay_fb = ctx.createGain();
+    delay_fb.gain.value = delay_fb_gain;
+
+    delay_input.connect(delay_node);
+    delay_node.connect(damp);
+    damp.connect(delay_fb);
+    delay_fb.connect(delay_node);
+
+    // The echoes reach the output; the dry sound of a row got there on its own
+    delay_node.connect(global_gain);
+
+    return delay_input;
+}
+
+// Apply a project's delay settings to the audio graph.
+//
+// Called both while playback runs, so that moving the tempo moves the echoes
+// with it, and when the delay controls themselves are moved, so that a change
+// is heard on a tail still ringing after playback has stopped.
+export function update_delay(project)
+{
+    // A delay time is set rather than ramped to, so moving the control steps
+    // cleanly from one setting to the next. Doing it on a line that is ringing
+    // re-reads the buffer at a new rate and bends the pitch of whatever is
+    // still in it, which is what a delay has always done when its time is
+    // changed, and is worth having on a control somebody can grab mid-song.
+    let new_time = project.delay_time_secs;
+    let new_fb = project.delay_feedback_gain;
+
+    // Both are written only when they actually change, since this runs on
+    // every playback update and scheduling a value a node is already at would
+    // pile up events for nothing
+    if (new_time != delay_time)
+    {
+        delay_time = new_time;
+
+        if (delay_node)
+            delay_node.delayTime.setValueAtTime(delay_time, get_audio_ctx().currentTime);
+    }
+
+    if (new_fb != delay_fb_gain)
+    {
+        delay_fb_gain = new_fb;
+
+        if (delay_fb)
+            delay_fb.gain.setValueAtTime(delay_fb_gain, get_audio_ctx().currentTime);
+    }
 }
 
 // Play a sample once, right away, to preview what it sounds like.
@@ -589,6 +716,10 @@ function update_playback()
     // takes effect on the steps queued from here on.
     let swing_time = play_project.swing_delay / steps_per_sec;
 
+    // And the delay for the same reason again. It's set in steps, so it has to
+    // follow the tempo as well as its own controls.
+    update_delay(play_project);
+
     // Time to queue until
     let queue_until_t = get_audio_ctx().currentTime + LOOKAHEAD_TIME;
 
@@ -737,7 +868,8 @@ function queue_pat_cells(pat, step_idx, step_time, max_voices)
             step_time,
             global_gain,
             pat.row_stereo_pan(row_idx),
-            pat.row_gain(row_idx)
+            pat.row_gain(row_idx),
+            pat.row_send_gain(row_idx)
         );
 
         if (started)

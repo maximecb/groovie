@@ -13,6 +13,9 @@ import {
     MIN_PAT_ROWS,
     MIN_VOLUME,
     MAX_VOLUME,
+    MIN_SEND,
+    MAX_SEND,
+    DELAY_STEP_FRACTIONS,
     STEPS_PER_BAR,
 } from "./model.js";
 
@@ -259,6 +262,28 @@ export function volume_label(volume)
     return `${volume}dB`;
 }
 
+// How much of a row goes to the delay, read the same way its level is, the
+// bottom of the travel being a row that gets no echo at all rather than a very
+// quiet one
+export function send_label(send)
+{
+    if (send <= MIN_SEND)
+        return 'off';
+
+    return `${send}dB`;
+}
+
+// How a delay time reads: the fraction of a step it is set to, named the way a
+// musician would say it rather than as the milliseconds it currently works out
+// to, which change with the tempo.
+export function delay_time_label(delay_time)
+{
+    let [num, den] = DELAY_STEP_FRACTIONS[delay_time];
+    let steps = den == 1? `${num}` : `${num}/${den}`;
+
+    return `${steps} step${num == 1 && den == 1? '' : 's'}`;
+}
+
 // Generate the DOM for a pattern grid, replacing whatever the div held before.
 // The pattern index is what says which color the grid is drawn in, and is the
 // same one its timeline lane uses.
@@ -413,6 +438,25 @@ export function render_pattern(pat_div, pattern, pat_idx)
         });
     }
 
+    // How much of the row is fed to the delay, which comes after the two above
+    // because it is the one control here that isn't about where the row sits in
+    // the mix. It starts at the bottom of its travel, a row being dry until it
+    // is sent somewhere, so it's the one control whose reset is its minimum.
+    function make_send_ctl(row_idx)
+    {
+        return make_row_ctl(row_idx, {
+            cls: 'send_slider',
+            title: 'Delay send',
+            val_width: '5ch',   // '-30dB'
+            min: MIN_SEND,
+            max: MAX_SEND,
+            reset: MIN_SEND,
+            label: send_label,
+            get: idx => pattern.sends[idx],
+            set: (idx, val) => pattern.set_row_send(idx, val),
+        });
+    }
+
     // Create the button that removes a row, at the left end of it. Destructive
     // and one click away, so it stays quiet until pointed at, the way the
     // button that adds a row does.
@@ -508,6 +552,7 @@ export function render_pattern(pat_div, pattern, pat_idx)
         ctls_div.className = 'row_ctls';
         ctls_div.appendChild(make_pan_ctl(row_idx));
         ctls_div.appendChild(make_volume_ctl(row_idx));
+        ctls_div.appendChild(make_send_ctl(row_idx));
 
         row_div.appendChild(ctls_div);
         pat_div.appendChild(row_div);

@@ -122,11 +122,20 @@ anyone can hear, so every setting in the range is one that can be told from its
 neighbours, where a percentage spread over the same number of settings would
 put most of them between 90% and 100% where none of them can.
 
-Both belong to the row rather than to the sample, so the same sample can be
-placed and set two ways in two patterns. It rarely is — a kit is mixed once and
-left alone — which is what the encoding above is built to expect. A new pattern
-takes the panning and levels of the one it was made from, for the same reason
-it takes its samples.
+Beside that again is a delay send, in the same decibels and with the same
+bottom-is-off rule. It is a send rather than a wet/dry mix: the row itself
+always reaches the output at full level, and this says how loud a copy of it is
+fed to the delay, whose echoes are added on top. A drum is never replaced by
+its own echo, which is what a mix control at the top of its travel would do, so
+the only thing worth controlling is how much echo sits behind it. The copy is
+taken after the row's level and panning, so echoes sit where the row sits and
+come down with it as it is turned down.
+
+All three belong to the row rather than to the sample, so the same sample can be
+placed and set three ways in three patterns. It rarely is — a kit is mixed once
+and left alone — which is what the encoding above is built to expect. A new
+pattern takes the panning, levels and sends of the one it was made from, for the
+same reason it takes its samples.
 
 At the end of a row is the button that removes it. A pattern always keeps one
 row, so the button is left off a pattern that is down to its last.
@@ -171,8 +180,52 @@ than off the end of them.
 
 Under the grids, the smaller groups stand on a row that wraps: as many side by
 side as there is room for, and a column when there isn't. What is added there
-later, such as exporting a track or effects, lands beside what is already there
-instead of below it.
+later, such as exporting a track, lands beside what is already there instead of
+below it. The delay's own settings are the first thing to have gone there.
+
+## Delay
+
+There is one delay for the whole project, which rows feed through their own
+sends, the way a mixer has one effect on a bus rather than one per channel. Two
+rows echoing at different times is not what a delay is for, and a project's
+worth of them is a project's worth of delay lines to run. Its settings belong to
+the project rather than to a pattern for the reason swing does: the delay is set
+in steps, and the step grid is the song's rather than any one pattern's.
+
+The time is set in fractions of a step rather than in milliseconds, so that it
+follows the tempo: an echo written at 120 BPM is still on the beat when the same
+song is played at 140. The control runs along a table of 32 settings, and it is
+a slider rather than a drop-down so that it can be worked during playback —
+sweeping it re-reads a ringing line at a new rate and bends the pitch of what is
+still in it, which is what a delay has always done when its time is changed.
+
+Fractions below one step matter as much as whole ones. A step is 125 ms at 120
+BPM, and the shortest delays worth having are all under that: a quarter of a
+step doubles a hit and thickens it, half a step is the slapback that sits on
+snares and claps, and an eighth of a step reads as stereo width rather than as
+an echo at all. The middle of the range, from one step to four, is spaced the
+finest, since that is where an echo is heard as a rhythm of its own. The odd
+ratios there are not filler: a delay set to five quarters of a step drifts
+against the pattern it sits on the same way patterns of different lengths drift
+against each other.
+
+Swing is deliberately not accounted for. It moves when a step is heard without
+moving the grid the steps are counted on, and the delay is set against that
+grid, which is what a delay synced to a drum machine's clock does. Echoes land
+on the straight positions of the grid even while the pattern above them swings.
+
+Feedback tops out well short of unity, where a loop stops decaying and starts
+building on itself without bound. That is a ceiling on the range rather than a
+clamp applied afterwards, so there is no setting a project can hold or a link
+can carry that runs away. Every pass through the loop is also rolled off above
+a few kilohertz, which is not exposed as a control: drums are almost entirely
+transient, and a feedback loop with nothing damping it stacks those transients
+into a bright hash within three or four repeats.
+
+The delay is left running when playback stops, so a tail rings out rather than
+being cut off mid-repeat, and it sits on the master gain like any other voice,
+so the master volume brings the echoes down with everything else. Its nodes are
+built on first use, so a project that sends it nothing never builds them.
 
 A screen too narrow to hold a row's steps and its place in the mix at once,
 which is any phone held upright, gets the steps, and a button below the grid

@@ -1,6 +1,6 @@
 # Groovie
 
-Free, open source beat sequencer that runs in your browser. No ads, no account
+Free, open source drum/beat sequencer that runs in your browser. No ads, no account
 required, nothing to install. Written in pure JavaScript with no frameworks and
 no backend.
 
@@ -21,7 +21,8 @@ resetting every bar.
 - Patterns of 1 to 64 steps and up to 16 rows, up to 64 patterns per project
 - Over 150 public domain (CC0) samples: kicks, snares, hats, toms, percussion and
   cymbals, plus vocals, game sounds and assorted noise
-- Per-row sample, stereo panning and level in dB
+- Per-row sample, stereo panning, level in dB and delay send
+- A tempo-synced delay set in fractions of a step, from slapback up to a full bar
 - Tempo from 40 to 280 BPM, plus a swing control
 - Patterns can be switched while the music plays: the one you pick is queued and
   launches when the playing one comes around, the way a groovebox does it

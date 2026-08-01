@@ -19,19 +19,29 @@ const SAMPLE_DUR = 0.5;
 let audio_ctx = null;
 
 // A node that remembers what it was connected to, which is what makes the
-// chain a voice was routed through readable after the fact
+// chain a voice was routed through readable after the fact.
+//
+// A node can feed more than one place, a row sent to the delay going both to
+// the output and to the delay's input, so every connection is kept. The one
+// that carries the sound onwards is the first: audio.js builds the path a voice
+// takes before hanging anything off the side of it.
 class FakeNode
 {
     constructor(type)
     {
         this.type = type;
-        this.dst = null;
+        this.dsts = [];
     }
 
     connect(dst)
     {
-        this.dst = dst;
+        this.dsts.push(dst);
         return dst;
+    }
+
+    get dst()
+    {
+        return this.dsts.length? this.dsts[0] : null;
     }
 }
 
@@ -77,6 +87,24 @@ class FakeAudioContext
     {
         let node = new FakeNode('panner');
         node.pan = new FakeParam(0);
+
+        return node;
+    }
+
+    createDelay(max_delay_time)
+    {
+        let node = new FakeNode('delay');
+        node.maxDelayTime = max_delay_time;
+        node.delayTime = new FakeParam(0);
+
+        return node;
+    }
+
+    createBiquadFilter()
+    {
+        let node = new FakeNode('filter');
+        node.type = 'lowpass';
+        node.frequency = new FakeParam(350);
 
         return node;
     }

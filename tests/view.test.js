@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { pan_label, volume_label } from "../view.js";
+import { pan_label, volume_label, send_label, delay_time_label } from "../view.js";
 
 import {
     MIN_PAN,
@@ -18,6 +18,11 @@ import {
     DEFAULT_PAN,
     MIN_VOLUME,
     MAX_VOLUME,
+    MIN_SEND,
+    MAX_SEND,
+    MIN_DELAY_TIME,
+    MAX_DELAY_TIME,
+    DELAY_STEP_FRACTIONS,
 } from "../model.js";
 
 //============================================================================
@@ -73,6 +78,55 @@ test("every level fits the width its readout is given", () =>
         assert.ok(
             volume_label(volume).length <= 5,
             `${volume}: ${volume_label(volume)}`
+        );
+    }
+});
+
+//============================================================================
+// Delay
+//============================================================================
+
+test("a row that gets no echo reads as off", () =>
+{
+    // The bottom of the travel takes a row out of the delay rather than
+    // sending it a very quiet copy, which row_send_gain is the other half of
+    assert.equal(send_label(MIN_SEND), 'off');
+});
+
+test("a delay send reads as the decibels it is held in", () =>
+{
+    assert.equal(send_label(MAX_SEND), '0dB');
+    assert.equal(send_label(-9), '-9dB');
+});
+
+test("every delay send fits the width its readout is given", () =>
+{
+    for (let send = MIN_SEND; send <= MAX_SEND; ++send)
+        assert.ok(send_label(send).length <= 5, `${send}: ${send_label(send)}`);
+});
+
+test("a delay time is named in steps rather than in milliseconds", () =>
+{
+    // The setting is a fraction of a step and the milliseconds it works out to
+    // move with the tempo, so what the control says is the fraction
+    let one = DELAY_STEP_FRACTIONS.findIndex(([n, d]) => n == 1 && d == 1);
+    let half = DELAY_STEP_FRACTIONS.findIndex(([n, d]) => n == 1 && d == 2);
+    let three = DELAY_STEP_FRACTIONS.findIndex(([n, d]) => n == 3 && d == 1);
+
+    assert.equal(delay_time_label(one), '1 step');
+    assert.equal(delay_time_label(half), '1/2 steps');
+    assert.equal(delay_time_label(three), '3 steps');
+});
+
+test("every delay time fits the width its readout is given", () =>
+{
+    // The readout is reserved at the width of the longest name a setting can
+    // have, so a longer one would shift the slider beside it as it is dragged
+    for (let time = MIN_DELAY_TIME; time <= MAX_DELAY_TIME; ++time)
+    {
+        assert.ok(
+            delay_time_label(time).length <= 10,
+            `${time}: ${delay_time_label(time)}`
         );
     }
 });

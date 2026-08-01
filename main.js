@@ -4,6 +4,11 @@ import {
     MAX_TEMPO,
     MIN_SWING,
     MAX_SWING,
+    MIN_DELAY_TIME,
+    MAX_DELAY_TIME,
+    MIN_DELAY_FB,
+    MAX_DELAY_FB,
+    DELAY_FB_STEP,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     TITLE_STRIP_RE,
@@ -16,6 +21,7 @@ import {
 import {
     fetch_project_samples,
     set_volume,
+    update_delay,
     is_playing,
     is_playing_pattern,
     is_playing_song,
@@ -39,6 +45,7 @@ import {
     highlight_song_step,
     highlight_pat_tabs,
     update_slider_fill,
+    delay_time_label,
 } from "./view.js";
 
 //============================================================================
@@ -60,6 +67,12 @@ const swing_val = document.getElementById('swing_val');
 // Volume slider
 const volume_slider = document.getElementById('volume_slider');
 const volume_val = document.getElementById('volume_val');
+
+// Delay time and feedback sliders
+const delay_time_slider = document.getElementById('delay_time_slider');
+const delay_time_val = document.getElementById('delay_time_val');
+const delay_fb_slider = document.getElementById('delay_fb_slider');
+const delay_fb_val = document.getElementById('delay_fb_val');
 
 // Pattern length selector
 const num_steps_sel = document.getElementById('num_steps');
@@ -188,8 +201,18 @@ function render_all()
     tempo_val.textContent = project.tempo;
     swing_slider.value = project.swing;
     swing_val.textContent = project.swing;
+    delay_time_slider.value = project.delay_time;
+    delay_time_val.textContent = delay_time_label(project.delay_time);
+    delay_fb_slider.value = project.delay_feedback;
+    delay_fb_val.textContent = project.delay_feedback;
     update_slider_fill(tempo_slider);
     update_slider_fill(swing_slider);
+    update_slider_fill(delay_time_slider);
+    update_slider_fill(delay_fb_slider);
+
+    // A project loaded from a link brings its own delay settings, and the
+    // graph may still be ringing with the ones it replaced
+    update_delay(project);
     num_steps_sel.value = pat.num_steps;
     song_title.value = project.title;
 
@@ -229,6 +252,18 @@ tempo_slider.max = MAX_TEMPO;
 // middle of it.
 swing_slider.min = MIN_SWING;
 swing_slider.max = MAX_SWING;
+
+// The delay time slider runs along the table of times rather than over a
+// quantity, so its travel is that table's indices: every stop on it is a
+// setting a musician would name, and dragging it steps between them.
+delay_time_slider.min = MIN_DELAY_TIME;
+delay_time_slider.max = MAX_DELAY_TIME;
+
+// Feedback stops only where the encoding has a setting for it, so that the
+// slider can't hand the project a value a link has no room for
+delay_fb_slider.min = MIN_DELAY_FB;
+delay_fb_slider.max = MAX_DELAY_FB;
+delay_fb_slider.step = DELAY_FB_STEP;
 
 // Populate the pattern length selector. Every length in the valid range is
 // selectable: steps have a fixed duration, so a pattern length isn't a
@@ -335,6 +370,10 @@ tempo_slider.oninput = function ()
     // Steps have a fixed duration, so the tempo is what says how long the song
     // in steps runs for
     update_song_len();
+
+    // The delay is set in steps, so the tempo is what says how long it holds
+    // a sound for
+    update_delay(project);
 }
 
 // Swing redistributes the steps within each pair rather than changing how many
@@ -349,6 +388,23 @@ volume_slider.oninput = function ()
 {
     volume_val.textContent = volume_slider.valueAsNumber;
     set_volume(volume_slider.valueAsNumber / 100);
+}
+
+// The delay controls are applied as they move rather than only at the next
+// playback update, so that they can be worked while the music runs and so that
+// a change is heard on a tail still ringing after it has stopped
+delay_time_slider.oninput = function ()
+{
+    project.set_delay_time(delay_time_slider.valueAsNumber);
+    delay_time_val.textContent = delay_time_label(project.delay_time);
+    update_delay(project);
+}
+
+delay_fb_slider.oninput = function ()
+{
+    project.set_delay_feedback(delay_fb_slider.valueAsNumber);
+    delay_fb_val.textContent = project.delay_feedback;
+    update_delay(project);
 }
 
 num_steps_sel.onchange = function ()

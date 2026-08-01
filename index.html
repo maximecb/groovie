@@ -88,6 +88,31 @@
         <div class="util_row">
 
             <div class="group">
+                <div class="label">Delay</div>
+
+                <!-- How much of each row goes to the delay is set per row, on
+                     the sliders beside its steps. These are what the echoes it
+                     sends there sound like. -->
+                <div class="controls">
+                    <div class="slider_ctl">
+                        <label>Time: <span class="wide_val" id="delay_time_val">3 steps</span></label>
+                        <!-- Range is set in main.js, from MIN/MAX_DELAY_TIME -->
+                        <input type="range" id="delay_time_slider">
+                    </div>
+                    <div class="slider_ctl">
+                        <label>Feedback: <span class="num_val" id="delay_fb_val">40</span>%</label>
+                        <!-- Range and step are set in main.js, from MIN/MAX_DELAY_FB -->
+                        <input type="range" id="delay_fb_slider">
+                    </div>
+                </div>
+
+                <div class="share_note">
+                    Set how much of a row is echoed with the
+                    delay slider beside its steps.
+                </div>
+            </div>
+
+            <div class="group">
                 <div class="label">Share</div>
 
                 <div class="share_row">
