@@ -753,7 +753,7 @@ export class Project
 // is. Everything about a row but its cells is written as a guess, costing a
 // single bit when the guess is right: the sample it plays, where it sits in
 // the stereo field, how loud it is and how much of it goes to the delay. Its
-// cells go in whichever of four schemes writes them in the fewest bits (see
+// cells go in whichever of eight schemes writes them in the fewest bits (see
 // encode_row_cells). Rows repeat both across a song and within one, and these
 // are what that repetition is worth.
 //
@@ -781,13 +781,50 @@ const DELAY_TIME_BITS = 5;
 const DELAY_FB_BITS = 4;
 
 // How the cells of a row are written. Every row says which of these it used,
-// and the encoder takes whichever writes that row in the fewest bits, so a row
-// with no structure to it costs the two bits of this field and nothing else.
-const GRID_SCHEME_BITS = 2;
+// and the encoder takes whichever writes that row in the fewest bits.
 const GRID_LITERAL = 0;     // One bit per step, as-is
 const GRID_MOTIF = 1;       // A short cell repeated the length of the row
-const GRID_GROUP_8 = 2;     // Groups of 8 steps, each either new or a repeat
-const GRID_GROUP_16 = 3;    // The same, in groups of 16
+const GRID_MOTIF_EXC = 2;   // The same, but for a few steps written out after
+const GRID_GROUP_4 = 3;     // Groups of 4 steps, each either new or a repeat
+const GRID_GROUP_8 = 4;     // The same, in groups of 8
+const GRID_GROUP_16 = 5;    // The same, in groups of 16
+const GRID_SPARSE = 6;      // Just the steps that play, by position
+const GRID_COPY_PREV = 7;   // The same row of the pattern before this one
+
+// The tag naming the scheme a row used. These form a prefix code: no tag is a
+// prefix of another, so the decoder tells them apart by reading a bit at a
+// time without being told a length first.
+//
+// The lengths are not arbitrary. Rows reach for some of these schemes far more
+// than others, and a tag of one length everywhere would charge the common ones
+// the same as the rare ones. Measured over the corpus, a motif and a sparse
+// row between them account for more than half of all rows, so those are named
+// in two bits, and the schemes that rarely win pay four or five.
+//
+// GRID_LITERAL is what holds a row with no structure at all, so it can never
+// be unavailable. It is rarely the cheapest and would sit at five bits on its
+// usage alone; it is given four so that the fallback stays close to what the
+// scheme field used to cost outright.
+const GRID_TAGS = {
+    [GRID_MOTIF]:     { code: 0b00,    bits: 2 },
+    [GRID_SPARSE]:    { code: 0b01,    bits: 2 },
+    [GRID_GROUP_8]:   { code: 0b100,   bits: 3 },
+    [GRID_MOTIF_EXC]: { code: 0b101,   bits: 3 },
+    [GRID_COPY_PREV]: { code: 0b110,   bits: 3 },
+    [GRID_LITERAL]:   { code: 0b1110,  bits: 4 },
+    [GRID_GROUP_4]:   { code: 0b11110, bits: 5 },
+    [GRID_GROUP_16]:  { code: 0b11111, bits: 5 },
+};
+
+// The tags again, by the bits they are made of, for the decoder to look up as
+// it reads them. A tag is only as good as being able to find it again.
+const GRID_TAG_LOOKUP = new Map(
+    Object.entries(GRID_TAGS).map(([scheme, tag]) =>
+        [`${tag.bits}:${tag.code}`, Number(scheme)])
+);
+
+const MAX_GRID_TAG_BITS = Math.max(
+    ...Object.values(GRID_TAGS).map(tag => tag.bits));
 
 // Lengths the repeated cell of a motif row can have. Drum rows repeat at these
 // intervals and not at the ones between them, so two bits cover it: a quarter
@@ -795,10 +832,33 @@ const GRID_GROUP_16 = 3;    // The same, in groups of 16
 const MOTIF_PERIOD_BITS = 2;
 const MOTIF_PERIODS = [2, 4, 8, 16];
 
+// Lengths available to a motif that writes some of its steps out afterwards.
+// A row that repeats except for a fill at the end of the phrase is common
+// enough to be worth a scheme, and once a row is paying for a list of
+// exceptions it is worth letting it repeat at the intervals a plain motif
+// can't: the triplet lengths, and the two and four bar phrases.
+const MOTIF_EXC_PERIOD_BITS = 4;
+const MOTIF_EXC_PERIODS = [2, 3, 4, 6, 8, 12, 16, 24, 32];
+
+// How many steps a motif row can write out after the fact. Past a handful the
+// exceptions cost more than one of the other schemes would.
+const MOTIF_EXC_COUNT_BITS = 3;
+const MAX_MOTIF_EXC = (1 << MOTIF_EXC_COUNT_BITS) - 1;
+
+// Likewise for how many steps a sparse row can name before writing them out
+// flat is cheaper
+const SPARSE_COUNT_BITS = 4;
+const MAX_SPARSE_HITS = (1 << SPARSE_COUNT_BITS) - 1;
+
 // Step counts the group schemes above work in. Eight steps is half a bar,
 // which is the interval a row most often repeats at while still varying
-// somewhere, and sixteen is the bar it sits in.
-const GROUP_SIZES = { [GRID_GROUP_8]: 8, [GRID_GROUP_16]: 16 };
+// somewhere, and sixteen is the bar it sits in. Four is a beat, which is what
+// a row that changes every bar but holds its pulse within one repeats at.
+const GROUP_SIZES = {
+    [GRID_GROUP_4]: 4,
+    [GRID_GROUP_8]: 8,
+    [GRID_GROUP_16]: 16,
+};
 
 // Size of the chunks values of no bounded size are written in, and how many
 // chunks one such value can take up before it can't be anything we wrote. A
@@ -825,6 +885,15 @@ console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
 console.assert(MAX_PAT_STEPS <= (1 << NUM_STEPS_BITS));
 console.assert(MAX_PAT_ROWS <= (1 << NUM_ROWS_BITS));
 console.assert(MOTIF_PERIODS.length == (1 << MOTIF_PERIOD_BITS));
+console.assert(MOTIF_EXC_PERIODS.length <= (1 << MOTIF_EXC_PERIOD_BITS));
+
+// The scheme tags have to be a complete prefix code: every scheme needs a tag,
+// no tag may be a prefix of another, and no bit pattern may name nothing. That
+// holds exactly when the lengths sum this way (Kraft's equality), which is
+// worth checking here rather than finding out from a link that won't open.
+console.assert(GRID_TAG_LOOKUP.size == Object.keys(GRID_TAGS).length);
+console.assert(
+    Object.values(GRID_TAGS).reduce((sum, tag) => sum + 2 ** -tag.bits, 0) == 1);
 
 // Writes unsigned integer fields into a bit string, most significant bit first
 class BitWriter
@@ -981,6 +1050,99 @@ function motif_period(row, num_steps)
     return 0;
 }
 
+// Number of bits a value below the given bound is written in. A bound of one
+// leaves a single value to write, which still takes a bit: a field of no width
+// would be one the reader can't find the far side of.
+function bits_for(bound)
+{
+    return Math.max(1, Math.ceil(Math.log2(bound)));
+}
+
+// How a motif row writes the steps that don't fit its motif. Nothing before
+// the first repeat can differ from the motif, since that is where the motif
+// was read from, so a position is written as its distance past that point
+// rather than from the start of the row.
+function motif_exc_pos_bits(num_steps, period)
+{
+    return bits_for(num_steps - period);
+}
+
+// The cheapest way to write a row as a motif with some steps written out
+// after it, or null if no period leaves few enough of them.
+//
+// Longer periods leave fewer exceptions but cost more to write, so this is a
+// search rather than a choice: the best period for a row is whichever balance
+// of the two comes out shortest.
+function motif_exc_plan(row, num_steps)
+{
+    let best = null;
+
+    for (let period_idx = 0; period_idx < MOTIF_EXC_PERIODS.length; ++period_idx)
+    {
+        let period = MOTIF_EXC_PERIODS[period_idx];
+
+        // A motif as long as the row holds every step it has, which is a row
+        // written flat with extra steps in front of it
+        if (period >= num_steps)
+            break;
+
+        let positions = [];
+
+        for (let step_idx = period; step_idx < num_steps; ++step_idx)
+        {
+            if (!row[step_idx] != !row[step_idx % period])
+                positions.push(step_idx - period);
+        }
+
+        if (positions.length > MAX_MOTIF_EXC)
+            continue;
+
+        let cost = MOTIF_EXC_PERIOD_BITS + period + MOTIF_EXC_COUNT_BITS +
+                   positions.length * motif_exc_pos_bits(num_steps, period);
+
+        if (!best || cost < best.cost)
+            best = { period_idx, period, positions, cost };
+    }
+
+    return best;
+}
+
+// The steps of a row that play, or null if there are too many of them to be
+// worth naming one at a time
+function sparse_hits(row, num_steps)
+{
+    let hits = [];
+
+    for (let step_idx = 0; step_idx < num_steps; ++step_idx)
+    {
+        if (row[step_idx])
+        {
+            if (hits.length == MAX_SPARSE_HITS)
+                return null;
+
+            hits.push(step_idx);
+        }
+    }
+
+    return hits;
+}
+
+// Test if two rows play the same steps. Cells hold whatever the editor put in
+// them, so this compares what they mean rather than what they are.
+function rows_match(row, other, num_steps)
+{
+    if (!other)
+        return false;
+
+    for (let step_idx = 0; step_idx < num_steps; ++step_idx)
+    {
+        if (!row[step_idx] != !other[step_idx])
+            return false;
+    }
+
+    return true;
+}
+
 // Test if the group of steps starting at a given step is the same as the group
 // before it. The last group of a row can be shorter than the others, in which
 // case only the steps it holds are compared.
@@ -1014,9 +1176,14 @@ function group_cost(row, num_steps, size)
 }
 
 // Write the cells of one row, in whichever scheme writes it in the fewest
-// bits. A row with no repetition in it falls to GRID_LITERAL, so the choice
-// costs GRID_SCHEME_BITS and can never make a row longer than writing it flat.
-function encode_row_cells(writer, row, num_steps)
+// bits, tag included. A row with no repetition in it falls to GRID_LITERAL,
+// which is always available, so the choice can never cost more than writing
+// the row flat and naming that.
+//
+// prev_row is the same row of the pattern before this one, or null where
+// there isn't one to copy. The decoder works out availability the same way,
+// so the two have to agree on what counts (see encode_project).
+function encode_row_cells(writer, row, num_steps, prev_row)
 {
     function write_steps(from, to)
     {
@@ -1025,24 +1192,41 @@ function encode_row_cells(writer, row, num_steps)
     }
 
     let period = motif_period(row, num_steps);
+    let exc = motif_exc_plan(row, num_steps);
+    let hits = sparse_hits(row, num_steps);
 
     let costs = {
         [GRID_LITERAL]: num_steps,
         [GRID_MOTIF]: period? MOTIF_PERIOD_BITS + period : Infinity,
+        [GRID_MOTIF_EXC]: exc? exc.cost : Infinity,
+        [GRID_GROUP_4]: group_cost(row, num_steps, GROUP_SIZES[GRID_GROUP_4]),
         [GRID_GROUP_8]: group_cost(row, num_steps, GROUP_SIZES[GRID_GROUP_8]),
         [GRID_GROUP_16]: group_cost(row, num_steps, GROUP_SIZES[GRID_GROUP_16]),
+        [GRID_SPARSE]: hits?
+            SPARSE_COUNT_BITS + hits.length * bits_for(num_steps) : Infinity,
+        [GRID_COPY_PREV]: rows_match(row, prev_row, num_steps)? 0 : Infinity,
     };
+
+    // What a scheme costs is what it writes plus what it costs to say which
+    // one it was, and the tags are of different lengths, so a scheme that
+    // writes a row in fewer bits can still be the more expensive of the two
+    const total = scheme => costs[scheme] + GRID_TAGS[scheme].bits;
 
     // Ties go to the plainest scheme that holds the row, so that a row with
     // nothing to compress about it always writes the same way
     let scheme = GRID_LITERAL;
-    for (let candidate of [GRID_MOTIF, GRID_GROUP_8, GRID_GROUP_16])
+    for (let candidate of [GRID_MOTIF, GRID_MOTIF_EXC, GRID_GROUP_4,
+                           GRID_GROUP_8, GRID_GROUP_16, GRID_SPARSE,
+                           GRID_COPY_PREV])
     {
-        if (costs[candidate] < costs[scheme])
+        if (total(candidate) < total(scheme))
             scheme = candidate;
     }
 
-    writer.write(scheme, GRID_SCHEME_BITS);
+    writer.write(GRID_TAGS[scheme].code, GRID_TAGS[scheme].bits);
+
+    if (scheme == GRID_COPY_PREV)
+        return;
 
     if (scheme == GRID_LITERAL)
     {
@@ -1054,6 +1238,30 @@ function encode_row_cells(writer, row, num_steps)
     {
         writer.write(MOTIF_PERIODS.indexOf(period), MOTIF_PERIOD_BITS);
         write_steps(0, period);
+        return;
+    }
+
+    if (scheme == GRID_MOTIF_EXC)
+    {
+        writer.write(exc.period_idx, MOTIF_EXC_PERIOD_BITS);
+        write_steps(0, exc.period);
+        writer.write(exc.positions.length, MOTIF_EXC_COUNT_BITS);
+
+        let pos_bits = motif_exc_pos_bits(num_steps, exc.period);
+
+        for (let pos of exc.positions)
+            writer.write(pos, pos_bits);
+
+        return;
+    }
+
+    if (scheme == GRID_SPARSE)
+    {
+        writer.write(hits.length, SPARSE_COUNT_BITS);
+
+        for (let step_idx of hits)
+            writer.write(step_idx, bits_for(num_steps));
+
         return;
     }
 
@@ -1070,11 +1278,44 @@ function encode_row_cells(writer, row, num_steps)
     }
 }
 
-// Read back the cells of one row written by encode_row_cells
-function decode_row_cells(reader, num_steps)
+// Read back the tag naming the scheme a row was written in. The tags are a
+// complete prefix code, so reading a bit at a time lands on one of them within
+// MAX_GRID_TAG_BITS bits; the throw is there in case that stops being true.
+function decode_grid_scheme(reader)
 {
-    let scheme = reader.read(GRID_SCHEME_BITS);
+    let code = 0;
+
+    for (let num_bits = 1; num_bits <= MAX_GRID_TAG_BITS; ++num_bits)
+    {
+        code = (code << 1) | reader.read(1);
+
+        let scheme = GRID_TAG_LOOKUP.get(`${num_bits}:${code}`);
+
+        if (scheme !== undefined)
+            return scheme;
+    }
+
+    throw RangeError('encoded row names no cell scheme');
+}
+
+// Read back the cells of one row written by encode_row_cells.
+// prev_row is what GRID_COPY_PREV copies, or null where there is none.
+function decode_row_cells(reader, num_steps, prev_row)
+{
+    let scheme = decode_grid_scheme(reader);
     let row = Array(num_steps).fill(0);
+
+    if (scheme == GRID_COPY_PREV)
+    {
+        // The encoder only reaches for this where there is a row to copy, so
+        // a link that names it anywhere else isn't one we wrote. The copy is
+        // taken rather than shared, so that editing one pattern later can't
+        // reach into another.
+        if (!prev_row)
+            throw RangeError('encoded row copies a row that is not there');
+
+        return prev_row.slice();
+    }
 
     if (scheme == GRID_LITERAL)
     {
@@ -1103,6 +1344,77 @@ function decode_row_cells(reader, num_steps)
         return row;
     }
 
+    if (scheme == GRID_MOTIF_EXC)
+    {
+        let period_idx = reader.read(MOTIF_EXC_PERIOD_BITS);
+
+        // The field is wider than the list of periods, so most of what it can
+        // hold names no period at all
+        if (period_idx >= MOTIF_EXC_PERIODS.length)
+            throw RangeError('encoded row repeats a cell of no known length');
+
+        let period = MOTIF_EXC_PERIODS[period_idx];
+
+        if (period >= num_steps)
+            throw RangeError('encoded row repeats a cell as long as itself');
+
+        let motif = [];
+        for (let step_idx = 0; step_idx < period; ++step_idx)
+            motif.push(reader.read(1));
+
+        for (let step_idx = 0; step_idx < num_steps; ++step_idx)
+            row[step_idx] = motif[step_idx % period];
+
+        let num_exc = reader.read(MOTIF_EXC_COUNT_BITS);
+        let pos_bits = motif_exc_pos_bits(num_steps, period);
+        let prev_pos = -1;
+
+        for (let exc_idx = 0; exc_idx < num_exc; ++exc_idx)
+        {
+            let pos = reader.read(pos_bits);
+
+            if (period + pos >= num_steps)
+                throw RangeError('encoded row excepts a step it does not have');
+
+            // The encoder writes these in order, so anything else is not a
+            // link we wrote. Reading them in order is also what keeps a step
+            // from being excepted twice, which would leave it as it was and
+            // give the same row two encodings.
+            if (pos <= prev_pos)
+                throw RangeError('encoded row excepts its steps out of order');
+
+            prev_pos = pos;
+            row[period + pos] = row[period + pos]? 0 : 1;
+        }
+
+        return row;
+    }
+
+    if (scheme == GRID_SPARSE)
+    {
+        let num_hits = reader.read(SPARSE_COUNT_BITS);
+        let pos_bits = bits_for(num_steps);
+        let prev_pos = -1;
+
+        for (let hit_idx = 0; hit_idx < num_hits; ++hit_idx)
+        {
+            let pos = reader.read(pos_bits);
+
+            if (pos >= num_steps)
+                throw RangeError('encoded row plays a step it does not have');
+
+            // In order for the same reason the exceptions above are, and here
+            // a repeated step would be one the row plays once either way
+            if (pos <= prev_pos)
+                throw RangeError('encoded row plays its steps out of order');
+
+            prev_pos = pos;
+            row[pos] = 1;
+        }
+
+        return row;
+    }
+
     let size = GROUP_SIZES[scheme];
 
     for (let step_idx = 0; step_idx < Math.min(size, num_steps); ++step_idx)
@@ -1117,6 +1429,27 @@ function decode_row_cells(reader, num_steps)
     }
 
     return row;
+}
+
+// The row GRID_COPY_PREV copies, or null where there isn't one. Patterns are
+// made by copying one another, so a row is often the same row of the pattern
+// before it, and saying so costs a tag and nothing else.
+//
+// Both sides of the encoding work availability out from here rather than each
+// deciding for itself. The decoder has read no cells yet when it asks, so the
+// answer can only depend on what it already knows: which pattern came before,
+// how many rows it had and how long it was. A row of a different length can't
+// stand in for this one even where the steps it holds would match, since the
+// two rows would then encode differently depending on which was written first.
+function copyable_row(prev_pat, row_idx, num_steps)
+{
+    if (!prev_pat || row_idx >= prev_pat.num_rows)
+        return null;
+
+    if (prev_pat.num_steps != num_steps)
+        return null;
+
+    return prev_pat.rows[row_idx];
 }
 
 // What the encoding expects a row's sample to be, which is what it costs a
@@ -1316,7 +1649,8 @@ export function encode_project(project)
             if (!is_predicted)
                 writer.write(sample_idx, SAMPLE_IDX_BITS);
 
-            encode_row_cells(writer, pat.rows[row_idx], pat.num_steps);
+            encode_row_cells(writer, pat.rows[row_idx], pat.num_steps,
+                             copyable_row(prev_pat, row_idx, pat.num_steps));
 
             let pan = pat.pans[row_idx];
             let pan_predicted = pan == predicted_pan(prev_pat, row_idx);
@@ -1402,7 +1736,8 @@ export function decode_project(b64_str)
                 predicted_sample(prev_pat, row_idx) :
                 reader.read(SAMPLE_IDX_BITS));
 
-            rows.push(decode_row_cells(reader, num_steps));
+            rows.push(decode_row_cells(reader, num_steps,
+                      copyable_row(prev_pat, row_idx, num_steps)));
 
             pans.push(reader.read(1)?
                 predicted_pan(prev_pat, row_idx) :

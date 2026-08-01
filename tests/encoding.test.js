@@ -174,8 +174,22 @@ const SAMPLE_IDX_BITS = 9;
 const PAN_BITS = 5;
 const VOLUME_BITS = 5;
 const SEND_BITS = 5;
-const GRID_SCHEME_BITS = 2;
 const MOTIF_PERIOD_BITS = 2;
+const MOTIF_EXC_PERIOD_BITS = 4;
+const MOTIF_EXC_COUNT_BITS = 3;
+const SPARSE_COUNT_BITS = 4;
+
+// The tag naming the scheme a row's cells were written in, as the bits it is
+// made of. These are of different lengths, so a test writes the tag itself
+// rather than a value in a field of a fixed width.
+const GRID_MOTIF = '00';
+const GRID_SPARSE = '01';
+const GRID_GROUP_8 = '100';
+const GRID_MOTIF_EXC = '101';
+const GRID_COPY_PREV = '110';
+const GRID_LITERAL = '1110';
+const GRID_GROUP_4 = '11110';
+const GRID_GROUP_16 = '11111';
 const VAR_CHUNK_BITS = 3;
 
 // Write a value into a fixed-width field, most significant bit first
@@ -197,7 +211,7 @@ const ONE_EMPTY_PATTERN =
     field(0, NUM_ROWS_BITS) +           // one row
     '0' +                               // the sample isn't the predicted one
     field(0, SAMPLE_IDX_BITS) +         // sample index 0
-    field(0, GRID_SCHEME_BITS) +        // the cells are written out flat
+    GRID_LITERAL +                      // the cells are written out flat
     '0' +                               // the row's one cell, off
     '1' +                               // the row is panned where it's expected
     '1' +                               // and is at the level expected too
@@ -665,13 +679,146 @@ test("a link repeating a cell as long as its row is refused", () =>
         field(1, NUM_STEPS_BITS) +          // two steps
         field(0, NUM_ROWS_BITS) +           // one row
         '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
-        field(1, GRID_SCHEME_BITS) +        // the cells repeat a short cell
+        GRID_MOTIF +                        // the cells repeat a short cell
         field(0, MOTIF_PERIOD_BITS) +       // ...of two steps, as long as the row
         '10';
 
     assert.throws(
         () => decode_project(bits_to_b64(bits)),
         /repeats a cell as long as itself/
+    );
+});
+
+// The header of a link holding one pattern of one row and four steps, up to
+// the point where the row's cells begin. The tests below carry on from here
+// with cells written in one scheme or another.
+const FOUR_STEP_ROW =
+    field(ENCODING_VERSION, VERSION_BITS) +
+    field(80, TEMPO_BITS) +
+    field(0, SWING_BITS) +
+    '1' +                               // the delay is set the way it starts
+    field(0, NUM_PATTERNS_BITS) +
+    field(3, NUM_STEPS_BITS) +          // four steps
+    field(0, NUM_ROWS_BITS) +           // one row
+    '0' + field(0, SAMPLE_IDX_BITS);    // sample index 0
+
+test("a sparse row survives a round trip", () =>
+{
+    // A row with a handful of steps in a long pattern is written as the steps
+    // that play rather than as one bit per step, so this is the shape the
+    // scheme exists for
+    let row = Array(64).fill(0);
+    row[0] = row[17] = row[63] = 1;
+
+    let project = make_project(120, [{ sample_idxs: [0], rows: [row] }]);
+    let decoded = round_trip(project);
+
+    assert.deepEqual(decoded.patterns[0].rows[0], row);
+});
+
+test("a motif row with a few steps written out survives a round trip", () =>
+{
+    // A bar that repeats except for a fill at the end of the phrase, which is
+    // what the scheme is for
+    let row = [];
+    for (let bar = 0; bar < 4; ++bar)
+        row.push(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0);
+
+    row[61] = 1;
+    row[63] = 1;
+
+    let project = make_project(120, [{ sample_idxs: [0], rows: [row] }]);
+    let decoded = round_trip(project);
+
+    assert.deepEqual(decoded.patterns[0].rows[0], row);
+});
+
+test("a row copied from the pattern before it survives a round trip", () =>
+{
+    let row = [1, 0, 1, 1, 0, 0, 1, 0];
+
+    let project = make_project(120, [
+        { sample_idxs: [0], rows: [row.slice()] },
+        { sample_idxs: [0], rows: [row.slice()] },
+    ]);
+
+    let decoded = round_trip(project);
+
+    assert.deepEqual(decoded.patterns[0].rows[0], row);
+    assert.deepEqual(decoded.patterns[1].rows[0], row);
+
+    // The copy has to be a copy: editing one pattern must not reach into the
+    // other, which sharing the array between them would let it do
+    decoded.patterns[1].rows[0][0] = 0;
+
+    assert.equal(decoded.patterns[0].rows[0][0], 1);
+});
+
+test("a link copying a row that is not there is refused", () =>
+{
+    // Nothing precedes the first pattern of a link, so its rows have nothing
+    // to copy and the encoder never names this scheme for them
+    let bits = FOUR_STEP_ROW + GRID_COPY_PREV;
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /copies a row that is not there/
+    );
+});
+
+test("a link naming a cell length that does not exist is refused", () =>
+{
+    // The period field is wider than the list of lengths it picks from, so
+    // most of what it can hold names nothing
+    let bits =
+        FOUR_STEP_ROW +
+        GRID_MOTIF_EXC +
+        field(15, MOTIF_EXC_PERIOD_BITS);
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /repeats a cell of no known length/
+    );
+});
+
+test("a link writing its steps out of order is refused", () =>
+{
+    // The encoder writes the steps of a sparse row in ascending order, so a
+    // link that doesn't has been edited by hand. Taking them in order is also
+    // what stops one row from having two encodings.
+    let bits =
+        FOUR_STEP_ROW +
+        GRID_SPARSE +
+        field(2, SPARSE_COUNT_BITS) +       // two steps play
+        field(2, 2) +                       // ...the third
+        field(1, 2);                        // ...and then the second
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /plays its steps out of order/
+    );
+});
+
+test("a link playing a step its row does not have is refused", () =>
+{
+    // A three step row writes its steps in two bits, which can name a fourth
+    // step the row hasn't got
+    let bits =
+        field(ENCODING_VERSION, VERSION_BITS) +
+        field(80, TEMPO_BITS) +
+        field(0, SWING_BITS) +
+        '1' +                               // the delay is set the way it starts
+        field(0, NUM_PATTERNS_BITS) +
+        field(2, NUM_STEPS_BITS) +          // three steps
+        field(0, NUM_ROWS_BITS) +           // one row
+        '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
+        GRID_SPARSE +
+        field(1, SPARSE_COUNT_BITS) +       // one step plays
+        field(3, 2);                        // ...the fourth, of a three step row
+
+    assert.throws(
+        () => decode_project(bits_to_b64(bits)),
+        /plays a step it does not have/
     );
 });
 
@@ -757,7 +904,7 @@ test("a link panning a row past hard over is refused", () =>
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
         '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
-        field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
+        GRID_LITERAL + '0' +               // the row's one cell, off
         '0' + field(31, PAN_BITS) +         // panned past MAX_PAN
         '1' +                               // at the level expected
         '1';                                // sending the delay what's expected
@@ -829,7 +976,7 @@ test("a link setting a row past the top of the range is refused", () =>
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
         '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
-        field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
+        GRID_LITERAL + '0' +               // the row's one cell, off
         '1' +                               // panned where it's expected
         '0' + field(31, VOLUME_BITS) +      // a level above MAX_VOLUME
         '1';                                // sending the delay what's expected
@@ -953,7 +1100,7 @@ test("a link setting a row past the top of the send range is refused", () =>
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
         '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
-        field(0, GRID_SCHEME_BITS) + '0' +  // the row's one cell, off
+        GRID_LITERAL + '0' +               // the row's one cell, off
         '1' +                               // panned where it's expected
         '1' +                               // at the level expected
         '0' + field(31, SEND_BITS);         // a send above MAX_SEND
@@ -982,10 +1129,10 @@ test("a link setting a row past the top of the send range is refused", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled;BQBAPChw';
+const GOLDEN_EMPTY = 'untitled;BQBAPCBw';
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled;BQBAAAAD4A';
+const GOLDEN_MINIMAL = 'untitled;BQBAAAAJ8A';
 
 // Two patterns of different lengths, a title, a tempo, a swing and a delay off
 // their defaults, the widest sample index the format holds, and both patterns
@@ -993,7 +1140,7 @@ const GOLDEN_MINIMAL = 'untitled;BQBAAAAD4A';
 // turned down, and one of each is sent to the delay, so that this pins those
 // fields too: the panning hard over and part of the way, the level part of the
 // way down and all the way, and a send both guessed and written out.
-const GOLDEN_MIXED = 'test_song;BkiXgIYgAVwFBAYSpSAgf8xwDegA';
+const GOLDEN_MIXED = 'test_song;BkiXgIYgAFwFggMJUpAQP_McA3oA';
 
 test("a new project encodes to the same link it always has", () =>
 {
