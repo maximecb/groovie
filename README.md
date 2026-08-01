@@ -4,7 +4,7 @@ Free, open source drum/beat sequencer that runs in your browser. No ads, no acco
 required, nothing to install. Written in pure JavaScript with no frameworks and
 no backend.
 
-**Try it: https://maximecb.github.io/groovie/**
+**Try it out: https://maximecb.github.io/groovie/**
 
 Sketch a beat in the step sequencer, then arrange your patterns into a song on the
 timeline below it. When it sounds right, hit "Copy link": the whole project is encoded
