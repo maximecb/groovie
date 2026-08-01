@@ -17,6 +17,7 @@ import assert from "node:assert/strict";
 
 import {
     install_web_audio,
+    get_ctx,
     drain_voices,
     voice_sample,
 } from "./web_audio.js";
@@ -55,6 +56,15 @@ const UNLOADED = get_sample_idx('clap_01');
 
 await fetch_sample(KICK);
 await fetch_sample(SNARE);
+
+// Whether loading the kit built an audio context, which it must not: see
+// get_audio_ctx in audio.js. This is read here rather than inside the test
+// that checks it because the tests share this module and the ones that play
+// something build a context, so by the time they have run the answer has
+// changed. Everything below plays these two samples, which is what says the
+// other half of it works: they were downloaded before there was a context and
+// they are decoded and audible once there is one.
+const ctx_after_loading = get_ctx();
 
 // Tempo at which one lookahead window holds exactly one step, so that starting
 // playback queues step 0 and nothing else: the window is 0.1s and 120 BPM is 8
@@ -104,6 +114,22 @@ async function song_voices(project)
 
     return drain_voices();
 }
+
+//============================================================================
+// Loading the kit
+//============================================================================
+
+test("loading a sample does not build an audio context", () =>
+{
+    // Safari on iOS starts a context suspended if it was built before the page
+    // was touched, and does not reliably let resume() bring it back. The kit
+    // starts downloading as the page opens, so the download has to be able to
+    // finish without one: what needs a context is decoding, and that waits.
+    //
+    // This being wrong is silence on an iPhone and nothing at all anywhere
+    // else, which is why it is worth a test rather than a comment.
+    assert.equal(ctx_after_loading, null);
+});
 
 //============================================================================
 // The cap on a step

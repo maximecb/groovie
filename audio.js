@@ -3,13 +3,41 @@ import { SAMPLE_MAP } from "./sample_list.js";
 // The audio context is created on first use rather than when this module is
 // loaded. Browsers log an autoplay policy warning for a context created before
 // any user interaction, and it keeps this module loadable without Web Audio.
+//
+// On iOS this is more than a warning. A context built before the page has been
+// touched starts out suspended, and Safari does not always let resume() bring
+// it back afterwards. Nothing here may reach for the context off the back of a
+// page load: see SampleManager, which downloads the kit as the page opens but
+// holds off on decoding it until there is a context to decode it with.
 let audio_ctx = null;
+
+// Whether the context exists yet, for the code that has something useful to do
+// when it doesn't rather than a reason to build one
+function has_audio_ctx()
+{
+    return audio_ctx != null;
+}
 
 function get_audio_ctx()
 {
-    // Create AudioContext with 44.1kHz sample rate
     if (!audio_ctx)
+    {
+        // Create AudioContext with 44.1kHz sample rate
         audio_ctx = new AudioContext({ sampleRate: 44100 });
+
+        // Say that this is something being listened to rather than a sound
+        // effect over something else. Web Audio on iOS is "ambient" audio
+        // unless it says otherwise, and ambient audio is silenced by the
+        // ring/silent switch on the side of the phone: a track plays with the
+        // level up and the transport running and no sound comes out, with
+        // nothing on the page to say why. Declaring it as playback is what
+        // takes it out of that category.
+        //
+        // Safari 16.4 and later. The property is missing everywhere else,
+        // where the switch this works around doesn't exist either.
+        if (navigator.audioSession)
+            navigator.audioSession.type = 'playback';
+    }
 
     return audio_ctx;
 }
@@ -101,10 +129,51 @@ class SampleManager
         // Audio buffers for the samples, indexed by sample index
         this.sample_bufs = Array(NUM_SAMPLES);
 
+        // Samples that have been downloaded but not yet decoded, as they came
+        // off the network. Decoding is what needs an audio context, and the
+        // kit starts downloading as the page opens, which is before there can
+        // be one (see get_audio_ctx). These wait here until there is.
+        this.raw_bufs = Array(NUM_SAMPLES);
+
         // Fetches currently in flight, indexed by sample index. A buffer isn't
         // stored until it finishes decoding, so we need this to know that a
         // sample is already on its way and avoid downloading it twice.
         this.pending_fetches = Array(NUM_SAMPLES);
+    }
+
+    // Turn a downloaded sample into an audio buffer.
+    //
+    // decodeAudioData takes the array buffer it is given over, so the download
+    // is dropped here rather than kept around emptied out. That also makes
+    // this safe to call twice on the same sample: the second call finds
+    // nothing left to do.
+    decode_sample(sample_idx)
+    {
+        let array_buffer = this.raw_bufs[sample_idx];
+
+        if (!array_buffer)
+            return Promise.resolve();
+
+        this.raw_bufs[sample_idx] = null;
+
+        return get_audio_ctx().decodeAudioData(array_buffer)
+            .then(audio_buffer => this.sample_bufs[sample_idx] = audio_buffer)
+            .catch(err => console.error(err));
+    }
+
+    // Decode everything downloaded while there was no context to decode it
+    // with, which on a cold load is the whole of the starting kit
+    decode_fetched()
+    {
+        let decoding = [];
+
+        for (let sample_idx = 0; sample_idx < NUM_SAMPLES; ++sample_idx)
+        {
+            if (this.raw_bufs[sample_idx])
+                decoding.push(this.decode_sample(sample_idx));
+        }
+
+        return Promise.all(decoding);
     }
 
     // Fetch/download a sample by index.
@@ -123,6 +192,15 @@ class SampleManager
         if (this.pending_fetches[sample_idx])
             return this.pending_fetches[sample_idx];
 
+        // Downloaded already, and waiting on a context rather than on the
+        // network. Asking for it again is what decodes it once there is one,
+        // and downloading it a second time would be the bug this avoids.
+        if (this.raw_bufs[sample_idx])
+        {
+            return has_audio_ctx()?
+                this.decode_sample(sample_idx) : Promise.resolve();
+        }
+
         let sample_path = get_sample_path(sample_idx);
 
         // There may be no sample behind this index: it can be reserved for a
@@ -137,8 +215,16 @@ class SampleManager
         // fetch failed will be retried the next time it's requested
         return this.pending_fetches[sample_idx] = fetch(sample_path)
         .then(response => response.arrayBuffer())
-        .then(array_buffer => get_audio_ctx().decodeAudioData(array_buffer))
-        .then(audio_buffer => this.sample_bufs[sample_idx] = audio_buffer)
+        .then(array_buffer =>
+        {
+            this.raw_bufs[sample_idx] = array_buffer;
+
+            // Decoded now if there is a context, and left for init_web_audio
+            // to pick up if there isn't. Building one here to decode into is
+            // what would put a context on the page before it has been touched.
+            if (has_audio_ctx())
+                return this.decode_sample(sample_idx);
+        })
         .catch(err => console.error(err))
         .finally(() => this.pending_fetches[sample_idx] = null);
 
@@ -275,8 +361,18 @@ async function init_web_audio()
     global_gain.gain.setValueAtTime(volume, ctx.currentTime);
     global_gain.connect(ctx.destination);
 
-    // The audio context starts out in a paused state
+    // The audio context starts out in a paused state.
+    //
+    // This has to be reached without waiting on anything first: iOS only lets
+    // a context start from inside the gesture that asked for it, and an await
+    // before this point ends the gesture as far as the browser is concerned.
+    // Everything above is synchronous for that reason, and anything added here
+    // belongs after this line rather than before it.
     await ctx.resume();
+
+    // The kit was downloaded while the page was opening, when there was no
+    // context to decode it into. There is one now.
+    await samples.decode_fetched();
 }
 
 // Set the master volume, in the [0, 1] range
