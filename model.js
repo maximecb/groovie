@@ -803,7 +803,15 @@ const GROUP_SIZES = { [GRID_GROUP_8]: 8, [GRID_GROUP_16]: 16 };
 // Size of the chunks values of no bounded size are written in, and how many
 // chunks one such value can take up before it can't be anything we wrote. A
 // lane holds at most MAX_SONG_STEPS cells, which is what bounds them.
-const VAR_CHUNK_BITS = 4;
+//
+// Three bits is what the corpus wants. The values written this way are gaps
+// and block lengths on the timeline, and those cluster small: a song is laid
+// out in a handful of blocks a few cells long. Chunks of three bits write
+// everything up to 7 in one chunk and pay a bit less for the values above it
+// than four-bit chunks save on the ones below. Two bits is worse again, since
+// a long song's gaps then take chunks enough for the extra continuation bits
+// to outweigh what they save.
+const VAR_CHUNK_BITS = 3;
 const MAX_VAR_CHUNKS = Math.ceil(Math.log2(MAX_SONG_STEPS + 1) / VAR_CHUNK_BITS);
 
 console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));

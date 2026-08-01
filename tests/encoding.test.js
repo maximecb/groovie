@@ -163,6 +163,7 @@ function bits_to_b64(bits)
 }
 
 // Field widths of the encoding, mirrored from model.js on purpose (see above)
+const ENCODING_VERSION = 0;
 const VERSION_BITS = 4;
 const TEMPO_BITS = 8;
 const SWING_BITS = 5;
@@ -175,7 +176,7 @@ const VOLUME_BITS = 5;
 const SEND_BITS = 5;
 const GRID_SCHEME_BITS = 2;
 const MOTIF_PERIOD_BITS = 2;
-const VAR_CHUNK_BITS = 4;
+const VAR_CHUNK_BITS = 3;
 
 // Write a value into a fixed-width field, most significant bit first
 function field(val, num_bits)
@@ -187,7 +188,7 @@ function field(val, num_bits)
 // which is the smallest thing the decoder will accept. Tests that are about
 // what follows it start from this.
 const ONE_EMPTY_PATTERN =
-    field(0, VERSION_BITS) +            // encoding version
+    field(ENCODING_VERSION, VERSION_BITS) +            // encoding version
     field(80, TEMPO_BITS) +             // tempo, offset from MIN_TEMPO
     field(0, SWING_BITS) +              // swing, offset from MIN_SWING
     '1' +                               // the delay is set the way it starts
@@ -656,7 +657,7 @@ test("a link repeating a cell as long as its row is refused", () =>
     // The encoder writes a row like this out flat instead, a cell that long
     // being no shorter, so a link claiming one has been edited by hand
     let bits =
-        field(0, VERSION_BITS) +
+        field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
@@ -748,7 +749,7 @@ test("a link panning a row past hard over is refused", () =>
     // The pan field is wider than the positions a row can hold, so a link can
     // name one that isn't a position at all
     let bits =
-        field(0, VERSION_BITS) +
+        field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
@@ -820,7 +821,7 @@ test("a row turned down in only one pattern survives", () =>
 test("a link setting a row past the top of the range is refused", () =>
 {
     let bits =
-        field(0, VERSION_BITS) +
+        field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
@@ -944,7 +945,7 @@ test("a project that left the delay alone costs nothing to say so", () =>
 test("a link setting a row past the top of the send range is refused", () =>
 {
     let bits =
-        field(0, VERSION_BITS) +
+        field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
@@ -968,6 +969,12 @@ test("a link setting a row past the top of the send range is refused", () =>
 // These strings are frozen: a link that was shared has to keep opening as the
 // project it was made from, forever. A failure here means already-shared links
 // now decode differently, which is a change to make on purpose or not at all.
+//
+// Until the project is public there is nobody holding a link to break, so a
+// failure here is re-frozen rather than versioned around: run the encoder and
+// paste the new string in, having checked it decodes to what the tests below
+// say it should. Once links are out in the world that stops being an option,
+// and a change to the format has to move ENCODING_VERSION instead.
 //============================================================================
 
 // A new project, untouched. This is the most-shared link there is, so it's
@@ -986,7 +993,7 @@ const GOLDEN_MINIMAL = 'untitled;BQBAAAAD4A';
 // turned down, and one of each is sent to the delay, so that this pins those
 // fields too: the panning hard over and part of the way, the level part of the
 // way down and all the way, and a send both guessed and written out.
-const GOLDEN_MIXED = 'test_song;BkiXgIYgAVwFBAYSoogIH_McA3kA';
+const GOLDEN_MIXED = 'test_song;BkiXgIYgAVwFBAYSpSAgf8xwDegA';
 
 test("a new project encodes to the same link it always has", () =>
 {
@@ -1124,7 +1131,7 @@ test("a project that fits encodes without complaint", () =>
 
 test("a link from a newer format version is refused", () =>
 {
-    let bits = field(1, VERSION_BITS) + ONE_EMPTY_PATTERN.slice(VERSION_BITS);
+    let bits = field(ENCODING_VERSION + 1, VERSION_BITS) + ONE_EMPTY_PATTERN.slice(VERSION_BITS);
 
     assert.throws(
         () => decode_project(bits_to_b64(bits)),
@@ -1135,7 +1142,7 @@ test("a link from a newer format version is refused", () =>
 test("a truncated link is refused", () =>
 {
     assert.throws(
-        () => decode_project(bits_to_b64(field(0, VERSION_BITS))),
+        () => decode_project(bits_to_b64(field(ENCODING_VERSION, VERSION_BITS))),
         /unexpected end of encoded project data/
     );
 
