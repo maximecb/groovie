@@ -859,6 +859,13 @@ input[type="range"].pan_slider::-moz-range-track {
     font-size: 11px;
 }
 
+/* A page with no commit written into it was not published by tools/publish.sh.
+   It carries its own separator, so an empty one leaves nothing behind: no
+   hash, and no punctuation trailing off the end of the source link. */
+.commit:empty {
+    display: none;
+}
+
 /* Links here are dim like the text around them, rather than taking the
    browser's blue, which no other color on the page is near */
 .footer a {
@@ -1004,6 +1011,13 @@ button:disabled:hover {
 
     .mixer_btn {
         display: block;
+    }
+
+    /* Which build is up is worth knowing while deploying, and deploying isn't
+       done from a phone. The footer is already close to wrapping onto two
+       lines at this width, so the hash gives up its place to the visit count. */
+    .commit {
+        display: none;
     }
 
     /* Written against the grid rather than the rows, so that the button can

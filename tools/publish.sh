@@ -99,7 +99,38 @@ if ! git diff-index --quiet HEAD -- 2>/dev/null; then
 fi
 
 source_commit=$(git rev-parse --short HEAD)
+source_commit_full=$(git rev-parse HEAD)
 source_subject=$(git log -1 --pretty=%s)
+
+# Where the site ends up and where its code lives, both worked out from the
+# remote, so that the script says where it published rather than leaving it to
+# be guessed and so that the footer can link the commit it writes in.
+#
+# A remote comes in two shapes, git@host:owner/repo and https://host/owner/repo,
+# and this takes the owner and the repo off either. It is done with parameter
+# expansion rather than a regex because sed on macOS and sed on the CI runner
+# don't agree on what an extended regex is.
+slug=${remote_url%.git}
+
+case "$slug" in
+    *://*) slug=${slug#*://}; slug=${slug#*/} ;;    # https://host/owner/repo
+    *:*)   slug=${slug#*@};   slug=${slug#*:} ;;    # git@host:owner/repo
+esac
+
+owner=${slug%%/*}
+repo=${slug##*/}
+
+if [ -n "$owner" ] && [ -n "$repo" ] && [ "$owner" != "$slug" ]; then
+    site_url="https://${owner}.github.io/${repo}/"
+    settings_url="https://github.com/${owner}/${repo}/settings/pages"
+    commit_url="https://github.com/${owner}/${repo}/commit/${source_commit_full}"
+else
+    # An unrecognised remote is no reason not to publish, only a reason not to
+    # claim to know where it lands
+    site_url='(could not work out the URL from the remote)'
+    settings_url='the repository settings, under Pages'
+    commit_url=''
+fi
 
 # A file listed above but missing from HEAD would publish a broken site, and
 # the failure would show up as a blank page rather than as an error here
@@ -135,35 +166,43 @@ git archive HEAD -- "${SITE_PATHS[@]}" | tar -x -C "$stage" ||
 # and directories whose names begin with an underscore
 touch "$stage/.nojekyll"
 
+# Write the commit into the footer, so that a page that is up says which build
+# it is and links to it. This is done to the staged copy rather than to the
+# repo because a commit can't contain its own hash.
+#
+# The separator goes in here rather than in the page so that a page with no
+# commit written into it has nothing left over: the span is empty, the
+# stylesheet drops it, and the source link above ends where it should.
+#
+# It opens in a new tab like the links beside it. The project being edited
+# lives in this page's URL, so following a link out of the page takes the
+# unsaved track with it.
+readonly COMMIT_MARKER='<!--commit-->'
+
+grep -q "$COMMIT_MARKER" "$stage/index.html" ||
+    fail "index.html has no '$COMMIT_MARKER' for the commit to go in."
+
+# The separator is the character itself rather than the &middot; the page uses
+# elsewhere, because '&' means "everything that matched" on the replacement
+# side of a sed script: an entity written here would come back as the marker it
+# was meant to replace. The file is UTF-8 and says so, so the character is no
+# worse off than the entity would be.
+if [ -n "$commit_url" ]; then
+    commit_html="· <a href=\"$commit_url\" target=\"_blank\" rel=\"noopener\">$source_commit</a>"
+else
+    commit_html="· $source_commit"
+fi
+
+sed "s|$COMMIT_MARKER|$commit_html|" "$stage/index.html" > "$stage/index.html.new" ||
+    fail "could not write the commit into index.html."
+
+mv "$stage/index.html.new" "$stage/index.html"
+
+grep -q "$source_commit" "$stage/index.html" ||
+    fail "the commit did not make it into index.html."
+
 num_files=$(find "$stage" -type f | wc -l | tr -d ' ')
 total_size=$(du -sh "$stage" | cut -f1 | tr -d ' ')
-
-# The URL the site ends up at, worked out from the remote, so that the script
-# says where it published rather than leaving it to be guessed.
-#
-# A remote comes in two shapes, git@host:owner/repo and https://host/owner/repo,
-# and this takes the owner and the repo off either. It is done with parameter
-# expansion rather than a regex because sed on macOS and sed on the CI runner
-# don't agree on what an extended regex is.
-slug=${remote_url%.git}
-
-case "$slug" in
-    *://*) slug=${slug#*://}; slug=${slug#*/} ;;    # https://host/owner/repo
-    *:*)   slug=${slug#*@};   slug=${slug#*:} ;;    # git@host:owner/repo
-esac
-
-owner=${slug%%/*}
-repo=${slug##*/}
-
-if [ -n "$owner" ] && [ -n "$repo" ] && [ "$owner" != "$slug" ]; then
-    site_url="https://${owner}.github.io/${repo}/"
-    settings_url="https://github.com/${owner}/${repo}/settings/pages"
-else
-    # An unrecognised remote is no reason not to publish, only a reason not to
-    # claim to know where it lands
-    site_url='(could not work out the URL from the remote)'
-    settings_url='the repository settings, under Pages'
-fi
 
 echo
 echo "  from:     $source_commit ($source_subject)"
