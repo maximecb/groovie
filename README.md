@@ -16,6 +16,26 @@ production, and a fun one for enthusiasts to sketch ideas with. If you think thi
 project is cool and you want to support my open source work, you can
 [sponsor me on GitHub](https://github.com/sponsors/maximecb).
 
+## Examples
+
+Each of these links is the whole piece. There is nothing behind them: open one and
+you can play it, take it apart and remix it.
+
+- [The amen break](https://maximecb.github.io/groovie/#the_amen_break/BgBA_MEUQOLAXGGsElCXs4a1qAwaDUHg) —
+  the most sampled break there is, laid onto a grid, and about as much as one pattern holds.
+- [A drum and bass roller](https://maximecb.github.io/groovie/#a_drum_and_bass_roller/CGBA_UEUQOGFYCACdworVFVTqa7b-LPECCQoBEIEkhxrqBB24h1oAghrDTnpAA) —
+  two-step at 174, with rimshots standing in for ghost notes and the hats opening
+  into sixteenths for the last half bar.
+- [A house groove, panned wide](https://maximecb.github.io/groovie/#a_32_bar_house_groove_panned_wide/BUNDfUOBjgQQR4kZyAh8BDkCAHAQwIJT60SsfbvgRgn6RHH79-4ihH_Fj6AQQRwnEjMLyAh8BK0gQFgeYEEp-JUHmORQAWO5EBWNpBCWBCPFfqSA) —
+  32 bars with the kit spread across the stereo field, and a light shuffle on the
+  sixteenths that leaves the four to the floor where it is.
+- [A dub techno arrangement](https://maximecb.github.io/groovie/#a_dub_techno_arrangement/BUAngZ5BwMcKBIZWBBBBjG-w8BZTKvPWY4uw8RKRwRJsDUWQQSxL2LkPGjHE5IlRPMxTwA) —
+  built around the delay, a dotted eighth fed by a rimshot and a metallic stab
+  played sparsely enough to leave the repeats room.
+- [A drill and bass arrangement](https://maximecb.github.io/groovie/#a_64_bar_drill_and_bass_arrangement/B9ATI_5htYoCCAImhWOL9cICQhhNTEuGBTQszLjv36cmILUJCQERFJMkCIK1qWpZ-eQCgiBBCRRAjjXAiCRSCAVFZjaWhcFV2e_nsVIbBIiCQkxIJRQiixxLEl4iJICCKCBFyOSZT1ASSGk0JiFx1q0misRcCIgTmdSiU0mRsgG8UlIoZ5wGwIiBCCCgi0YBjCOtVLx8hn4rr77_NYTG6rBEgQESKApNnvpKr_LPLPE4j6kA8Ag2ASR0iZrn2IlYuQflAFNAC5AiCT0VQxEhEz9UsA) —
+  64 bars across eight patterns at 165, the longest and busiest of these, and the
+  one that pushes the encoding hardest at 354 characters.
+
 ## Features
 
 Free-running polymeters. Steps have a fixed duration rather than a fixed number per
@@ -57,6 +77,28 @@ and they have to be available under the CC0 license (public domain). We cannot i
 copyrighted samples.
 You can run `tools/convert_samples.sh` to convert new samples to the expected format,
 which the CI will check.
+
+### Codebase overview
+
+Plain ES modules, no build step and no dependencies. `index.html` loads `main.js`,
+which pulls in the other three.
+
+| | |
+|---|---|
+| `model.js` | The project itself: patterns, rows, the timeline, and the URL encoding a link is made of. Knows nothing about the DOM or about audio. |
+| `audio.js` | The sample library and the Web Audio graph, including the scheduler that decides what plays when. |
+| `view.js` | Renders the pattern grid and the timeline. The views are a function of the model: rendering reads project state and never writes it. |
+| `main.js` | The wiring. Controls, buttons, keyboard, and keeping the link in the address bar in step with the project. |
+| `sample_list.js` | Generated map of sample paths to indices. Rebuilt by `tools/update_samples.py`, not edited by hand. |
+
+A sample index is permanent once it has been used in a shared link, which is why
+that map is generated rather than sorted on the fly.
+
+`tests/corpus.js` holds the songs the encoding is exercised and measured on, and is
+kept apart from the tests because two things use it: the tests round-trip the songs,
+and `tools/link_sizes.js` reports what each one costs as a link. A change to the
+encoding is judged on what it does to that table. `design.md` covers the decisions
+behind the model and the URL scheme.
 
 ### Running the tests
 
