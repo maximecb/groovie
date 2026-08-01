@@ -64,6 +64,10 @@ const volume_val = document.getElementById('volume_val');
 // Pattern length selector
 const num_steps_sel = document.getElementById('num_steps');
 
+// Button swapping the steps of a pattern for where its rows sit in the mix, on
+// a screen too narrow to show both at once
+const mixer_btn = document.getElementById('mixer_btn');
+
 // Pattern selection tabs
 const pat_tabs = document.getElementById('pat_tabs');
 
@@ -529,6 +533,41 @@ play_song_btn.onclick = async function ()
     await play_song(project);
     start_highlight();
 }
+
+// Swap the steps of the pattern being edited for where its rows sit in the mix.
+// A row can't hold both across a phone, so the stylesheet drops the mix there
+// and this is what asks for it back, one or the other at a time.
+//
+// The grid is marked rather than its rows, so that a grid rebuilt while the mix
+// is up comes back with the mix still up. It says nothing at the widths that
+// have room for both: there the stylesheet shows them whatever this is set to,
+// and the button itself isn't on the page.
+mixer_btn.onclick = function ()
+{
+    let showing = pat_div.classList.toggle('show_mixer');
+    mixer_btn.setAttribute('aria-pressed', showing);
+}
+
+// The timeline draws as many bars as fit across it, which the stylesheet has no
+// way to work out on its own, so it is the one part of the page that has to be
+// laid out again when the room it has changes. The box is watched rather than
+// the window, that being what actually decides how many bars there is room for:
+// a window resize is only one of the ways it can change.
+//
+// The width it was last laid out for is kept, so that a change leaving it alone
+// rebuilds nothing. That covers the first call, which arrives as soon as the box
+// is watched, along with the changes a phone makes on its own when the address
+// bar slides away or the keyboard opens.
+let tl_width = pat_seq.clientWidth;
+
+new ResizeObserver(() =>
+{
+    if (pat_seq.clientWidth == tl_width)
+        return;
+
+    tl_width = pat_seq.clientWidth;
+    render_timeline(pat_seq, project, cur_pat, timeline_handlers);
+}).observe(pat_seq);
 
 // The spacebar plays and stops what there is to hear, which is the one thing
 // worth a keyboard shortcut. It's ignored while a control has focus, so that it

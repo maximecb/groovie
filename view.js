@@ -536,6 +536,13 @@ const STEP_PX = 6;
 const TRAILING_STEPS = 2 * STEPS_PER_BAR;
 const MIN_VIEW_STEPS = 8 * STEPS_PER_BAR;
 
+// What the lane labels take up at the left of the timeline, in pixels: the
+// width the stylesheet gives .tl_label plus the gap after it. This is only
+// used to work out how many bars fit in the box, which is rounded down to
+// whole bars, so being a few pixels out costs nothing. Where the lanes
+// actually start, which the playhead has to land on exactly, is measured.
+const LABEL_PX = 44;
+
 // Playhead of the last timeline render, and the offset the lanes start at,
 // which is what the playhead is positioned against
 let playhead_div = null;
@@ -674,9 +681,18 @@ export function render_timeline(seq_div, project, cur_pat, handlers)
 
     let song_steps = project.song_num_steps;
 
-    // Extent shown, i.e. the song plus the room to make it longer
+    // Whole bars that fit in the box the timeline is drawn in. The page grows
+    // with the window, so how much timeline there is room for isn't a number
+    // that can be written down here: a short song on a wide screen would
+    // otherwise stop well short of the right edge, leaving the room to place
+    // the next pattern off the end of the lanes rather than on them.
+    let bar_px = STEPS_PER_BAR * STEP_PX;
+    let fit_steps = Math.floor((seq_div.clientWidth - LABEL_PX) / bar_px) * STEPS_PER_BAR;
+
+    // Extent shown, i.e. the song plus the room to make it longer, and never
+    // less than what fills the box or the few bars a narrow box still shows
     let view_steps = Math.min(
-        Math.max(song_steps + TRAILING_STEPS, MIN_VIEW_STEPS),
+        Math.max(song_steps + TRAILING_STEPS, fit_steps, MIN_VIEW_STEPS),
         MAX_SONG_STEPS
     );
 

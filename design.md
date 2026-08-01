@@ -161,8 +161,25 @@ several patterns sounding at once, so there is nothing one pattern grid can
 usefully show: the timeline playhead is what says where playback is, and the
 pattern editor stays out of it.
 
-The layout should ideally be responsive and be able to adapt to desktop,
-phones and tablets.
+The page is laid out in one column that follows the width of the window up to a
+cap, rather than at a width of its own. The cap is set to what the page has the
+contents to fill rather than to what the grids could use, since past it the
+boxes stretch further than what is in them; it is worth raising as the page
+gains more to hold. The timeline draws as many bars as fit across whatever width
+it ends up with, so that the room to make the song longer is on the lanes rather
+than off the end of them.
+
+Under the grids, the smaller groups stand on a row that wraps: as many side by
+side as there is room for, and a column when there isn't. What is added there
+later, such as exporting a track or effects, lands beside what is already there
+instead of below it.
+
+A screen too narrow to hold a row's steps and its place in the mix at once,
+which is any phone held upright, gets the steps, and a button below the grid
+swaps them for the mix. One or the other rather than both: the steps of a
+pattern are already wider than the screen and scroll sideways, so controls kept
+past the end of them would be controls nobody could find. Nothing is dropped on
+a phone, only shown one part at a time.
 
 ## Future Features
 

@@ -12,101 +12,122 @@
 
     <h1><img class="logo" src="logo.svg" alt="Groovie"></h1>
 
-    <div class="group">
-        <div class="label">Controls</div>
-        <div class="controls">
-            <!-- TODO: do we want an obvious play button at the top? -->
-            <div class="slider_ctl">
-                <label>Tempo: <span class="num_val" id="tempo_val">120</span> BPM</label>
-                <!-- Range is set in main.js, from MIN/MAX_TEMPO -->
-                <input type="range" id="tempo_slider" value="120">
-            </div>
-            <div class="slider_ctl">
-                <label>Swing: <span class="num_val" id="swing_val">50</span>%</label>
-                <!-- Range is set in main.js, from MIN/MAX_SWING -->
-                <input type="range" id="swing_slider" value="50">
-            </div>
-            <div class="slider_ctl">
-                <label>Volume: <span class="num_val" id="volume_val">45</span>%</label>
-                <input type="range" id="volume_slider" min="0" max="100" value="45">
-            </div>
-        </div>
-    </div>
+    <!-- The column everything below the logo is laid out in. It takes the width
+         of the window, up to the cap the stylesheet sets, so that how wide the
+         page runs is decided in one place and every box below lines up with
+         every other one. -->
+    <div class="page">
 
-    <div class="group">
-        <div class="label">Patterns</div>
-
-        <div class="pat_bar">
-            <!-- One tab per pattern, generated in view.js -->
-            <div class="pat_tabs" id="pat_tabs">
+        <div class="group">
+            <div class="label">Controls</div>
+            <div class="controls">
+                <!-- TODO: do we want an obvious play button at the top? -->
+                <div class="slider_ctl">
+                    <label>Tempo: <span class="num_val" id="tempo_val">120</span> BPM</label>
+                    <!-- Range is set in main.js, from MIN/MAX_TEMPO -->
+                    <input type="range" id="tempo_slider" value="120">
+                </div>
+                <div class="slider_ctl">
+                    <label>Swing: <span class="num_val" id="swing_val">50</span>%</label>
+                    <!-- Range is set in main.js, from MIN/MAX_SWING -->
+                    <input type="range" id="swing_slider" value="50">
+                </div>
+                <div class="slider_ctl">
+                    <label>Volume: <span class="num_val" id="volume_val">45</span>%</label>
+                    <input type="range" id="volume_slider" min="0" max="100" value="45">
+                </div>
             </div>
         </div>
 
-        <div class="sequencer" id="pat_div">
-        </div>
+        <div class="group">
+            <div class="label">Patterns</div>
 
-        <div class="bot_bar">
-            <button id="play_pat">Play</button>
+            <div class="pat_bar">
+                <!-- One tab per pattern, generated in view.js -->
+                <div class="pat_tabs" id="pat_tabs">
+                </div>
+            </div>
 
-            <div class="bar_len">
-            Pattern length:
-            <!-- Options are generated in main.js, from MIN/MAX_PAT_STEPS -->
-            <select id="num_steps"></select>
+            <div class="sequencer" id="pat_div">
+            </div>
+
+            <div class="bot_bar">
+                <button id="play_pat">Play</button>
+
+                <!-- Swaps the steps above for where the rows sit in the mix, a
+                     narrow screen having room for one or the other. Shown by
+                     the stylesheet only at the widths that leave the mix out. -->
+                <button id="mixer_btn" class="mixer_btn" aria-pressed="false">Mixer</button>
+
+                <div class="bar_len">
+                Pattern length:
+                <!-- Options are generated in main.js, from MIN/MAX_PAT_STEPS -->
+                <select id="num_steps"></select>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="group">
-        <div class="label">Timeline</div>
+        <div class="group">
+            <div class="label">Timeline</div>
 
-        <div class="sequencer" id="pat_seq">
+            <div class="sequencer" id="pat_seq">
+            </div>
+
+            <div class="bot_bar">
+                <button id="play_song">Play</button>
+
+                <!-- Filled in by main.js, since it depends on the tempo too -->
+                <div class="bar_len" id="song_len"></div>
+            </div>
         </div>
 
-        <div class="bot_bar">
-            <button id="play_song">Play</button>
+        <!-- Shelf of the smaller groups, which stand side by side while there is
+             room for them and fall into a column when there isn't. What goes
+             here is what is done to a finished track rather than what it is made
+             with: sharing it today, exporting and effects later. -->
+        <div class="util_row">
 
-            <!-- Filled in by main.js, since it depends on the tempo too -->
-            <div class="bar_len" id="song_len"></div>
-        </div>
-    </div>
+            <div class="group">
+                <div class="label">Share</div>
 
-    <div class="group">
-        <div class="label">Share</div>
+                <div class="share_row">
+                    <label for="song_title">Title</label>
+                    <!-- Deliberately not length-capped: what a title has to be is
+                         checked in main.js when a link is made, where it can be said -->
+                    <input type="text" id="song_title"
+                           placeholder="untitled" spellcheck="false">
+                    <button id="share_btn">Copy link</button>
+                </div>
 
-        <div class="share_row">
-            <label for="song_title">Title</label>
-            <!-- Deliberately not length-capped: what a title has to be is
-                 checked in main.js when a link is made, where it can be said -->
-            <input type="text" id="song_title"
-                   placeholder="untitled" spellcheck="false">
-            <button id="share_btn">Copy link</button>
-        </div>
+                <!-- A link holds the whole project, so anyone who opens one can
+                     edit what it plays. That's worth saying before it's shared. -->
+                <div class="share_note">
+                    Generate a link to share this project.
+                    Anyone with this link can play and remix your track.
+                </div>
 
-        <!-- A link holds the whole project, so anyone who opens one can edit
-             what it plays. That's worth saying before it's shared. -->
-        <div class="share_note">
-            Generate a link to share this project.
-            Anyone with this link can play and remix your track.
-        </div>
+                <!-- What the last copy did, filled in by main.js -->
+                <div class="share_note" id="share_status"></div>
+            </div>
 
-        <!-- What the last copy did, filled in by main.js -->
-        <div class="share_note" id="share_status"></div>
-    </div>
-
-    <!-- As wide as the groups above, so that the notice sits under their left
-         edge and the visit count under their right -->
-    <div class="footer">
-        <div>
-            &copy; 2026
-            <!-- Opens in a new tab: the project being edited lives in this
-                 page's URL, so leaving the page would take it with it -->
-            <a href="https://pointersgonewild.com/about/"
-               target="_blank" rel="noopener">Maxime Chevalier-Boisvert</a>
         </div>
 
-        <!-- How many times the page has been opened, filled in by main.js.
-             Empty until the count comes back, and left empty if it doesn't. -->
-        <div id="hit_count"></div>
+        <!-- Inside the page column like the groups above, so that the notice
+             sits under their left edge and the visit count under their right -->
+        <div class="footer">
+            <div>
+                &copy; 2026
+                <!-- Opens in a new tab: the project being edited lives in this
+                     page's URL, so leaving the page would take it with it -->
+                <a href="https://pointersgonewild.com/about/"
+                   target="_blank" rel="noopener">Maxime Chevalier-Boisvert</a>
+            </div>
+
+            <!-- How many times the page has been opened, filled in by main.js.
+                 Empty until the count comes back, and left empty if it doesn't. -->
+            <div id="hit_count"></div>
+        </div>
+
     </div>
 
 </body>

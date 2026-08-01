@@ -3,13 +3,44 @@
    The grids below scroll sideways, so that is easy to do by accident. */
 html {
     overscroll-behavior-x: none;
+
+    /* How wide the page is allowed to run. Everything below the logo is laid
+       out in a column of this width, and follows the window until it reaches
+       it.
+
+       Set to what the page has the contents to fill rather than to what the
+       grids could use: past this the boxes stretch further than what's in them,
+       and the lines of text under them run long. It leaves the pattern grid
+       showing 20 steps before it has to be scrolled, which covers the 16 most
+       patterns are written in.
+
+       Worth raising as the page gains more to hold. A 32-step row, with the
+       sample it plays and its place in the mix around its steps, measures
+       1145px, and about 50px of the page goes on the margins, borders and
+       padding between it and the window, so 1220px is where the longest pattern
+       anyone writes in fours stops having to be scrolled to be seen. */
+    --page_max: 940px;
+
+    /* Width of the sample drop-down at the left of a pattern row, which the
+       button adding a row below the grid matches so that the two line up.
+       Named here because a narrow screen gives it less, and it has to be the
+       same number in both places for the column to stay straight. */
+    --sample_sel_width: 144px;
 }
 
 body {
     font-family: Arial, sans-serif;
     display: flex;
     flex-direction: column;
+
+    /* Centred, but never at the cost of pushing something off the left edge,
+       which is where it would go if anything here ever came out wider than the
+       window: the page only scrolls right, so what goes off that side can't be
+       reached at all. The plain value is left in front for the browsers that
+       don't understand the safe one, which then behave as they did before. */
     align-items: center;
+    align-items: safe center;
+
     background-color: #111;
     color: #FFF;
     margin: 0;
@@ -34,13 +65,29 @@ h1 {
     max-width: 92vw;
 }
 
+/* The column the page is laid out in, holding everything below the logo. It
+   follows the width of the window up to the cap above, so the boxes inside it
+   grow on a wide screen and shrink onto a phone without any width of their
+   own. */
+.page {
+    display: flex;
+    flex-direction: column;
+
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--page_max);
+}
+
 .group {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
 
-    width: 800px;
+    /* No width of its own: a group fills the page column it sits in. Sized
+       with the border and padding included, so that a group placed in a row
+       with others below takes exactly the width it is given. */
+    box-sizing: border-box;
     border: 1px solid #444;
     margin: 10px;
 
@@ -70,6 +117,25 @@ h1 {
     background: #111;
     padding-left: 2px;
     padding-right: 2px;
+}
+
+/* A row of the smaller groups, standing side by side. Each one asks for a
+   share of the row and states the width below which it would rather be given a
+   line of its own, so the row holds as many as the page is wide enough for and
+   becomes a column on a phone, without a width being named anywhere.
+
+   The groups keep the margins they have in the column above, which is what
+   spaces them here as well: a row of them is separated by the same gap that
+   separates two stacked groups. */
+.util_row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.util_row > .group {
+    flex: 1 1 320px;
+    min-width: 0;
 }
 
 .sequencer {
@@ -231,7 +297,7 @@ h1 {
     /* Sized with the border and padding included, so that the button below the
        grid can line up with these by asking for the same width */
     box-sizing: border-box;
-    width: 144px;
+    width: var(--sample_sel_width);
     padding: 1px;
 
     background-color: #000;
@@ -316,7 +382,7 @@ h1 {
    that it reads as an empty grid slot rather than as a control of its own. */
 .add_row {
     box-sizing: border-box;
-    width: 144px;
+    width: var(--sample_sel_width);
     padding: 2px;
 
     background-color: transparent;
@@ -483,7 +549,15 @@ h1 {
 .controls {
     margin: 2px 4px 4px;
     display: flex;
-    gap: 20px;
+
+    /* Three controls side by side need more width than a phone has, so the row
+       falls onto as many lines as it takes. The lines sit closer together than
+       the controls on one line do, so that a wrapped row still reads as a
+       column of controls rather than as three separate rows. */
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 20px;
+
     align-items: center;
 }
 
@@ -685,14 +759,26 @@ input[type="range"].pan_slider::-moz-range-track {
     align-items: center;
     gap: 8px;
 
+    /* Wraps like the controls at the top of the page, for the same reason: the
+       label, the field and the button don't all fit on one line of a phone.
+       It takes the width of the group and centres what's on it, rather than
+       shrinking to what it holds: a row sized to its contents is a row that
+       decides to wrap while there is still room beside it. */
+    align-self: stretch;
+    flex-wrap: wrap;
+    justify-content: center;
+
     /* A little more room below than a group's contents usually get, so that
        the text under the field doesn't crowd it */
     margin: 4px 4px 6px;
 }
 
-/* Title of the composition, which travels in the link */
+/* Title of the composition, which travels in the link. It takes the room the
+   label and the button leave, up to the width a title needs, rather than a
+   fixed width that would push the button off a narrow screen. */
 #song_title {
-    width: 240px;
+    flex: 0 1 240px;
+    min-width: 0;
     padding: 3px 5px;
 
     background-color: #000;
@@ -729,11 +815,10 @@ input[type="range"].pan_slider::-moz-range-track {
     display: flex;
     align-items: baseline;
 
-    /* The width the groups take up, borders included, so that the two ends of
-       the footer line up with the edges of the boxes above it */
+    /* Sits in the page column with the groups and carries their side margins,
+       which is what lines the two ends of the footer up with the edges of the
+       boxes above it, whatever width the page is being shown at */
     box-sizing: border-box;
-    width: 802px;
-    max-width: 100%;
     margin: 4px 10px 10px;
 
     color: #888;
@@ -785,4 +870,90 @@ button:disabled:hover {
     border-color: #333;
     color: #555;
     cursor: default;
+}
+
+/* The button that swaps a row's steps for where it sits in the mix. There is
+   nothing for it to do while both are on the screen already, so it only exists
+   at the widths that can't hold both, below. */
+.mixer_btn {
+    display: none;
+}
+
+/* Held down, i.e. the mix is what the grid is showing. Marked out the way the
+   selected pattern tab is, that being what a control already stands in on this
+   page. */
+.mixer_btn[aria-pressed="true"] {
+    background-color: #3A3A3A;
+    border-color: #FFF;
+    color: #FFF;
+}
+
+/* Narrow screens, i.e. phones held upright.
+
+   A pattern row is a sample, its steps, and where it sits in the mix. All
+   three don't fit across a phone, so the row shows the steps and the button
+   below the grid swaps them for the mix. One or the other rather than both:
+   the steps of a pattern are already wider than the screen and scroll
+   sideways, so controls kept past the end of them would be controls nobody
+   could find. Swapping puts the mix of every row on the screen at once, which
+   is how it is read anyway.
+
+   The other rows of controls on the page wrap on their own; what's left here is
+   winning back the width that the margins around the boxes take, which a phone
+   can't spare as easily as a desktop can. */
+@media (max-width: 700px) {
+    /* As narrow as a sample name goes before it starts being cut off. Set
+       where it was defined, so that the drop-downs and the button below the
+       grid all pick the new width up together. */
+    html {
+        --sample_sel_width: 120px;
+    }
+
+    body {
+        padding: 6px 8px 20px;
+    }
+
+    .group {
+        margin: 10px 4px;
+    }
+
+    .mixer_btn {
+        display: block;
+    }
+
+    /* Written against the grid rather than the rows, so that the button can
+       swap the two by marking the grid it belongs to */
+    .sequencer .row_ctls {
+        display: none;
+    }
+
+    .sequencer.show_mixer .row_ctls {
+        display: flex;
+    }
+
+    .sequencer.show_mixer .pat_cells {
+        display: none;
+    }
+
+    /* The mix of a row has to fit across the screen without scrolling, which is
+       the whole point of showing it on its own, and these are what there is to
+       give: a slider this size still has room to be dragged. */
+    input[type="range"].pan_slider,
+    input[type="range"].vol_slider {
+        width: 50px;
+    }
+
+    /* On the narrowest phones that still leaves the row a few pixels over. The
+       sample name is what can give them up, and it only gives up what the row
+       is short: a phone with the room for it keeps the width that the button
+       below the grid lines up with. */
+    .sequencer.show_mixer .sample_sel {
+        min-width: 0;
+    }
+
+    /* Three controls where the wider screen has two */
+    .bot_bar {
+        flex-wrap: wrap;
+        gap: 6px 12px;
+    }
 }
