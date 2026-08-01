@@ -1858,13 +1858,17 @@ export const MAX_TITLE_CHARS = 36;
 //   _ * ~ ( )  are what Markdown gives meaning to, and a link posted anywhere
 //              Markdown is rendered has to come out the other side whole. The
 //              underscore is doubly spoken for, being how a space is written.
-//   &          would let a title ending in an entity name swallow the ';' that
-//              follows it: 'tom&copy' + ';' reads as '&copy;' to anything that
-//              decodes HTML, and the link loses its separator.
+//   &          opens an HTML entity, and the older named ones are decoded
+//              without needing anything to close them, so 'tom&copy' comes out
+//              of anything that decodes HTML as 'tom©' and the link with it.
 //   # %        are not a fragment's to hold. A second '#' is outside the URL
 //              grammar, and a bare '%' is an incomplete escape.
-//   ;          separates the title from the data, so a title can't hold one.
-export const TITLE_STRIP_RE = /[^A-Za-z0-9 !$'+,.\/:=?@-]/g;
+//   /          separates the title from the data, so a title can't hold one.
+//   ;          was that separator until it turned out that link detection on
+//              Signal for mobile ends a URL at a semicolon. It is kept out of
+//              titles for the same reason it stopped being the separator: a
+//              title holding one is a link that arrives cut in half.
+export const TITLE_STRIP_RE = /[^A-Za-z0-9 !$'+,.:=?@-]/g;
 
 // A title has to open on a letter or a number. Punctuation is there to be used
 // inside a title rather than to lead one, and a title that opens on it reads as
@@ -1872,11 +1876,19 @@ export const TITLE_STRIP_RE = /[^A-Za-z0-9 !$'+,.\/:=?@-]/g;
 // letters: plenty of tracks are named 808 State or 4 Hero.
 const TITLE_START_RE = /^[A-Za-z0-9]/;
 
-// What separates the title from the project data in a fragment. A title can
-// hold a comma now, so the separator has to be something a title can't hold.
-// The encoded data is base64url, which is alphanumeric plus '-' and '_', so
-// this can't turn up on that side either.
-const TITLE_SEP = ';';
+// What separates the title from the project data in a fragment. It has to be
+// something a title can't hold, and something base64url doesn't use, which
+// between them leave very little: base64url takes the alphanumerics along with
+// '-' and '_', and a title takes most of the punctuation a fragment can carry.
+//
+// A slash, because what decides this is link detection rather than the URL
+// grammar. This was a semicolon, which is a perfectly legal thing to put in a
+// fragment and which Signal on the desktop takes without complaint, until
+// Signal on mobile turned out to end the link at it and leave the track
+// behind. A slash is the one character every linkifier has to carry through,
+// every URL being full of them, so it is the least likely to have this
+// argument again with some other app.
+const TITLE_SEP = '/';
 
 // Encode a project into a URL fragment, without the leading '#'
 export function project_to_hash(project)

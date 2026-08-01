@@ -1129,10 +1129,10 @@ test("a link setting a row past the top of the send range is refused", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled;BQBAPCBw';
+const GOLDEN_EMPTY = 'untitled/BQBAPCBw';
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled;BQBAAAAJ8A';
+const GOLDEN_MINIMAL = 'untitled/BQBAAAAJ8A';
 
 // Two patterns of different lengths, a title, a tempo, a swing and a delay off
 // their defaults, the widest sample index the format holds, and both patterns
@@ -1140,7 +1140,7 @@ const GOLDEN_MINIMAL = 'untitled;BQBAAAAJ8A';
 // turned down, and one of each is sent to the delay, so that this pins those
 // fields too: the panning hard over and part of the way, the level part of the
 // way down and all the way, and a send both guessed and written out.
-const GOLDEN_MIXED = 'test_song;BkiXgIYgAFwFggMJUpAQP_McA3oA';
+const GOLDEN_MIXED = 'test_song/BkiXgIYgAFwFggMJUpAQP_McA3oA';
 
 test("a new project encodes to the same link it always has", () =>
 {
@@ -1294,7 +1294,7 @@ test("a truncated link is refused", () =>
     );
 
     // Cut a real link short, the way a chat window would
-    let data = GOLDEN_MIXED.split(';')[1];
+    let data = GOLDEN_MIXED.split('/')[1];
 
     assert.throws(() => decode_project(data.slice(0, 4)), RangeError);
 });
@@ -1397,7 +1397,7 @@ test("a title keeps the punctuation it is allowed to hold", () =>
 {
     assert.equal(encode_title('Hello, World!'), 'Hello,_World!');
     assert.equal(encode_title("Rock 'n' Roll"), "Rock_'n'_Roll");
-    assert.equal(encode_title('4/4 @ 120bpm?'), '4/4_@_120bpm?');
+    assert.equal(encode_title('120bpm @ 4 4?'), '120bpm_@_4_4?');
     assert.equal(encode_title('A+B = C-D $1 x.y:z'), 'A+B_=_C-D_$1_x.y:z');
 });
 
@@ -1407,16 +1407,22 @@ test("a title drops the characters that would not survive being posted", () =>
     // renderer whole
     assert.equal(encode_title('a_b *c* ~d~ (e)'), 'ab_c_d_e');
 
-    // An entity name plus the separator that follows it would be decoded away
+    // An entity name is decoded even with nothing closing it, taking the rest
+    // of the title with it
     assert.equal(encode_title('drum & bass'), 'drum_bass');
     assert.equal(encode_title('tom&copy'), 'tomcopy');
 
     // Not a fragment's to hold: a second '#', and an incomplete escape
     assert.equal(encode_title('C# 100%'), 'C_100');
 
-    // The separator itself, and what a browser would escape anyway
+    // The separator itself, which a title holding one would run into
+    assert.equal(encode_title('4/4 swing'), '44_swing');
+
+    // And a semicolon, which is where link detection on some clients decides
+    // the URL has ended
     assert.equal(encode_title('a;b'), 'ab');
-    assert.equal(encode_title('<script>alert(1)</script>'), 'scriptalert1/script');
+
+    assert.equal(encode_title('<script>alert(1)</script>'), 'scriptalert1script');
 });
 
 test("a title has its spaces tidied up on the way into a link", () =>
@@ -1552,7 +1558,7 @@ test("what a title is measured on is what would go in the link", () =>
     let project = new Project();
     project.title = clean_title(title);
 
-    assert.ok(project_to_hash(project).startsWith('abcd;'));
+    assert.ok(project_to_hash(project).startsWith('abcd/'));
 });
 
 test("a title holding the separator cannot break the fragment apart", () =>
