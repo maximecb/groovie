@@ -27,6 +27,21 @@ resetting every bar.
   launches when the playing one comes around, the way a groovebox does it
 - Works on desktop, tablets and phones
 
+## Running it locally
+
+Clone the repo and start a local HTTP server as follows:
+
+```sh
+git clone https://github.com/maximecb/groovie.git
+cd groovie
+./tools/dev_server.py
+```
+
+Then open http://localhost:8001. Nothing to install or build, but the page does
+have to be served over HTTP: it loads as an ES module and fetches its samples,
+which browsers block on `file://`. The server needs Python 3 and sends no-cache
+headers, so a reload always picks up your last edit.
+
 ## Contributing
 
 The code is distributed under an MIT license, while the samples are under a CC0 license.
