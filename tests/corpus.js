@@ -1073,6 +1073,257 @@ export const CORPUS = [
     ],
 },
 
+//----------------------------------------------------------------------------
+// The songs below are here for the corners of the format rather than for what
+// they sound like. Every field has a top and a bottom, and a link that carries
+// one of them wrong is a link that opens as the wrong song, so each end of
+// each range wants to be sat on by something.
+//
+// They are still playable, which is the point of putting them here rather than
+// building them inside a test: a corner case that can't be listened to is one
+// nobody would notice was wrong.
+//----------------------------------------------------------------------------
+
+{
+    // Every field of this one is at the top of its range: the fastest tempo
+    // the format holds, the hardest swing, the longest delay with the most
+    // feedback, both ends of the stereo field, and a row sent to the delay at
+    // full level. Gabber is what music at 280 actually sounds like, so that is
+    // what this is.
+    name: 'a hardcore stomp at the top of the range',
+    tempo: 280,
+    swing: 75,
+    delay_time: 31,         // the longest the delay goes
+    delay_feedback: 75,     // and the most it feeds back
+    song_bars: 8,
+    patterns: [
+        {
+            samples: ['kick_distort_01', 'hat_distort_01', 'snare_distort_01'],
+            rows: [
+                'x...x...x...x...',
+                '..x...x...x...x.',
+                '....x.......x...',
+            ],
+            pans:    [  0, 10, -10],    // hard right and hard left
+            volumes: [  0, -3,  -6],    // the kick at the top of the range
+            sends:   [  0, -3,  -3],    // and sent to the delay at full level
+            lane: 'xxxx',
+        },
+        {   // The hat here is pulled all the way down, which is how a row gets
+            // muted without being emptied. It still plays, so it still travels
+            // in the link, which is the case worth having: a row at the bottom
+            // of the level range is not the same as a row with nothing in it.
+            samples: ['kick_distort_02', 'hat_distort_01', 'crash_02'],
+            rows: [
+                'x.x.x.x.x.x.x.x.',
+                '..x...x...x...x.',
+                'x...............',
+            ],
+            pans:    [  0,  10, -10],
+            volumes: [  0, -30,  -6],   // -30 is silence
+            sends:   [  0,  -3,   0],
+            lane: '....xxxx',
+        },
+    ],
+},
+
+{
+    // And the bottom of the same ranges: the slowest tempo, and a delay set to
+    // its shortest time with no feedback at all, which is the setting that
+    // makes it a slapback rather than an echo.
+    name: 'a doom crawl at the bottom of the range',
+    tempo: 40,
+    delay_time: 0,          // the shortest the delay goes
+    delay_feedback: 0,      // and no feedback, so a single repeat
+    song_bars: 4,
+    patterns: [
+        {
+            samples: ['kick_01', 'crash_01', 'tom_low_01'],
+            rows: [
+                'x.......x.......',
+                'x...............',
+                '............x...',
+            ],
+            pans:    [  0,   0,  -7],
+            volumes: [  0,  -6, -10],
+            sends:   [-30, -30, -12],
+            lane: 'xxxx',
+        },
+    ],
+},
+
+{
+    // A pattern with as many rows as one can hold, which is also the whole of
+    // the default kit in the order a new pattern hands it out, so every row of
+    // it plays the sample the encoding expects and costs a single bit to say.
+    //
+    // The sixth row is deliberately shapeless: it fits no motif, no group and
+    // has too many steps to be worth naming one at a time, so it is written
+    // out flat. Some row somewhere has to be, and this is that row.
+    name: 'a sixteen row percussion wall',
+    tempo: 100,
+    song_bars: 16,
+    patterns: [
+        {
+            samples: [
+                'kick_01', 'snare_01', 'hat_closed_01', 'hat_open_01',
+                'clap_01', 'rimshot_01', 'tom_low_01', 'tom_mid_01',
+                'tom_hi_01', 'cowbell_01', 'claves_01', 'ride_01',
+                'crash_01', 'maracas_01', 'perc_01', 'bongo_01',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                'x...x...x...x...' + 'x...x...x...x...',
+                '....x.......x...' + '....x.......x...',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '......x.......x.' + '......x.......x.',
+                '....x...........' + '....x.......x...',
+                'xx.x..xxx.x..x.x' + '.xx..xxx.x..x.xx',   // the shapeless one
+                '..........x.....' + '................',
+                '.............x..' + '................',
+                '...............x' + '................',
+                '..x..x..x..x..x.' + '.x..x..x..x..x..',   // three, against four
+                'x..x..x...x.x...' + 'x..x..x...x.x...',
+                'x...............' + 'x...............',
+                'x...............' + '................',
+                'x.xx.x.xx.x.xx.x' + 'x.xx.x.xx.x.xx.x',
+                '........x.......' + '........x.......',
+                '..x...x.....x...' + '....x...x.......',
+            ],
+            lane: 'xxxx',
+        },
+        {   // Four bars that repeat a bar at a time, except that the second
+            // bar is its own thing and differs in too many steps to be worth
+            // writing as exceptions to the first. A row shaped this way is
+            // what the widest of the group schemes is for.
+            samples: ['rimshot_02', 'kick_01'],
+            rows: [
+                'x..x..x...x.x...' + 'xxx.x.xx..x.xxx.' +
+                'x..x..x...x.x...' + 'x..x..x...x.x...',
+
+                'x...x...x...x...' + 'x...x...x...x...' +
+                'x...x...x...x...' + 'x...x...x...x...',
+            ],
+            pans:    [ 4, 0],
+            volumes: [-4, 0],
+            lane: 'xxxx',
+        },
+    ],
+},
+
+{
+    // Patterns of one, two and three steps, which are the shortest the format
+    // holds, turning over against longer ones. Nothing here lines up twice the
+    // same way inside the song, and the count of patterns is past what any
+    // other song in the corpus reaches.
+    //
+    // The last two layers are the sparsest rows here: a handful of steps in
+    // four bars, which is where naming the steps that play beats writing a bit
+    // for every step that doesn't.
+    name: 'a phasing pulse of tiny patterns',
+    tempo: 132,
+    song_bars: 16,
+    patterns: [
+        {   // One step, so it lands on every step of the song
+            samples: ['hat_closed_05'],
+            rows: ['x'],
+            volumes: [-18],
+            lane: lane_from_bar(0, 1, 16),
+        },
+        {
+            samples: ['kick_01'],
+            rows: ['x.'],
+            lane: lane_from_bar(0, 2, 16),
+        },
+        {
+            samples: ['claves_01'],
+            rows: ['x..'],
+            pans: [-5],
+            volumes: [-8],
+            lane: lane_from_bar(1, 3, 16),
+        },
+        {
+            samples: ['rimshot_01'],
+            rows: ['x..x'],
+            pans: [5],
+            volumes: [-9],
+            lane: lane_from_bar(2, 4, 16),
+        },
+        {
+            samples: ['cowbell_01'],
+            rows: ['x....x'],
+            pans: [-8],
+            volumes: [-11],
+            lane: lane_from_bar(3, 6, 16),
+        },
+        {
+            samples: ['bongo_01'],
+            rows: ['x...x....'],
+            pans: [7],
+            volumes: [-10],
+            lane: lane_from_bar(4, 9, 16),
+        },
+        {
+            samples: ['maracas_01'],
+            rows: ['x..x..x...'],
+            pans: [-3],
+            volumes: [-13],
+            lane: lane_from_bar(5, 10, 16),
+        },
+        {
+            samples: ['tom_low_01'],
+            rows: ['x......x......'],
+            pans: [3],
+            volumes: [-9],
+            lane: lane_from_bar(6, 14, 16),
+        },
+        {
+            samples: ['perc_02'],
+            rows: ['x........x........'],
+            pans: [-6],
+            volumes: [-12],
+            lane: lane_from_bar(7, 18, 16),
+        },
+        {
+            samples: ['glass_01'],
+            rows: ['x.........x..........'],
+            pans: [8],
+            volumes: [-15],
+            lane: lane_from_bar(8, 21, 16),
+        },
+        {
+            samples: ['twang_01'],
+            rows: ['x............x........'],
+            pans: [-9],
+            volumes: [-14],
+            lane: lane_from_bar(9, 22, 16),
+        },
+        {   // Ten steps in four bars, which is as sparse as a row gets before
+            // writing it out flat is the shorter of the two
+            samples: ['zap_04'],
+            rows: [
+                'x....x.......x..' + '......x......x..' +
+                '...x.....x......' + '..x.......x....x',
+            ],
+            pans: [6],
+            volumes: [-16],
+            sends: [-9],
+            lane: lane_from_bar(10, 64, 16),
+        },
+        {
+            samples: ['metal_01'],
+            rows: [
+                'x....x.......x..' + '......x........x' +
+                '.............x..' + '....x.......x...',
+            ],
+            pans: [-4],
+            volumes: [-17],
+            sends: [-6],
+            lane: lane_from_bar(12, 64, 16),
+        },
+    ],
+},
+
 ];
 
 // Turn one of the entries above into a project
