@@ -42,6 +42,7 @@ readonly SITE_PATHS=(
     logo.svg
     favicon.svg
     favicon.ico
+    og_image.png
     main.js
     model.js
     view.js

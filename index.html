@@ -4,7 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Groovie</title>
+    <meta name="description" content="Free, open source drum and beat sequencer that runs in your browser. Sketch a beat, arrange it into a song, and share the whole thing as a link. No ads, no account, nothing to install.">
+    <meta name="theme-color" content="#000000">
+
+    <!--
+        What a link to Groovie looks like when it's posted somewhere.
+
+        X, Facebook, Messenger, Signal and the rest all read these tags to
+        build the little card that shows up in place of a bare URL. They fetch
+        the page without running any of its JavaScript, so what they see is
+        this file exactly as it is served and nothing the app does later.
+
+        That is also why every Groovie link previews the same way. A shared
+        track lives in the fragment, after the '#', and a fragment is never
+        sent to the server: the crawler asking for the page doesn't receive
+        the track and couldn't say which one it was. Naming the song in the
+        card would mean moving the track out of the fragment and putting
+        something in front of the site that can write these tags per request,
+        which is a different kind of hosting than a folder of static files.
+
+        The URLs here are absolute because they have to be. A crawler resolves
+        them against nothing, so a relative path is either ignored or fetched
+        from the wrong host.
+    -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Groovie">
+    <meta property="og:title" content="Groovie — free browser-based drum machine / beat sequencer">
+    <meta property="og:description" content="Sketch a beat in the step sequencer, arrange your patterns into a song on the timeline, and share the whole project as a single link. No ads, no account, nothing to install.">
+    <meta property="og:url" content="https://maximecb.github.io/groovie/">
+    <meta property="og:image" content="https://maximecb.github.io/groovie/og_image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="The Groovie logo above a step sequencer grid playing a four to the floor beat">
+
+    <!-- X reads the tags above for the words and the picture, and this one to
+         decide how big to draw the card. Without it the picture is a thumbnail
+         off to the side rather than the width of the post. -->
+    <meta name="twitter:card" content="summary_large_image">
+
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+    <!-- For the clients that won't take an SVG icon, which is most of the ones
+         that show a favicon beside a link rather than a card -->
+    <link rel="alternate icon" href="favicon.ico" sizes="any">
+
     <link rel="stylesheet" href="style.css">
     <script type="module" src="main.js"></script>
 </head>

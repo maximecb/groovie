@@ -2,7 +2,7 @@
 
 Free, open source drum/beat sequencer that runs in your browser. No ads, no account
 required, nothing to install. Written in pure JavaScript with no frameworks and
-no backend.
+no backend. It works on desktop, tablets and mobile phones.
 
 **Try it out: https://maximecb.github.io/groovie/**
 
