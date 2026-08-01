@@ -856,6 +856,135 @@ export const CORPUS = [
 },
 
 {
+    // Drill and bass at 165, and the song here the encoding has the least
+    // purchase on. Nothing in it is arranged to defeat the encoder: this is
+    // what the genre is, and every one of the things that costs it space is
+    // something the music is actually doing.
+    //
+    // A break is chopped so that no bar of it lands the same way twice, which
+    // is the whole point of the style and also exactly what the group schemes
+    // look for and don't find. The layers over it run 20, 24, 28, 40 and 48
+    // steps, none of them a multiple of the 8 and 16 those schemes work in and
+    // none of them a length a motif repeats at, so most rows here end up
+    // written out flat. The kit changes between the two break patterns, and so
+    // do the levels, panning and sends, so a row is guessed wrong in nearly
+    // every field rather than in one of them. The sections cut against each
+    // other rather than running in long blocks, which is what a lane written as
+    // runs of cells is least happy with.
+    //
+    // Against the house arrangement, which is the other eight pattern song of
+    // sixty four bars here: a grid 22% larger that encodes 77% larger, 980
+    // cells into 228 bytes against 800 into 129. That is 1.9 bits spent per
+    // cell of grid where the house song spends 1.3, and it is the measurement
+    // this song is here to keep taking. A scheme that helps the songs above
+    // and leaves this one where it is has found the easy half of the problem.
+    name: 'a 64 bar drill and bass arrangement',
+    tempo: 165,
+    delay_time: 9,          // five quarters of a step, about 114ms here
+    delay_feedback: 45,
+    song_bars: 64,
+    patterns: [
+        {   // the break, four bars of it with no two the same
+            samples: ['kick_02', 'snare_03', 'hat_closed_03', 'rimshot_02'],
+            rows: [
+                'x.x.......x.....' + 'x.........x...x.' + 'x.x.....x.......' + 'x.......x.x...x.',
+                '....x.......x..x' + '....x.....x.x...' + '....x..x....x...' + '..x.x.......x.xx',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.xxx.x.' + 'x.x.x.xxx.x.x.x.' + 'x.xxx.x.xxx.xxxx',
+                '..x..x...x..x...' + '...x...x..x...x.' + '..x...x..x..x..x' + '.x..x..x.x..x...',
+            ],
+            pans:    [  0,  -1,   4,  -6],
+            volumes: [  0,  -2, -11, -14],
+            sends:   [-30, -18, -26,  -9],
+            lane: 'xxxx..xxxx..xxxx',
+        },
+        {   // the break again on a harder snare, everything about it moved
+            samples: ['kick_02', 'snare_distort_01', 'hat_closed_03', 'rimshot_02'],
+            rows: [
+                'x.......x.x.....' + 'x.x.......x.....' + 'x.....x...x..x..' + 'x.x...x.....x...',
+                '....x.......x...' + '....x..x..x.x..x' + '....x.......x.x.' + '....x.x...x.x.xx',
+                'x.xxx.x.x.x.x.x.' + 'x.x.x.xxx.x.x.xx' + 'x.x.x.x.xxx.x.x.' + 'xxx.x.x.x.xxxxx.',
+                '...x..x..x...x..' + '..x..x...x..x..x' + '.x..x..x..x..x..' + '..x..x.x..x.x...',
+            ],
+            pans:    [  0,   2,  -5,   7],
+            volumes: [  0,  -3, -12, -13],
+            sends:   [-30, -12, -24,  -6],
+            lane: '....xx....xx',
+        },
+        {   // three bars of sub, walking against the four bar break
+            samples: ['kick_distort_02', 'tom_low_01'],
+            rows: [
+                'x.......x.......' + '....x.......x...' + 'x.....x.....x...',
+                '..........x.....' + '..............x.' + '........x.......',
+            ],
+            pans:    [  0,  -8],
+            volumes: [ -2, -12],
+            sends:   [-30, -14],
+            lane: '..xxxxxxxxxxxxxxxxxx',
+        },
+        {   // twenty steps of metallic hat, which is a length nothing here
+            // divides and no motif repeats at
+            samples: ['hat_metal_01', 'zap_01'],
+            rows: [
+                'x.x.xx.x.x.xx.x.x.x.',
+                '....x.......x.....x.',
+            ],
+            pans:    [  9,  -9],
+            volumes: [-13, -16],
+            sends:   [ -8,  -5],
+            lane: lane_over_bars(20, 64, [[12, 24], [44, 58]]),
+        },
+        {   // percussion in sevens, the shaker running in threes across it
+            samples: ['bongo_03', 'claves_01', 'maracas_01'],
+            rows: [
+                '..x...x..x...x..x..x..x...x.',
+                '....x.......x.....x.....x...',
+                'x..x..x..x..x..x..x..x..x..x',
+            ],
+            pans:    [ -7,   6,  -4],
+            volumes: [-15, -14, -18],
+            sends:   [-16, -10, -22],
+            lane: lane_over_bars(28, 64, [[8, 20], [36, 52]]),
+        },
+        {   // the rolls that end a section, dense enough that the row is
+            // cheaper written out than described
+            samples: ['snare_11', 'tom_hi_02', 'clap_03'],
+            rows: [
+                '..x.x.xxx.x.xxxx' + 'x.xxxxx.xxxxxxxx',
+                'x.....x...x.....' + '..x...x.x...x.x.',
+                '............x...' + '..............xx',
+            ],
+            pans:    [  3,  -6,   8],
+            volumes: [ -6, -12,  -9],
+            sends:   [-11, -20,  -7],
+            lane: lane_over_bars(32, 64, [[14, 16], [22, 24], [38, 40], [46, 48], [62, 64]]),
+        },
+        {   // forty steps of atmosphere, sent hardest of anything here
+            samples: ['twang_02', 'beep_01'],
+            rows: [
+                'x.............................x.........',
+                '..............x.....................x...',
+            ],
+            pans:    [-10,   9],
+            volumes: [-14, -17],
+            sends:   [ -3,  -2],
+            lane: lane_over_bars(40, 64, [[16, 32], [48, 60]]),
+        },
+        {   // the breakdown, on a kit of its own and in bars of a bar and a half
+            samples: ['kick_11', 'rimshot_04', 'hat_open_03'],
+            rows: [
+                'x.......x.......x.......',
+                '....x.......x.......x..x',
+                '..x...x...x...x...x...x.',
+            ],
+            pans:    [  0,   5,  -6],
+            volumes: [ -4, -13, -11],
+            sends:   [-30,  -9, -15],
+            lane: lane_over_bars(24, 64, [[26, 34]]),
+        },
+    ],
+},
+
+{
     // The longest a song can be: the timeline filled to MAX_SONG_STEPS and
     // played at the slowest tempo a project can be set to, which comes to 1024
     // bars and a little over an hour and a half. It is here for what that
