@@ -1,13 +1,31 @@
 # Groovie
 
-Free, open source web-based beat sequencer with no ads. Implemented in pure JavaScript
-with no frameworks.
+Free, open source beat sequencer that runs in your browser. No ads, no account
+required, nothing to install. Written in pure JavaScript with no frameworks and
+no backend.
 
+**Try it: https://maximecb.github.io/groovie/**
 
+Sketch a beat in the step sequencer, then arrange your patterns into a song on the
+timeline below it. When it sounds right, hit "Copy link": the whole project is encoded
+into the hash portion of the URL, so anyone you send the link to can play it and remix
+it. Nothing is uploaded anywhere, and there is nothing to sign up for.
 
-Supports free-running polymeters.
+## Features
 
+Free-running polymeters. Steps have a fixed duration rather than a fixed number per
+pattern, so a 15-step pattern and a 16-step one drift against each other and only line
+up again much later. Odd pattern lengths give you grooves that keep evolving instead of
+resetting every bar.
 
+- Patterns of 1 to 64 steps and up to 16 rows, up to 64 patterns per project
+- Over 150 public domain (CC0) samples: kicks, snares, hats, toms, percussion and
+  cymbals, plus vocals, game sounds and assorted noise
+- Per-row sample, stereo panning and level in dB
+- Tempo from 40 to 280 BPM, plus a swing control
+- Patterns can be switched while the music plays: the one you pick is queued and
+  launches when the playing one comes around, the way a groovebox does it
+- Works on desktop, tablets and phones
 
 ## Contributing
 
