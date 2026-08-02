@@ -6,15 +6,16 @@ no backend. It works on desktop, tablets and mobile phones.
 
 **Try it out: https://maximecb.github.io/groovie/**
 
-![Groovie playing a ten pattern arrangement: a step sequencer grid with the mix
-controls beside it, over a timeline where each pattern is drawn in its own
-colour as it comes in](screenshots/desktop.png)
+<p>
+  <img src="screenshots/desktop.png" height="500"
+       alt="Groovie playing a ten pattern arrangement: a step sequencer grid with the mix controls beside it, over a timeline where each pattern is drawn in its own colour as it comes in">
+  <img src="screenshots/mobile.png" height="500"
+       alt="The same project on a phone, with the controls stacked and the pattern grid scrolled to the first eight steps">
+</p>
 
-The same project on a phone. The grid scrolls sideways and the mix controls move
-behind a button, so a pattern is edited the same way on either:
-
-<img src="screenshots/mobile.png" width="320"
-     alt="Groovie on a phone, with the controls stacked and the pattern grid scrolled to the first eight steps">
+The same project either way. On a narrow screen the controls stack, the grid
+scrolls sideways and the mix controls move behind a button, so a pattern is
+edited the same way on a phone as on a desktop.
 
 
 Sketch a beat in the step sequencer, then arrange your patterns into a song on the
