@@ -6,6 +6,17 @@ no backend. It works on desktop, tablets and mobile phones.
 
 **Try it out: https://maximecb.github.io/groovie/**
 
+![Groovie playing a ten pattern arrangement: a step sequencer grid with the mix
+controls beside it, over a timeline where each pattern is drawn in its own
+colour as it comes in](screenshots/desktop.png)
+
+The same project on a phone. The grid scrolls sideways and the mix controls move
+behind a button, so a pattern is edited the same way on either:
+
+<img src="screenshots/mobile.png" width="320"
+     alt="Groovie on a phone, with the controls stacked and the pattern grid scrolled to the first eight steps">
+
+
 Sketch a beat in the step sequencer, then arrange your patterns into a song on the
 timeline below it. When it sounds right, hit "Copy link": the whole project is encoded
 into the hash portion of the URL, so anyone you send the link to can play it and remix
