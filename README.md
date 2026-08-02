@@ -45,6 +45,9 @@ you can play it, take it apart and remix it.
 - [A house groove, panned wide](https://maximecb.github.io/groovie/#a_32_bar_house_groove_panned_wide/BUNDfUOBjgQQR4kZyAh8BDkCAHAQwIJT60SsfbvgRgn6RHH79-4ihH_Fj6AQQRwnEjMLyAh8BK0gQFgeYEEp-JUHmORQAWO5EBWNpBCWBCPFfqSA) —
   32 bars with the kit spread across the stereo field, and a light shuffle on the
   sixteenths that leaves the four to the floor where it is.
+- [A two step arrangement](https://maximecb.github.io/groovie/#a_32_bar_two_step_arrangement/BgYm4b5h6oBULcZCCCGzwqEkFCBbUXbfg0V72LHz1oAgLfAjBWphFFX4BBAJdrErLyEb5JJRJVAoDALWBAhI8kmkByZVVoprGnn4kSkBYcs0RqbW3gCLmkqSAA) —
+  garage at 136 with the sixteenths swung hard, where the two bar kit steps aside for a
+  busier one over the middle eight and the shakers run three bars to its two.
 - [A dub techno arrangement](https://maximecb.github.io/groovie/#a_dub_techno_arrangement/BUAngZ5BwMcKBIZWBBBBjG-w8BZTKvPWY4uw8RKRwRJsDUWQQSxL2LkPGjHE5IlRPMxTwA) —
   built around the delay, a dotted eighth fed by a rimshot and a metallic stab
   played sparsely enough to leave the repeats room.

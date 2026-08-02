@@ -842,7 +842,7 @@ export const CORPUS = [
         },
         {   // stabs, sent hardest of anything here and played sparsely so the
             // repeats have room to walk before the next one lands on them
-            samples: ['vocal_what_01', 'zap_03'],
+            samples: ['vocal_what_02', 'zap_03'],
             rows: [
                 'x...............' + '................' + '............x...' + '................',
                 '................' + '..........x.....' + '................' + '......x.....x...',
