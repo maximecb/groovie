@@ -710,6 +710,43 @@ export function queue_pattern(pat_idx)
     queued_pat_idx = (pat_idx == play_pat_idx)? null : pat_idx;
 }
 
+// Move song playback to a given step of the song.
+//
+// Steps are queued ahead of the audio clock, so this takes hold at the queue
+// horizon: what was already queued at the old position is still heard, for at
+// most the one lookahead window it covers.
+//
+// Does nothing when the song isn't playing, or when the step asked for is past
+// the end of the song. Playing a single pattern has no position to move to that
+// the pattern doesn't already come back to on its own.
+export function seek_song(step_idx)
+{
+    if (!is_playing_song())
+        return;
+
+    console.assert(step_idx >= 0);
+
+    // The song can have gotten shorter since the click, and the timeline shows
+    // room past the end of the song to place patterns in, which is not somewhere
+    // the song can be played from
+    if (step_idx >= play_project.song_num_steps)
+        return;
+
+    // Swing holds back every other step of the global counter, so where the song
+    // sits on that counter is what decides which half of the beat gets held
+    // back. The song starts on an even offset and a seek keeps it there, by
+    // landing on the step next to the one asked for when it has to: a sixteenth
+    // of accuracy costs less than a groove that comes back inverted.
+    if ((next_step - step_idx) % 2)
+        step_idx += (step_idx > 0)? -1 : 1;
+
+    // The step counter keeps running across the seek, so where the song is now
+    // being played from is written as an offset against it, the same way the
+    // start of a pass through the song is
+    song_step = step_idx;
+    song_start = next_step - step_idx;
+}
+
 // Keep playback consistent with a pattern having been deleted from the
 // project. Patterns are referred to by index, so deleting one renumbers those
 // after it (see Project.delete_pattern).

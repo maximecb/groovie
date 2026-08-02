@@ -34,6 +34,7 @@ import {
     get_play_pat_idx,
     get_queued_pat_idx,
     queue_pattern,
+    seek_song,
     pattern_deleted,
 } from "./audio.js";
 
@@ -178,6 +179,13 @@ const timeline_handlers = {
         update_play_buttons();
         update_song_len();
     },
+
+    // Clicking the ruler moves the song to that point. It does nothing when the
+    // song isn't playing: there is no position being heard to move, and a
+    // project has no playback position of its own to set for the next time it
+    // is played. The ruler says so by only taking a pointer while it can be
+    // clicked to some effect.
+    seek: (step_idx) => seek_song(step_idx),
 };
 
 // Switch to a pattern that was just created, if it could be created at all.
@@ -571,6 +579,11 @@ function update_play_buttons()
     // button stays live while the song plays, since emptying the timeline
     // during playback has to leave a way to stop it.
     play_song_btn.disabled = !is_playing_song() && project.song_num_steps == 0;
+
+    // The ruler can only be clicked to move the song while the song is playing,
+    // so it only offers itself as clickable then. This is the one place that
+    // knows playback started or stopped without the timeline being rebuilt.
+    pat_seq.classList.toggle('seekable', is_playing_song());
 }
 
 play_pat.onclick = async function ()

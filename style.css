@@ -512,6 +512,13 @@ h1 {
     color: #999;
 }
 
+/* While the song plays, clicking the ruler moves playback to that point. The
+   class is set on the timeline box in main.js, since it's playback that decides
+   whether there is anything to move. */
+.seekable .tl_ruler .tl_cells {
+    cursor: pointer;
+}
+
 /* One bar of the ruler. Cells only line up with bars when their pattern is a
    whole number of bars long, so the ticks are what locate the rest. */
 .tl_bar {

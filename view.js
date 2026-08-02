@@ -708,6 +708,20 @@ export function render_timeline(seq_div, project, cur_pat, handlers)
             bars_div.appendChild(bar_div);
         }
 
+        // Clicking the ruler moves the song to that point. The ruler is where
+        // this goes because it's the one lane that stands for the song as a
+        // whole rather than for one pattern in it, and nothing else on it wants
+        // a click. It reports the step rather than acting, the way the rest of
+        // the timeline does.
+        bars_div.onclick = (evt) =>
+        {
+            // Where the click landed in the lanes, measured against the bars
+            // themselves: they start where the cells do, and reading their box
+            // at the click keeps this right however the timeline is scrolled.
+            let x = evt.clientX - bars_div.getBoundingClientRect().left;
+            handlers.seek(Math.max(0, Math.floor(x / STEP_PX)));
+        };
+
         lane_div.appendChild(bars_div);
 
         return lane_div;
