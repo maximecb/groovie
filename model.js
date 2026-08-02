@@ -1843,7 +1843,7 @@ export function title_error(title)
 // title field against. The longest is applied again when a link is read, since
 // a link can be edited by hand; the shortest is not, so that a link made before
 // there was a minimum still opens with the title it was shared under.
-export const MIN_TITLE_CHARS = 4;
+export const MIN_TITLE_CHARS = 3;
 export const MAX_TITLE_CHARS = 36;
 
 // Characters a title can't hold. Exported so that the title field can drop

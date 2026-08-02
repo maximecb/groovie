@@ -215,6 +215,7 @@ function render_all()
     update_delay(project);
     num_steps_sel.value = pat.num_steps;
     song_title.value = project.title;
+    update_page_title();
 
     render_pat_tabs(pat_tabs, project, cur_pat, tab_handlers);
     render_pattern(pat_div, pat, cur_pat);
@@ -234,6 +235,14 @@ function update_song_len()
     let num_steps = project.song_num_steps;
     let secs = num_steps / project.steps_per_sec;
     song_len.textContent = `Song length: ${num_steps} steps (${secs.toFixed(1)}s)`;
+}
+
+// Name the page after the project being edited, so that a tab and a bookmark
+// say which project they hold. An untitled project leaves the page under the
+// site's own name rather than under an empty one.
+function update_page_title()
+{
+    document.title = project.title? `Groovie - ${project.title}` : 'Groovie';
 }
 
 //============================================================================
@@ -438,6 +447,7 @@ song_title.oninput = function ()
     }
 
     project.title = clean;
+    update_page_title();
 }
 
 // Fires when the field is left or return is pressed, which is the point where
@@ -451,6 +461,7 @@ song_title.onchange = function ()
 {
     project.title = clean_title(song_title.value);
     song_title.value = project.title;
+    update_page_title();
 }
 
 // Say what the share button just did. What stopped a link from being made is
@@ -467,6 +478,7 @@ share_btn.onclick = async function ()
     // shared without ever leaving the field
     project.title = clean_title(song_title.value);
     song_title.value = project.title;
+    update_page_title();
 
     // A title travels in the link and is what names the track wherever it's
     // posted, so it's worth saying what's wrong with one rather than sharing

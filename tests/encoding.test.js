@@ -1492,22 +1492,22 @@ test("a title of the right length is accepted", () =>
 
 test("a title with nothing in it is refused", () =>
 {
-    assert.match(title_error(''), /at least 4 characters/);
-    assert.match(title_error('    '), /at least 4 characters/);
+    assert.match(title_error(''), /at least 3 characters/);
+    assert.match(title_error('    '), /at least 3 characters/);
 
     // Everything typed here is dropped as a character a title can't hold,
     // which leaves nothing behind
-    assert.match(title_error('~~~~~~'), /at least 4 characters/);
+    assert.match(title_error('~~~~~~'), /at least 3 characters/);
 });
 
 test("a title shorter than the minimum is refused", () =>
 {
     for (let len = 1; len < MIN_TITLE_CHARS; ++len)
-        assert.match(title_error('a'.repeat(len)), /at least 4 characters/, `${len} chars`);
+        assert.match(title_error('a'.repeat(len)), /at least 3 characters/, `${len} chars`);
 
     // Spaces are collapsed and trimmed before the length is counted, so a
     // short title padded out with them is still short
-    assert.match(title_error('  a   b  '), /at least 4 characters/);
+    assert.match(title_error('   ab   '), /at least 3 characters/);
 });
 
 test("a title longer than the maximum is refused", () =>
