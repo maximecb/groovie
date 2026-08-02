@@ -6,7 +6,7 @@ no backend. It works on desktop, tablets and mobile phones.
 
 **Try it out: https://maximecb.github.io/groovie/**
 
-<p>
+<p align="center">
   <img src="screenshots/desktop.png" height="400"
        alt="Groovie playing a ten pattern arrangement: a step sequencer grid with the mix controls beside it, over a timeline where each pattern is drawn in its own colour as it comes in">
   <img src="screenshots/mobile.png" height="400"
