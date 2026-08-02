@@ -1,3 +1,9 @@
 TODO.txt
 .DS_Store
 __pycache__
+
+# Whatever Claude Code has been allowed to do in this checkout, and the scratch
+# space it keeps beside it: both belong to the machine it runs on rather than to
+# the project. The skills under .claude/skills are committed, being part of it.
+.claude/settings.local.json
+.claude/.cc-writes/
