@@ -5,6 +5,16 @@ on:
     branches: [main]
   pull_request:
 
+# What the token every run is handed is allowed to do. The jobs below check out
+# the repo and run scripts over it, so reading the contents is the whole of it.
+#
+# Stated here rather than left to the repository settings, which decide it
+# otherwise and can be changed without touching this file. Naming it means the
+# scope a run holds is part of the repo, and an explicit block replaces the
+# default rather than adding to it: everything left out of it is none.
+permissions:
+  contents: read
+
 jobs:
   check-samples:
     name: Check samples
