@@ -48,6 +48,10 @@ you can play it, take it apart and remix it.
 - [A dub techno arrangement](https://maximecb.github.io/groovie/#a_dub_techno_arrangement/BUAngZ5BwMcKBIZWBBBBjG-w8BZTKvPWY4uw8RKRwRJsDUWQQSxL2LkPGjHE5IlRPMxTwA) —
   built around the delay, a dotted eighth fed by a rimshot and a metallic stab
   played sparsely enough to leave the repeats room.
+- [A psytrance arrangement](https://maximecb.github.io/groovie/#a_64_bar_psytrance_arrangement/BpBFPUORjiAJ24YiRC0KQTUoto4IpEYRPQ3h79-_fv37kcQQCjI4gJM7iXol7KXIe_f48_79-_cekr0ZWA1GBFLinsp4-hIlAVIHVCAmCSgNAjECSUT0naFQgiiApjilh5DX0RV2IUgm4FJZxS3GrCxBDoQgzoHcSQid9TvA) —
+  the rolling sixteenth bass answering the kick that the whole genre is built on,
+  with every row at a level of its own and a twelve step percussion layer that
+  only comes back into line with the bar every three of them.
 - [A drill and bass arrangement](https://maximecb.github.io/groovie/#a_64_bar_drill_and_bass_arrangement/B9ATI_5htYoCCAImhWOL9cICQhhNTEuGBTQszLjv36cmILUJCQERFJMkCIK1qWpZ-eQCgiBBCRRAjjXAiCRSCAVFZjaWhcFV2e_nsVIbBIiCQkxIJRQiixxLEl4iJICCKCBFyOSZT1ASSGk0JiFx1q0misRcCIgTmdSiU0mRsgG8UlIoZ5wGwIiBCCCgi0YBjCOtVLx8hn4rr77_NYTG6rBEgQESKApNnvpKr_LPLPE4j6kA8Ag2ASR0iZrn2IlYuQflAFNAC5AiCT0VQxEhEz9UsA) —
   64 bars across eight patterns at 165, the longest and busiest of these, and the
   one that pushes the encoding hardest at 354 characters.
