@@ -146,9 +146,13 @@ makes those count as test failures, and `tools/run_tests.sh` loads it ahead of
 every test file, so run the tests through that script rather than calling
 `node --test` directly.
 
-`tests/encoding.test.js` holds a few golden links. A shared link has to keep
+`tests/encoding.test.js` holds a few golden links, and `tests/golden_links.js`
+holds the link every song in the corpus encodes to. A shared link has to keep
 opening as the project it was made from, so a failure there means that
-already-shared links now decode differently.
+already-shared links now decode differently. The corpus links are regenerated
+by `node tools/update_golden.js`, which is only for when the corpus itself
+changes: a failure that the corpus didn't cause is the encoding breaking links,
+and re-running the script would only hide it.
 
 The CI also runs two checks you can run yourself:
 
