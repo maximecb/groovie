@@ -51,8 +51,8 @@ you can play it, take it apart and remix it.
 - [A dub techno arrangement](https://maximecb.github.io/groovie/#a_dub_techno_arrangement/BUAngZ5BwMcKBIZWBBBBjG-w8BZTKvPWY4uw8RKRwRJsDUWQQSxL2LkPGjHE5IlRPMxTwA) —
   built around the delay, a dotted eighth fed by a rimshot and a metallic stab
   played sparsely enough to leave the repeats room.
-- [A berlin techno arrangement](https://maximecb.github.io/groovie/#a_48_bar_berlin_techno_arrangement/BdAnYx4hiJGpQ9GPfbFyPiFdBPAzYUUiOEEemypoeItJVqCawEkEENcS-mLkfESkWBItEYjpE5byZU0LETihEz0AFIgBMK9S6ZKZHzBFEBShwYwgxEcikJSbKcCSbFlM1tIJsYpIeIsCQpxQ6I0eh5i5AA) —
-  48 hypnotic bars at 133 that layer rather than tile, where the kick and the
+- [A berlin techno arrangement](https://maximecb.github.io/groovie/#a_96_bar_berlin_techno_arrangement/FdAnck8QxEjUoejHv1EvwfEK6CeBmwopEcII9JpEroPEWkq1BNYCSCCGuJfjJXg-IlIsCRaI1HSJy3kypqJbIWInFCJnoAKRACYV6k66nWHiLAkKcUOiNHoJYx8spdj6AiiApQ4MYQYiORhGkyyR7YlJspwJJsWUzW0gmxi1h5BQCgiABSWcUtGvoirKXQx6x8gkTVroJyQDVpJIPpIGD0lvoyQHMeHgCKIFK8SfJ5dlnnng) —
+  96 hypnotic bars at 133 that layer rather than tile, where the kick and the
   offbeat open hat hold under everything until the breakdown drops them and
   leaves the dotted eighth delay holding the room.
 - [A psytrance arrangement](https://maximecb.github.io/groovie/#a_64_bar_psytrance_arrangement/BpBFPUORjiAJ24YiRC0KQTUoto4IpEYRPQ3h79-_fv37kcQQCjI4gJM7iXol7KXIe_f48_79-_cekr0ZWA1GBFLinsp4-hIlAVIHVCAmCSgNAjECSUT0naFQgiiApjilh5DX0RV2IUgm4FJZxS3GrCxBDoQgzoHcSQid9TvA) —

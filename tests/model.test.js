@@ -662,7 +662,7 @@ test("the resonance fades out as the cutoff comes back to the centre", () =>
     // it is on the way through, and neither can be ramped. Both are silent
     // only while the filter either side is doing nothing audible, which a
     // resonant peak sitting on the corner is not: hard over one way it is at
-    // 18 kHz where nobody can hear it, but the other way it is on the bass.
+    // 14 kHz where nobody can hear it, but the other way it is on the bass.
     let project = new Project();
     project.set_resonance(MAX_RESONANCE);
 

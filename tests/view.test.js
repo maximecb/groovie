@@ -173,7 +173,7 @@ test("a filter reads in Hz down low and in kHz up high", () =>
     assert.equal(filter_label(project), 'LP 30Hz');
 
     project.set_filter(MAX_FILTER);
-    assert.equal(filter_label(project), 'HP 18.0kHz');
+    assert.equal(filter_label(project), 'HP 14.0kHz');
 });
 
 test("every filter setting fits the width its readout is given", () =>

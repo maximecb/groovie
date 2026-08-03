@@ -291,7 +291,7 @@ the filtered path is barely filtering, so the paths carry very nearly the same
 signal, and two copies of the same signal faded between sum to themselves.
 
 The resonance also fades out towards the centre, which is what makes that true
-at any setting. Hard over one way the peak is at 18 kHz where nobody can hear
+at any setting. Hard over one way the peak is at 14 kHz where nobody can hear
 it, but the other way it is at 30 Hz sitting on the bass, and a path carrying
 that is not a path the dry one resembles. It costs nothing musically: near the
 centre the filter is barely filtering, and a peak on a corner that isn't

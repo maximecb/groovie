@@ -170,7 +170,7 @@ export const DEFAULT_FILTER = 0;
 // done the same. Going further at either end would spend travel on settings
 // that all sound alike.
 export const FILTER_MIN_FREQ = 30;
-export const FILTER_MAX_FREQ = 18000;
+export const FILTER_MAX_FREQ = 14000;
 
 // Resonance, as an index into a range of Q values rather than as the Q itself,
 // so that the control has settings it stops at the way the others do.
@@ -220,7 +220,7 @@ export const FILTER_MAX_PEAK = 8;
 // connection and the other is a node property. Both are silent only while the
 // filter either side of the centre is doing nothing audible, which is true of
 // the corner frequency, since it opens onto the end of the band, but not of a
-// resonant peak sitting on it. Hard over one way that peak is at 18 kHz, where
+// resonant peak sitting on it. Hard over one way that peak is at 14 kHz, where
 // it can't be heard, but the other way it is at 30 Hz, sitting on the bass:
 // crossing the centre would step between a flat mix and a large boost, which
 // is a click however slowly the control is moved.
