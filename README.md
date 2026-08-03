@@ -78,6 +78,8 @@ resetting every bar.
   cymbals, plus vocals, game sounds and assorted noise
 - Per-row sample, stereo panning, level in dB and delay send
 - A tempo-synced delay set in fractions of a step, from slapback up to a full bar
+- A filter across the whole mix on one knob, low-pass below the centre and
+  high-pass above it, the way a DJ mixer does it, with its own resonance control
 - Tempo from 40 to 280 BPM, plus a swing control
 - Patterns can be switched while the music plays: the one you pick is queued and
   launches when the playing one comes around, the way a groovebox does it
@@ -106,6 +108,15 @@ Then open http://localhost:8001. Nothing to install or build, but the page does
 have to be served over HTTP: it loads as an ES module and fetches its samples,
 which browsers block on `file://`. The server needs Python 3 and sends no-cache
 headers, so a reload always picks up your last edit.
+
+## Making beats with Claude
+
+The repo ships a Claude Code skill in `.claude/skills/make-a-beat`. Run Claude Code
+from a clone and ask it for a beat ("make me a psytrance loop", "swing it harder",
+"make it longer") and it writes the song out, encodes it with `tools/make_song.js`
+and hands back a link you can open, play and remix like any other. The skill covers
+the sample library, the tempo and mixing ranges, and how the corpus songs are built
+into arrangements. Nothing is uploaded: the link is the song, same as always.
 
 ## Contributing
 
