@@ -141,15 +141,7 @@ function load_project()
 // reports clicks back here instead of tracking a selection of its own.
 const tab_handlers = {
 
-    // Selecting a pattern shows it for editing right away. It only starts
-    // playing at the end of the current pattern's cycle, so that switching
-    // patterns during playback doesn't cut off what's being heard.
-    select: (pat_idx) =>
-    {
-        cur_pat = pat_idx;
-        queue_pattern(pat_idx);
-        render_all();
-    },
+    select: (pat_idx) => select_pattern(pat_idx),
 
     create: () => select_new_pattern(project.new_pattern(cur_pat)),
     copy: () => select_new_pattern(project.copy_pattern(cur_pat)),
@@ -187,6 +179,16 @@ const timeline_handlers = {
     // clicked to some effect.
     seek: (step_idx) => seek_song(step_idx),
 };
+
+// Open a pattern for editing, as its tab and the arrow keys both do. It only
+// starts playing at the end of the current pattern's cycle, so that switching
+// patterns during playback doesn't cut off what's being heard.
+function select_pattern(pat_idx)
+{
+    cur_pat = pat_idx;
+    queue_pattern(pat_idx);
+    render_all();
+}
 
 // Switch to a pattern that was just created, if it could be created at all.
 // Both ways of creating one produce a pattern playing the same samples as the
@@ -586,7 +588,9 @@ function update_play_buttons()
     pat_seq.classList.toggle('seekable', is_playing_song());
 }
 
-play_pat.onclick = async function ()
+// Play the pattern being edited, or stop it if that's what's already playing.
+// Shared by the pattern's play button and its keyboard shortcut.
+async function toggle_pattern()
 {
     if (is_playing_pattern())
     {
@@ -603,7 +607,10 @@ play_pat.onclick = async function ()
     start_highlight();
 }
 
-play_song_btn.onclick = async function ()
+// Play the song, or stop it if that's what's already playing. Shared by the
+// timeline's play button and its keyboard shortcut. An empty timeline has
+// nothing to play, which is what the button greys itself out over.
+async function toggle_song()
 {
     if (is_playing_song())
     {
@@ -613,11 +620,17 @@ play_song_btn.onclick = async function ()
         return;
     }
 
+    if (project.song_num_steps == 0)
+        return;
+
     console.log('Starting song playback');
 
     await play_song(project);
     start_highlight();
 }
+
+play_pat.onclick = toggle_pattern;
+play_song_btn.onclick = toggle_song;
 
 // Swap the steps of the pattern being edited for where its rows sit in the mix.
 // A row can't hold both across a phone, so the stylesheet drops the mix there
@@ -654,26 +667,61 @@ new ResizeObserver(() =>
     render_timeline(pat_seq, project, cur_pat, timeline_handlers);
 }).observe(pat_seq);
 
-// The spacebar plays and stops what there is to hear, which is the one thing
-// worth a keyboard shortcut. It's ignored while a control has focus, so that it
-// still does whatever that control does with it.
+// Playing and stopping is what most of the keyboard shortcuts are for. P and T
+// go straight to the pattern being edited and to the timeline, the same as
+// their two play buttons. The spacebar plays whichever of the two the project
+// has to offer, and stops whatever is playing. The left and right arrows move
+// through the pattern tabs, which is the other thing done often enough while a
+// hand is on the keyboard. They stop at the ends of the strip rather than
+// wrapping around, so that holding one down settles on the first or last
+// pattern instead of cycling.
 //
-// That's the song, except when nothing has been placed on the timeline yet, in
-// which case it's the pattern being edited. A project starts out with an empty
-// timeline and the shortcut would otherwise do nothing at all there, which is
-// the one state where it can't say so: the song button greys itself out when
-// there is no song, and a key has no way to.
+// For the spacebar that's the song, except when nothing has been placed on the
+// timeline yet, in which case it's the pattern being edited. A project starts
+// out with an empty timeline and the shortcut would otherwise do nothing at all
+// there, which is the one state where it can't say so: the song button greys
+// itself out when there is no song, and a key has no way to.
+//
+// The shortcuts are ignored while a control has focus, so that a key still does
+// whatever that control does with it, and while a modifier is held, so that the
+// browser's own shortcuts are left alone.
 document.onkeydown = async function (evt)
 {
-    if (evt.code != 'Space')
+    if (!['Space', 'KeyP', 'KeyT', 'ArrowLeft', 'ArrowRight'].includes(evt.code))
+        return;
+
+    if (evt.ctrlKey || evt.metaKey || evt.altKey)
         return;
 
     let focus_tag = document.activeElement?.tagName;
     if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(focus_tag))
         return;
 
-    // Otherwise the spacebar scrolls the page
+    // Otherwise the spacebar and the arrows scroll the page
     evt.preventDefault();
+
+    if (evt.code == 'ArrowLeft' || evt.code == 'ArrowRight')
+    {
+        let step = (evt.code == 'ArrowLeft')? -1 : 1;
+        let pat_idx = cur_pat + step;
+
+        if (pat_idx >= 0 && pat_idx < project.num_patterns)
+            select_pattern(pat_idx);
+
+        return;
+    }
+
+    if (evt.code == 'KeyP')
+    {
+        await toggle_pattern();
+        return;
+    }
+
+    if (evt.code == 'KeyT')
+    {
+        await toggle_song();
+        return;
+    }
 
     if (is_playing())
     {

@@ -165,7 +165,8 @@ accommodate later on.
 There are both a global play/stop button that plays the whole song/timeline
 sequence, and a local play/stop button that allows playing individual patterns
 while editing them. Both cannot play at the same time: starting either one ends
-whatever was playing. The spacebar plays and stops the song. Song playback has
+whatever was playing. The spacebar plays and stops the song, and P and T are
+shortcuts for the pattern and timeline buttons themselves. Song playback has
 several patterns sounding at once, so there is nothing one pattern grid can
 usefully show: the timeline playhead is what says where playback is, and the
 pattern editor stays out of it.
