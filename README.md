@@ -80,6 +80,15 @@ resetting every bar.
   launches when the playing one comes around, the way a groovebox does it
 - Works on desktop, tablets and phones
 
+### Keyboard shortcuts
+
+| | |
+|---|---|
+| `Space` | Play or stop the song, or the current pattern when the timeline is empty |
+| `P` | Play or stop the pattern being edited |
+| `T` | Play or stop the timeline |
+| `←` `→` | Move to the previous or next pattern |
+
 ## Running it locally
 
 Clone the repo and start a local HTTP server as follows:
