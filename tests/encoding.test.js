@@ -1198,25 +1198,39 @@ test("the golden links re-encode to themselves", () =>
         assert.equal(project_to_hash(project_from_hash(hash)), hash);
 });
 
-// The three strings above are hand-written cases. The corpus is the other half
-// of the freeze: every song in it has its link pinned in tests/golden_links.js,
-// which is where the fields the little cases don't reach get held down, over
-// songs that are shaped the way real ones are.
+// The three strings above are hand-written cases. tests/golden_links.js is the
+// other half of the freeze: a list that only grows, holding every link the
+// encoding has been pinned to, which is where the fields the little cases
+// don't reach get held down over songs that are shaped the way real ones are.
+//
+// An entry naming a song in the corpus is checked against that song in both
+// directions. An entry naming nothing is a link that was shared before it was
+// written down, so there is no hand-written project to check it against and it
+// is held to a round trip instead.
 
-test("every song in the corpus has a pinned link, and no more than that", () =>
+test("every song in the corpus has a link pinned to it", () =>
 {
     // A song added to the corpus without a link of its own would be carried
-    // along by the tests below without any of them pinning it
-    assert.deepEqual(
-        Object.keys(GOLDEN_LINKS).sort(),
-        CORPUS.map(song => song.name).sort()
-    );
+    // along by the tests below without any of them pinning it. The other
+    // direction isn't checked: the list keeps links the corpus has moved on
+    // from, which is what makes it a record of what has been shared rather
+    // than a picture of what the encoder does today.
+    let pinned = new Set(GOLDEN_LINKS.map(entry => entry.song));
+
+    for (let song of CORPUS)
+        assert(pinned.has(song.name), `no pinned link for ${song.name}`);
 });
 
-test("every song in the corpus encodes to the link it always has", () =>
+test("every song in the corpus encodes to a link that is pinned", () =>
 {
+    // Encoding a corpus song has to land on one of the links already written
+    // down, i.e. on what that song has been shared as before. A song that
+    // encodes to something new means the encoder writes something new, and
+    // every link people are holding was written by the old one.
+    let pinned = new Set(GOLDEN_LINKS.map(entry => entry.link));
+
     for (let song of CORPUS)
-        assert.equal(project_to_hash(build_song(song)), GOLDEN_LINKS[song.name], song.name);
+        assert(pinned.has(project_to_hash(build_song(song))), song.name);
 });
 
 test("every pinned link still opens as the song it was made from", () =>
@@ -1225,10 +1239,40 @@ test("every pinned link still opens as the song it was made from", () =>
     // fixed, and what the decoder makes of it has to be the song still. A
     // song comes back minus any row that plays nothing, the same as it would
     // from a round trip.
-    for (let song of CORPUS)
+    //
+    // Once ENCODING_VERSION has moved, a song has more than one link pinned to
+    // it, and this is what says that every one of them still opens as that one
+    // song however long ago it was written.
+    let corpus = new Map(CORPUS.map(song => [song.name, song]));
+
+    for (let { song, link } of GOLDEN_LINKS)
     {
-        let project = project_from_hash(GOLDEN_LINKS[song.name]);
-        assert_same_project(project, as_encoded(build_song(song)), song.name);
+        if (song === null)
+            continue;
+
+        assert(corpus.has(song), `pinned link names ${song}, which is not in the corpus`);
+        assert_same_project(
+            project_from_hash(link), as_encoded(build_song(corpus.get(song))), song);
+    }
+});
+
+test("every pinned link decodes to the same song however often it is re-shared", () =>
+{
+    // What holds the links nobody has a hand-written project for. Opening one
+    // and sharing what comes up has to give a link that opens as the same song
+    // again, whatever the encoding has done in between: the string is allowed
+    // to change, the song is not.
+    for (let { song, link } of GOLDEN_LINKS)
+    {
+        let label = song ?? link;
+        let opened = project_from_hash(link);
+        let reopened = project_from_hash(project_to_hash(opened));
+
+        assert_same_project(reopened, opened, label);
+
+        // The corpus is all untitled, so the links from other people are the
+        // only ones that carry a title through the encoding at all
+        assert.equal(reopened.title, opened.title, `title of ${label}`);
     }
 });
 
