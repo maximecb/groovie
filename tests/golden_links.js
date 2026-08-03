@@ -60,6 +60,9 @@ export const GOLDEN_LINKS = {
     "a 64 bar drill and bass arrangement":
         "untitled/B9ATI_5htYoCCAImhWOL9cICQhhNTEuGBTQszLjv36cmILUJCQERFJMkCIK1qWpZ-eQCgiBBCRRAjjXAiCRSCAVFZjaWhcFV2e_nsVIbBIiCQkxIJRQiixxLEl4iJICCKCBFyOSZT1ASSGk0JiFx1q0misRcCIgTmdSiU0mRsgG8UlIoZ5wGwIiBCCCgi0YBjCOtVLx8hn4rr77_NYTG6rBEgQESKApNnvpKr_LPLPE4j6kA8Ag2ASR0iZrn2IlYuQflAFNAC5AiCT0VQxEhEz9UsA",
 
+    "a 60 bar rave with vocal one shots":
+        "untitled/BiAm5b5Rjh0Ly4VCVrXLHJWPgC5EFITj2MkfERYiEYJbQAjdd3La2UOJWiUSPgFYdPyVvMD4B2MXkeSt5gDAiYmdjD9k_gGBDbWxx9SXh-AMCC2biJP6TaAYABI0cZJ8UPzASwHMAEwWNbZ1kgKoOvPlnAMm1z4FNAdNvf1KT5akgYEBItgYij7Ps-zpD4BkJU_KeA",
+
     "the longest song there can be":
         "untitled/BhBHPGMeQR7_9ES_7Rj7oOEJwh2IiiSKfrLiV47_DAC9FjlfKfV0FABCRQgx_qc6hARZpxGhFoHooMQ99sdIMA5IgpL3MZuy3MZuyJAPiKgkespf1IsARpAemf_do3w",
 

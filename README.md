@@ -59,6 +59,9 @@ you can play it, take it apart and remix it.
   the rolling sixteenth bass answering the kick that the whole genre is built on,
   with every row at a level of its own and a twelve step percussion layer that
   only comes back into line with the bar every three of them.
+- [A rave with vocal one shots](https://maximecb.github.io/groovie/#a_60_bar_rave_with_vocal_one_shots/BiAm5b5Rjh0Ly4VCVrXLHJWPgC5EFITj2MkfERYiEYJbQAjdd3La2UOJWiUSPgFYdPyVvMD4B2MXkeSt5gDAiYmdjD9k_gGBDbWxx9SXh-AMCC2biJP6TaAYABI0cZJ8UPzASwHMAEwWNbZ1kgKoOvPlnAMm1z4FNAdNvf1KT5akgYEBItgYij7Ps-zpD4BkJU_KeA) —
+  60 bars at 138 over a doubled kick, where half the twelve patterns are single
+  vocal and alarm hits dropped onto the timeline where they land.
 - [A drill and bass arrangement](https://maximecb.github.io/groovie/#a_64_bar_drill_and_bass_arrangement/B9ATI_5htYoCCAImhWOL9cICQhhNTEuGBTQszLjv36cmILUJCQERFJMkCIK1qWpZ-eQCgiBBCRRAjjXAiCRSCAVFZjaWhcFV2e_nsVIbBIiCQkxIJRQiixxLEl4iJICCKCBFyOSZT1ASSGk0JiFx1q0misRcCIgTmdSiU0mRsgG8UlIoZ5wGwIiBCCCgi0YBjCOtVLx8hn4rr77_NYTG6rBEgQESKApNnvpKr_LPLPE4j6kA8Ag2ASR0iZrn2IlYuQflAFNAC5AiCT0VQxEhEz9UsA) —
   64 bars across eight patterns at 165, the longest and busiest of these, and the
   one that pushes the encoding hardest at 354 characters.

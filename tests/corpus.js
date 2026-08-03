@@ -96,6 +96,25 @@ export function lane_over_bars(num_steps, song_bars, ranges)
     return lane;
 }
 
+// A lane placing a pattern as one-off hits, each written as the cell it lands
+// on. A one-shot is a pattern a fraction of a bar long, so its lane runs to
+// hundreds of cells across a full song and reads as nothing at all written out
+// as a grid, while the few cells that are on are the whole of what it says.
+export function lane_at_cells(cell_idxs)
+{
+    let lane = [];
+
+    for (let cell_idx of cell_idxs)
+    {
+        while (lane.length < cell_idx)
+            lane.push(0);
+
+        lane.push(1);
+    }
+
+    return lane;
+}
+
 // Every song says how many bars it runs for, which the tests check it still
 // does. Songs are all sorts of lengths: a single pattern played once is as
 // much a song as a 32 bar arrangement, and the encoding has to carry both.
@@ -980,6 +999,141 @@ export const CORPUS = [
             volumes: [ -4, -13, -11],
             sends:   [-30,  -9, -15],
             lane: lane_over_bars(24, 64, [[26, 34]]),
+        },
+    ],
+},
+
+{
+    // Rave at 138, and the only song here built the way a sampler is played:
+    // half of its twelve patterns are single hits, a four step pattern holding
+    // one vocal or one alarm, dropped onto the timeline where that hit lands.
+    // The layers underneath are ordinary two bar patterns.
+    //
+    // That is what this pins, and nothing else here comes near it. A one-shot
+    // lane is 200 cells and more of which four or five are on, sitting alone
+    // rather than in runs, which is the shape a lane written as runs of cells
+    // is worst at: every hit costs a run of its own plus the silence before it.
+    // The song is also 60 bars long, which is not a power of two and not a
+    // length any of its patterns divides, so the timeline ends part-way through
+    // a cell of most lanes rather than on a boundary they share.
+    //
+    // The kick is doubled: a four to the floor with a second kick on the three
+    // sixteenths between each beat, which is the drive the whole thing runs on.
+    // Almost everything is placed by level rather than across the stereo field,
+    // only the bongos being panned at all, and the sends are spent on the
+    // one-shots, so a hit answers itself across the bar.
+    name: 'a 60 bar rave with vocal one shots',
+    tempo: 138,
+    delay_time: 19,         // three steps, i.e. a dotted eighth
+    delay_feedback: 35,
+    song_bars: 60,
+    patterns: [
+        {   // the doubled kick and the offbeat hat everything else sits on
+            samples: ['kick_01', 'kick_06', 'hat_closed_04'],
+            rows: [
+                'x...x...x...x...' + 'x...x...x...x...',
+                '.xxx.xxx.xxx.xxx' + '.xxx.xxx.xxx.xxx',
+                '..x...x...x...x.' + '..x...x...x...x.',
+            ],
+            volumes: [  0, -19,  -4],
+            lane: 'xxxxxxxxxxxx....xxxxxxx.xxxx',
+        },
+        {   // a formant blip on the offbeats, sent so it smears
+            samples: ['formant_01'],
+            rows: [
+                '..x.......x.....' + '..x.......x.....',
+            ],
+            volumes: [-12],
+            sends:   [-26],
+            lane: '....xxxxxxxx....xxxxxxxxxxxxx',
+        },
+        {   // shakers, the busiest thing here and the quietest
+            samples: ['maracas_01', 'maracas_02'],
+            rows: [
+                '.x...x...x...xx.' + '...x..x....x..x.',
+                'x.xxx.xxx.xxx..x' + '.xx.xx.x.xx.xx..',
+            ],
+            volumes: [ -4, -14],
+            lane: '........xxxx........xxxxxxxxx',
+        },
+        {   // sixteenths straight through, for the lifts
+            samples: ['hat_closed_05'],
+            rows: [
+                'xxxxxxxxxxxxxxxx' + 'xxxxxxxxxxxxxxxx',
+            ],
+            volumes: [-11],
+            lane: '............xxxx.......x....x',
+        },
+        {   // a second kick layered over the first through those same bars
+            samples: ['kick_07'],
+            rows: [
+                'x...x...x...x...' + 'x...x...x...x...',
+            ],
+            sends:   [-13],
+            lane: '............xxxx.......x....x',
+        },
+        {   // the one-shots: a four step pattern holding a single hit, placed
+            // by the cells it lands on. Four steps is a quarter of a bar, so
+            // cell 32 is bar 8.
+            samples: ['vocal_what_02'],
+            rows: [
+                '.x..',
+            ],
+            sends:   [-16],
+            lane: lane_at_cells([32, 144, 200]),
+        },
+        {
+            samples: ['vocal_scream_01'],
+            rows: [
+                '.x..',
+            ],
+            sends:   [ -8],
+            lane: lane_at_cells([48, 136, 172, 212]),
+        },
+        {
+            samples: ['vocal_gasp'],
+            rows: [
+                '.x..',
+            ],
+            sends:   [-17],
+            lane: lane_at_cells([64, 184, 206]),
+        },
+        {
+            samples: ['alarm_01'],
+            rows: [
+                'x...',
+            ],
+            sends:   [-13],
+            lane: lane_at_cells([96, 232]),
+        },
+        {   // four bars of bongos, the only rows placed off centre
+            samples: ['bongo_01', 'bongo_02', 'bongo_03', 'bongo_04'],
+            rows: [
+                '....xxx..xx.....' + '......x..xx.....' + '....xxx..xx.....' + '.x...x..........',
+                '.......x........' + '.......x........' + '.......x........' + '..x.............',
+                '................' + '..........x.....' + '................' + '.........x..x...',
+                '................' + '...........x....' + '................' + '.......x.....x..',
+            ],
+            pans:    [  0,   0,  -8,   8],
+            sends:   [-21, -16, -17, -21],
+            lane: '......xxxx..xx',
+        },
+        {   // the hook the song is named after, landing every eight bars and
+            // once more on the last cell of the timeline
+            samples: ['vocal_come_on_01'],
+            rows: [
+                'x...',
+            ],
+            volumes: [ -3],
+            lane: lane_at_cells([128, 160, 192, 224, 239]),
+        },
+        {   // open hats through the last third, over the busiest of it
+            samples: ['hat_open_04'],
+            rows: [
+                '..x...x...x...x.' + '..x...x...x...x.',
+            ],
+            volumes: [-11],
+            lane: '....................xxxxxxxx',
         },
     ],
 },
