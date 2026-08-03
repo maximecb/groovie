@@ -9,6 +9,11 @@ import {
     MIN_DELAY_FB,
     MAX_DELAY_FB,
     DELAY_FB_STEP,
+    MIN_FILTER,
+    MAX_FILTER,
+    DEFAULT_FILTER,
+    MIN_RESONANCE,
+    MAX_RESONANCE,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     TITLE_STRIP_RE,
@@ -22,6 +27,7 @@ import {
     fetch_project_samples,
     set_volume,
     update_delay,
+    update_filter,
     is_playing,
     is_playing_pattern,
     is_playing_song,
@@ -47,6 +53,8 @@ import {
     highlight_pat_tabs,
     update_slider_fill,
     delay_time_label,
+    filter_label,
+    resonance_label,
 } from "./view.js";
 
 //============================================================================
@@ -74,6 +82,12 @@ const delay_time_slider = document.getElementById('delay_time_slider');
 const delay_time_val = document.getElementById('delay_time_val');
 const delay_fb_slider = document.getElementById('delay_fb_slider');
 const delay_fb_val = document.getElementById('delay_fb_val');
+
+// Filter cutoff and resonance sliders
+const filter_slider = document.getElementById('filter_slider');
+const filter_val = document.getElementById('filter_val');
+const resonance_slider = document.getElementById('resonance_slider');
+const resonance_val = document.getElementById('resonance_val');
 
 // Pattern length selector
 const num_steps_sel = document.getElementById('num_steps');
@@ -215,14 +229,24 @@ function render_all()
     delay_time_val.textContent = delay_time_label(project.delay_time);
     delay_fb_slider.value = project.delay_feedback;
     delay_fb_val.textContent = project.delay_feedback;
+    filter_slider.value = project.filter;
+    filter_val.textContent = filter_label(project);
+    resonance_slider.value = project.resonance;
+    resonance_val.textContent = resonance_label(project.resonance);
     update_slider_fill(tempo_slider);
     update_slider_fill(swing_slider);
     update_slider_fill(delay_time_slider);
     update_slider_fill(delay_fb_slider);
+    update_slider_fill(filter_slider);
+    update_slider_fill(resonance_slider);
 
     // A project loaded from a link brings its own delay settings, and the
     // graph may still be ringing with the ones it replaced
     update_delay(project);
+
+    // And its own filter, which the graph has to be routed through or around
+    // to match
+    update_filter(project);
     num_steps_sel.value = pat.num_steps;
     song_title.value = project.title;
     update_page_title();
@@ -283,6 +307,16 @@ delay_time_slider.max = MAX_DELAY_TIME;
 delay_fb_slider.min = MIN_DELAY_FB;
 delay_fb_slider.max = MAX_DELAY_FB;
 delay_fb_slider.step = DELAY_FB_STEP;
+
+// The cutoff slider runs either side of a centre where the filter does
+// nothing, rather than from off to fully on. Its travel is symmetric, so the
+// middle of the control is the middle of the range, which is what lets it be
+// swept through the centre and out the other side in one gesture.
+filter_slider.min = MIN_FILTER;
+filter_slider.max = MAX_FILTER;
+
+resonance_slider.min = MIN_RESONANCE;
+resonance_slider.max = MAX_RESONANCE;
 
 // Populate the pattern length selector. Every length in the valid range is
 // selectable: steps have a fixed duration, so a pattern length isn't a
@@ -424,6 +458,36 @@ delay_fb_slider.oninput = function ()
     project.set_delay_feedback(delay_fb_slider.valueAsNumber);
     delay_fb_val.textContent = project.delay_feedback;
     update_delay(project);
+}
+
+// The filter controls are applied as they move, for the reason the delay ones
+// are and more so: a filter is swept while the track runs rather than set and
+// left, which is what the single control either side of a centre is shaped for.
+filter_slider.oninput = function ()
+{
+    project.set_filter(filter_slider.valueAsNumber);
+    filter_val.textContent = filter_label(project);
+    update_filter(project);
+}
+
+// Double-clicking returns the cutoff to the centre, the way it returns a row
+// to the middle of the stereo field: both are controls with a value in the
+// middle of their travel that means "leave this alone", and hunting for it by
+// hand on a slider that fine is not something to ask of anybody.
+filter_slider.ondblclick = function ()
+{
+    project.set_filter(DEFAULT_FILTER);
+    filter_slider.value = project.filter;
+    filter_val.textContent = filter_label(project);
+    update_slider_fill(filter_slider);
+    update_filter(project);
+}
+
+resonance_slider.oninput = function ()
+{
+    project.set_resonance(resonance_slider.valueAsNumber);
+    resonance_val.textContent = resonance_label(project.resonance);
+    update_filter(project);
 }
 
 num_steps_sel.onchange = function ()

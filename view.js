@@ -16,6 +16,7 @@ import {
     MIN_SEND,
     MAX_SEND,
     DELAY_STEP_FRACTIONS,
+    MAX_RESONANCE,
     STEPS_PER_BAR,
 } from "./model.js";
 
@@ -284,6 +285,41 @@ export function delay_time_label(delay_time)
     return `${steps} step${num == 1 && den == 1? '' : 's'}`;
 }
 
+// How the filter reads: which kind of filter the control is currently asking
+// for and where it is set, with the centre named rather than numbered the way
+// the centre of the pan control is, since a filter there is not a filter set
+// very wide, it is no filter at all.
+//
+// The kind is named in the readout rather than only by the ends of the travel,
+// so that what a sweep is doing has somewhere to be read off while it happens.
+// Frequencies are given to three figures at most: past a kilohertz nobody is
+// setting a filter to the Hz, and a readout that changed by single digits
+// during a sweep would be unreadable anyway.
+export function filter_label(project)
+{
+    let type = project.filter_type;
+
+    if (type === null)
+        return 'off';
+
+    let freq = project.filter_freq;
+    let name = type == 'lowpass'? 'LP' : 'HP';
+
+    if (freq >= 1000)
+        return `${name} ${(freq / 1000).toFixed(1)}kHz`;
+
+    return `${name} ${Math.round(freq)}Hz`;
+}
+
+// How the resonance reads: a percentage of the travel rather than the Q it
+// works out to. Q is the name of a number in a filter design, not of anything
+// somebody turning this up is looking for, and there is no unit here that
+// carries meaning the way decibels do on the level controls.
+export function resonance_label(resonance)
+{
+    return `${Math.round(100 * resonance / MAX_RESONANCE)}`;
+}
+
 // Generate the DOM for a pattern grid, replacing whatever the div held before.
 // The pattern index is what says which color the grid is drawn in, and is the
 // same one its timeline lane uses.
@@ -426,7 +462,7 @@ export function render_pattern(pat_div, pattern, pat_idx)
     function make_pan_ctl(row_idx)
     {
         return make_row_ctl(row_idx, {
-            cls: 'pan_slider',
+            cls: 'pan_slider ctr_slider',
             title: 'Stereo position',
             val_width: '4ch',   // 'L100'
             min: MIN_PAN,

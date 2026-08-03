@@ -27,9 +27,13 @@ let audio_ctx = null;
 // takes before hanging anything off the side of it.
 class FakeNode
 {
-    constructor(type)
+    constructor(kind)
     {
-        this.type = type;
+        // What sort of node this is. Kept apart from `type`, which on a
+        // biquad is a real Web Audio property naming the kind of filter it is
+        // and would otherwise overwrite this the moment audio.js set it.
+        this.kind = kind;
+        this.type = kind;
         this.dsts = [];
     }
 
@@ -37,6 +41,14 @@ class FakeNode
     {
         this.dsts.push(dst);
         return dst;
+    }
+
+    // Web Audio's disconnect() with no argument drops every connection the
+    // node has, which is what audio.js leans on to route the master gain
+    // through the filter or around it
+    disconnect()
+    {
+        this.dsts = [];
     }
 
     get dst()
@@ -54,6 +66,14 @@ class FakeParam
     }
 
     setValueAtTime(value)
+    {
+        this.value = value;
+    }
+
+    // A glide towards a value rather than a step to it. Nothing here models
+    // the ramp: what a test can ask is where the param was aimed, which is
+    // what the audio graph is deciding.
+    setTargetAtTime(value)
     {
         this.value = value;
     }
@@ -103,8 +123,11 @@ class FakeAudioContext
     createBiquadFilter()
     {
         let node = new FakeNode('filter');
+
+        // The biquad's own type, which is what `type` means on this node
         node.type = 'lowpass';
         node.frequency = new FakeParam(350);
+        node.Q = new FakeParam(1);
 
         return node;
     }

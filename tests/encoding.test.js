@@ -40,6 +40,12 @@ import {
     MIN_DELAY_FB,
     MAX_DELAY_FB,
     DELAY_FB_STEP,
+    MIN_FILTER,
+    MAX_FILTER,
+    DEFAULT_FILTER,
+    MIN_RESONANCE,
+    MAX_RESONANCE,
+    DEFAULT_RESONANCE,
     MIN_PAT_STEPS,
     MAX_PAT_STEPS,
     MAX_PAT_ROWS,
@@ -91,6 +97,8 @@ function assert_same_project(actual, expected, label = '')
 
     assert.equal(actual.delay_time, expected.delay_time, `delay time${of}`);
     assert.equal(actual.delay_feedback, expected.delay_feedback, `delay feedback${of}`);
+    assert.equal(actual.filter, expected.filter, `filter${of}`);
+    assert.equal(actual.resonance, expected.resonance, `resonance${of}`);
 
     assert.deepEqual(actual.lanes, expected.lanes, `timeline lanes${of}`);
 }
@@ -112,6 +120,8 @@ function as_encoded(project)
     out.set_swing(project.swing);
     out.set_delay_time(project.delay_time);
     out.set_delay_feedback(project.delay_feedback);
+    out.set_filter(project.filter);
+    out.set_resonance(project.resonance);
     out.patterns = [];
     out.lanes = [];
 
@@ -171,7 +181,7 @@ function bits_to_b64(bits)
 }
 
 // Field widths of the encoding, mirrored from model.js on purpose (see above)
-const ENCODING_VERSION = 0;
+const ENCODING_VERSION = 1;
 const VERSION_BITS = 4;
 const TEMPO_BITS = 8;
 const SWING_BITS = 5;
@@ -182,6 +192,8 @@ const SAMPLE_IDX_BITS = 9;
 const PAN_BITS = 5;
 const VOLUME_BITS = 5;
 const SEND_BITS = 5;
+const FILTER_BITS = 8;
+const RESONANCE_BITS = 5;
 const MOTIF_PERIOD_BITS = 2;
 const MOTIF_EXC_PERIOD_BITS = 4;
 const MOTIF_EXC_COUNT_BITS = 3;
@@ -214,6 +226,7 @@ const ONE_EMPTY_PATTERN =
     field(80, TEMPO_BITS) +             // tempo, offset from MIN_TEMPO
     field(0, SWING_BITS) +              // swing, offset from MIN_SWING
     '1' +                               // the delay is set the way it starts
+    '1' +                               // and so is the filter
     field(0, NUM_PATTERNS_BITS) +       // one pattern
     field(0, NUM_STEPS_BITS) +          // one step
     field(0, NUM_ROWS_BITS) +           // one row
@@ -683,6 +696,7 @@ test("a link repeating a cell as long as its row is refused", () =>
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
+        '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
         field(1, NUM_STEPS_BITS) +          // two steps
         field(0, NUM_ROWS_BITS) +           // one row
@@ -705,6 +719,7 @@ const FOUR_STEP_ROW =
     field(80, TEMPO_BITS) +
     field(0, SWING_BITS) +
     '1' +                               // the delay is set the way it starts
+    '1' +                               // and so is the filter
     field(0, NUM_PATTERNS_BITS) +
     field(3, NUM_STEPS_BITS) +          // four steps
     field(0, NUM_ROWS_BITS) +           // one row
@@ -816,6 +831,7 @@ test("a link playing a step its row does not have is refused", () =>
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
+        '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
         field(2, NUM_STEPS_BITS) +          // three steps
         field(0, NUM_ROWS_BITS) +           // one row
@@ -908,6 +924,7 @@ test("a link panning a row past hard over is refused", () =>
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
+        '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
@@ -980,6 +997,7 @@ test("a link setting a row past the top of the range is refused", () =>
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
+        '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
@@ -1083,6 +1101,89 @@ test("every delay setting survives a round trip", () =>
     }
 });
 
+test("every filter setting survives a round trip", () =>
+{
+    let project = make_project(120, [{ sample_idxs: [0], rows: [[1]] }]);
+
+    for (let filter of [MIN_FILTER, -64, -1, 0, 1, 64, MAX_FILTER])
+    {
+        project.set_filter(filter);
+        assert.equal(round_trip(project).filter, filter);
+    }
+});
+
+test("every resonance setting survives a round trip", () =>
+{
+    let project = make_project(120, [{ sample_idxs: [0], rows: [[1]] }]);
+
+    // Resonance is only audible with the filter off its centre, but it is
+    // carried either way rather than dropped along with a centred filter: a
+    // project that was swept and brought back still holds what it was set to
+    project.set_filter(-40);
+
+    for (let res = MIN_RESONANCE; res <= MAX_RESONANCE; ++res)
+    {
+        project.set_resonance(res);
+        assert.equal(round_trip(project).resonance, res);
+    }
+});
+
+test("a project that left the filter alone costs nothing to say so", () =>
+{
+    // A filter is swept on the projects that use one at all, so most links
+    // carry nothing about it but the bit that says as much
+    let project = make_project(120, [{ sample_idxs: [0], rows: [[1]] }]);
+    let untouched = encode_project(project).length;
+
+    project.set_filter(-40);
+    project.set_resonance(12);
+
+    let swept = encode_project(project).length;
+
+    assert.ok(swept > untouched, 'a swept filter is written for free');
+
+    project.set_filter(DEFAULT_FILTER);
+    project.set_resonance(DEFAULT_RESONANCE);
+
+    assert.equal(encode_project(project).length, untouched);
+});
+
+test("a link setting the filter past the end of its travel is refused", () =>
+{
+    // The filter field is one value wider than the settings the control can
+    // reach, so a link can name one that isn't a setting at all
+    let bits =
+        field(ENCODING_VERSION, VERSION_BITS) +
+        field(80, TEMPO_BITS) +
+        field(0, SWING_BITS) +
+        '1' +                               // the delay is set the way it starts
+        '0' +                               // the filter is not
+        field(255, FILTER_BITS) +           // swept past MAX_FILTER
+        field(0, RESONANCE_BITS) +
+        field(0, NUM_PATTERNS_BITS) +
+        field(0, NUM_STEPS_BITS) +          // one step
+        field(0, NUM_ROWS_BITS) +           // one row
+        '0' + field(0, SAMPLE_IDX_BITS) +   // sample index 0
+        GRID_LITERAL + '0' +               // the row's one cell, off
+        '1' +                               // panned where it's expected
+        '1' +                               // at the level expected
+        '1';                                // sending the delay what's expected
+
+    decode_project(bits_to_b64(bits));
+
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a filter the field cannot hold is refused rather than written short", () =>
+{
+    // The encoder is the other side of the same guard: a value below the range
+    // would go out with its sign lost and open as a filter swept the other way
+    let project = make_project(120, [{ sample_idxs: [0], rows: [[1]] }]);
+
+    project.filter = MIN_FILTER - 1;
+    assert.throws(() => encode_project(project), RangeError);
+});
+
 test("a project that left the delay alone costs nothing to say so", () =>
 {
     let untouched = make_project(120, [{ sample_idxs: [0], rows: [[1, 0]] }]);
@@ -1104,6 +1205,7 @@ test("a link setting a row past the top of the send range is refused", () =>
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
         '1' +                               // the delay is set the way it starts
+        '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
         field(0, NUM_STEPS_BITS) +          // one step
         field(0, NUM_ROWS_BITS) +           // one row
@@ -1141,10 +1243,21 @@ test("a link setting a row past the top of the send range is refused", () =>
 // surviving row plays the first of the samples handed to a new pattern. If
 // that sample's index moves, every link ever shared breaks, and this is the
 // test that says so.
-const GOLDEN_EMPTY = 'untitled/BQBAPCBw';
+//
+// Each of these has a link per format version, oldest first, and gains one
+// rather than having one replaced whenever ENCODING_VERSION moves. Every one
+// of them has to go on opening as the same project: that is what stepping the
+// version buys, and it is worth nothing unless something checks it.
+const GOLDEN_EMPTY = [
+    'untitled/BQBAPCBw',                // version 0
+    'untitled/FQBgHhA4',                // version 1, which added the filter
+];
 
 // A single one-step pattern, its one cell on, placed once on the timeline
-const GOLDEN_MINIMAL = 'untitled/BQBAAAAJ8A';
+const GOLDEN_MINIMAL = [
+    'untitled/BQBAAAAJ8A',
+    'untitled/FQBgAAAE-A',
+];
 
 // Two patterns of different lengths, a title, a tempo, a swing and a delay off
 // their defaults, the widest sample index the format holds, and both patterns
@@ -1152,50 +1265,104 @@ const GOLDEN_MINIMAL = 'untitled/BQBAAAAJ8A';
 // turned down, and one of each is sent to the delay, so that this pins those
 // fields too: the panning hard over and part of the way, the level part of the
 // way down and all the way, and a send both guessed and written out.
-const GOLDEN_MIXED = 'test_song/BkiXgIYgAFwFggMJUpAQP_McA3oA';
+const GOLDEN_MIXED = [
+    'test_song/BkiXgIYgAFwFggMJUpAQP_McA3oA',
+    'test_song/FkiXkEMQAC4CwQGEqUgIH_mOAb0A',
+];
+
+// The project above again with the filter swept part of the way down and some
+// resonance on it, which is the one field version 0 had no way to carry and so
+// the one nothing else here pins.
+const GOLDEN_FILTER = [
+    'filter_sweep/FkiXgfoCGIABcBYIDCVKQED_zHAN6AA',
+];
+
+// What a project written today encodes to, i.e. the newest of its links
+function newest(links)
+{
+    return links[links.length - 1];
+}
 
 test("a new project encodes to the same link it always has", () =>
 {
-    assert.equal(project_to_hash(new Project()), GOLDEN_EMPTY);
+    assert.equal(project_to_hash(new Project()), newest(GOLDEN_EMPTY));
 });
 
 test("the golden links still decode to the projects they were made from", () =>
 {
-    let minimal = project_from_hash(GOLDEN_MINIMAL);
+    for (let link of GOLDEN_MINIMAL)
+    {
+        let minimal = project_from_hash(link);
 
-    assert.equal(minimal.title, 'untitled');
-    assert.equal(minimal.tempo, 120);
-    assert.equal(minimal.swing, 50);
-    assert.equal(minimal.num_patterns, 1);
-    assert.deepEqual(minimal.patterns[0].sample_idxs, [0]);
-    assert.deepEqual(minimal.patterns[0].rows, [[1]]);
-    assert.deepEqual(minimal.lanes, [[1]]);
+        assert.equal(minimal.title, 'untitled');
+        assert.equal(minimal.tempo, 120);
+        assert.equal(minimal.swing, 50);
+        assert.equal(minimal.num_patterns, 1);
+        assert.deepEqual(minimal.patterns[0].sample_idxs, [0]);
+        assert.deepEqual(minimal.patterns[0].rows, [[1]]);
+        assert.deepEqual(minimal.lanes, [[1]]);
+    }
 
-    let mixed = project_from_hash(GOLDEN_MIXED);
+    for (let link of GOLDEN_MIXED)
+    {
+        let mixed = project_from_hash(link);
 
-    assert.equal(mixed.title, 'test song');
-    assert.equal(mixed.tempo, 140);
-    assert.equal(mixed.swing, 67);
-    assert.equal(mixed.delay_time, 11);
-    assert.equal(mixed.delay_feedback, 60);
-    assert.equal(mixed.num_patterns, 2);
-    assert.deepEqual(mixed.patterns[0].sample_idxs, [0, 5]);
-    assert.deepEqual(mixed.patterns[0].rows, [[1, 0, 1, 0], [0, 0, 0, 1]]);
-    assert.deepEqual(mixed.patterns[0].pans, [0, MIN_PAN]);
-    assert.deepEqual(mixed.patterns[0].volumes, [0, -6]);
-    assert.deepEqual(mixed.patterns[0].sends, [DEFAULT_SEND, -12]);
-    assert.deepEqual(mixed.patterns[1].sample_idxs, [2 ** SAMPLE_IDX_BITS - 1]);
-    assert.deepEqual(mixed.patterns[1].rows, [[1, 1, 0]]);
-    assert.deepEqual(mixed.patterns[1].pans, [4]);
-    assert.deepEqual(mixed.patterns[1].volumes, [MIN_VOLUME]);
-    assert.deepEqual(mixed.patterns[1].sends, [-3]);
-    assert.deepEqual(mixed.lanes, [[1, 1, 0, 1], [0, 0, 1]]);
+        assert.equal(mixed.title, 'test song');
+        assert.equal(mixed.tempo, 140);
+        assert.equal(mixed.swing, 67);
+        assert.equal(mixed.delay_time, 11);
+        assert.equal(mixed.delay_feedback, 60);
+        assert.equal(mixed.num_patterns, 2);
+        assert.deepEqual(mixed.patterns[0].sample_idxs, [0, 5]);
+        assert.deepEqual(mixed.patterns[0].rows, [[1, 0, 1, 0], [0, 0, 0, 1]]);
+        assert.deepEqual(mixed.patterns[0].pans, [0, MIN_PAN]);
+        assert.deepEqual(mixed.patterns[0].volumes, [0, -6]);
+        assert.deepEqual(mixed.patterns[0].sends, [DEFAULT_SEND, -12]);
+        assert.deepEqual(mixed.patterns[1].sample_idxs, [2 ** SAMPLE_IDX_BITS - 1]);
+        assert.deepEqual(mixed.patterns[1].rows, [[1, 1, 0]]);
+        assert.deepEqual(mixed.patterns[1].pans, [4]);
+        assert.deepEqual(mixed.patterns[1].volumes, [MIN_VOLUME]);
+        assert.deepEqual(mixed.patterns[1].sends, [-3]);
+        assert.deepEqual(mixed.lanes, [[1, 1, 0, 1], [0, 0, 1]]);
+
+        // A link written before there was a filter opens with one that does
+        // nothing, which is the song it was made from still
+        assert.equal(mixed.filter, DEFAULT_FILTER);
+        assert.equal(mixed.resonance, DEFAULT_RESONANCE);
+    }
+
+    for (let link of GOLDEN_FILTER)
+    {
+        let swept = project_from_hash(link);
+
+        assert.equal(swept.title, 'filter sweep');
+        assert.equal(swept.filter, -96);
+        assert.equal(swept.resonance, 20);
+    }
 });
 
-test("the golden links re-encode to themselves", () =>
+test("a link written at an older version opens as the same project", () =>
 {
-    for (let hash of [GOLDEN_EMPTY, GOLDEN_MINIMAL, GOLDEN_MIXED])
+    // The point of the version field: the same song written at two versions
+    // has two links, and both of them go on opening as that song. Compared as
+    // projects rather than as strings, the string being what is allowed to
+    // change between versions.
+    for (let links of [GOLDEN_EMPTY, GOLDEN_MINIMAL, GOLDEN_MIXED, GOLDEN_FILTER])
+        for (let link of links)
+            assert_same_project(
+                project_from_hash(link), project_from_hash(newest(links)), link);
+});
+
+test("the golden links re-encode to themselves at the version they were written at", () =>
+{
+    // Only the newest link of each is what the encoder writes today. The older
+    // ones are read but never written again, so what they have to survive is a
+    // round trip through the project, which the test above covers.
+    for (let links of [GOLDEN_EMPTY, GOLDEN_MINIMAL, GOLDEN_MIXED, GOLDEN_FILTER])
+    {
+        let hash = newest(links);
         assert.equal(project_to_hash(project_from_hash(hash)), hash);
+    }
 });
 
 // The three strings above are hand-written cases. tests/golden_links.js is the
@@ -1384,7 +1551,7 @@ test("a truncated link is refused", () =>
     );
 
     // Cut a real link short, the way a chat window would
-    let data = GOLDEN_MIXED.split('/')[1];
+    let data = newest(GOLDEN_MIXED).split('/')[1];
 
     assert.throws(() => decode_project(data.slice(0, 4)), RangeError);
 });

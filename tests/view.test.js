@@ -10,9 +10,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { pan_label, volume_label, send_label, delay_time_label } from "../view.js";
+import {
+    pan_label,
+    volume_label,
+    send_label,
+    delay_time_label,
+    filter_label,
+    resonance_label,
+} from "../view.js";
 
 import {
+    Project,
+    MIN_FILTER,
+    MAX_FILTER,
+    MIN_RESONANCE,
+    MAX_RESONANCE,
     MIN_PAN,
     MAX_PAN,
     DEFAULT_PAN,
@@ -129,4 +141,67 @@ test("every delay time fits the width its readout is given", () =>
             `${time}: ${delay_time_label(time)}`
         );
     }
+});
+
+test("the centre of the filter's travel reads as off rather than as a frequency", () =>
+{
+    // The middle of this control is not a filter set very wide, it is no
+    // filter at all, and it reads the way the centre of the pan control does
+    let project = new Project();
+
+    assert.equal(filter_label(project), 'off');
+});
+
+test("a swept filter says which way it went and where it got to", () =>
+{
+    // What the control is doing has to be readable while it is being swept,
+    // which is the whole time it is interesting
+    let project = new Project();
+
+    project.set_filter(MIN_FILTER);
+    assert.match(filter_label(project), /^LP /);
+
+    project.set_filter(MAX_FILTER);
+    assert.match(filter_label(project), /^HP /);
+});
+
+test("a filter reads in Hz down low and in kHz up high", () =>
+{
+    let project = new Project();
+
+    project.set_filter(MIN_FILTER);
+    assert.equal(filter_label(project), 'LP 30Hz');
+
+    project.set_filter(MAX_FILTER);
+    assert.equal(filter_label(project), 'HP 18.0kHz');
+});
+
+test("every filter setting fits the width its readout is given", () =>
+{
+    // The readout is reserved at a fixed width, so a longer one would shift
+    // the slider beside it as it is dragged, which on the one control meant to
+    // be swept by hand is the worst place for it
+    let project = new Project();
+
+    for (let filter = MIN_FILTER; filter <= MAX_FILTER; ++filter)
+    {
+        project.set_filter(filter);
+
+        assert.ok(
+            filter_label(project).length <= 10,
+            `${filter}: ${filter_label(project)}`
+        );
+    }
+});
+
+test("resonance reads as a percentage of its travel, ends included", () =>
+{
+    assert.equal(resonance_label(MIN_RESONANCE), '0');
+    assert.equal(resonance_label(MAX_RESONANCE), '100');
+});
+
+test("every resonance setting fits the width its readout is given", () =>
+{
+    for (let res = MIN_RESONANCE; res <= MAX_RESONANCE; ++res)
+        assert.ok(resonance_label(res).length <= 3, `${res}: ${resonance_label(res)}`);
 });

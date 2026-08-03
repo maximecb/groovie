@@ -29,6 +29,17 @@ import {
     DEFAULT_DELAY_TIME,
     MIN_DELAY_FB,
     MAX_DELAY_FB,
+    MIN_FILTER,
+    MAX_FILTER,
+    DEFAULT_FILTER,
+    MIN_RESONANCE,
+    MAX_RESONANCE,
+    DEFAULT_RESONANCE,
+    FILTER_MIN_FREQ,
+    FILTER_MAX_FREQ,
+    FILTER_MIN_PEAK,
+    FILTER_MAX_PEAK,
+    FILTER_RESO_FADE,
     DEFAULT_DELAY_FB,
     DELAY_FB_STEP,
     DELAY_STEP_FRACTIONS,
@@ -502,6 +513,245 @@ test("every delay time is longer than the one before it", () =>
         assert.ok(secs > prev_secs, `delay time ${time} is not past the one before it`);
         prev_secs = secs;
     }
+});
+
+test("a project starts with the filter doing nothing", () =>
+{
+    // A filter is something a track is swept with rather than something every
+    // project has an opinion about, so the centre is where one starts and is
+    // what a link that says nothing about it opens at
+    let project = new Project();
+
+    assert.equal(project.filter, DEFAULT_FILTER);
+    assert.equal(project.resonance, DEFAULT_RESONANCE);
+    assert.equal(project.filter_type, null);
+    assert.equal(project.filter_freq, null);
+});
+
+test("the filter is a low-pass one way off centre and a high-pass the other", () =>
+{
+    let project = new Project();
+
+    project.set_filter(-1);
+    assert.equal(project.filter_type, 'lowpass');
+
+    project.set_filter(1);
+    assert.equal(project.filter_type, 'highpass');
+});
+
+test("either end of the filter's travel has taken everything it can", () =>
+{
+    // Hard over one way is a low-pass sitting under the whole kit, hard over
+    // the other is a high-pass sitting above it. Both directions sweep the
+    // same band, so both ends land on the same pair of frequencies.
+    let project = new Project();
+
+    project.set_filter(MIN_FILTER);
+    assert.ok(Math.abs(project.filter_freq - FILTER_MIN_FREQ) < 1e-9);
+
+    project.set_filter(MAX_FILTER);
+    assert.ok(Math.abs(project.filter_freq - FILTER_MAX_FREQ) < 1e-9);
+});
+
+test("the first setting either side of the centre is barely filtering at all", () =>
+{
+    // Leaving the centre has to be a small step rather than a jump, since the
+    // control is swept through it. A low-pass opens at the top of the band and
+    // a high-pass at the bottom, i.e. each starts where it takes nothing away.
+    let project = new Project();
+
+    project.set_filter(-1);
+    assert.ok(Math.abs(project.filter_freq - FILTER_MAX_FREQ) < 1e-9);
+
+    project.set_filter(1);
+    assert.ok(Math.abs(project.filter_freq - FILTER_MIN_FREQ) < 1e-9);
+});
+
+test("the filter sweeps one way and then the other as the control crosses the centre", () =>
+{
+    // Both halves of the travel take more away the further they go from the
+    // centre, which is what makes the control read as one sweep rather than as
+    // two ranges that happen to share a slider
+    let project = new Project();
+    let prev = Infinity;
+
+    for (let filter = MIN_FILTER; filter < 0; ++filter)
+    {
+        project.set_filter(filter);
+        assert.ok(project.filter_freq > prev || prev == Infinity,
+            `low-pass at ${filter} does not open on the one before it`);
+        prev = project.filter_freq;
+    }
+
+    prev = 0;
+
+    for (let filter = 1; filter <= MAX_FILTER; ++filter)
+    {
+        project.set_filter(filter);
+        assert.ok(project.filter_freq > prev,
+            `high-pass at ${filter} does not close past the one before it`);
+        prev = project.filter_freq;
+    }
+});
+
+test("every filter setting stays inside the band it sweeps", () =>
+{
+    // The frequencies come out of a link somebody else made, and a filter set
+    // past the audible band is one whose control has travel that does nothing
+    let project = new Project();
+
+    for (let filter = MIN_FILTER; filter <= MAX_FILTER; ++filter)
+    {
+        project.set_filter(filter);
+
+        if (project.filter_freq === null)
+            continue;
+
+        assert.ok(
+            project.filter_freq >= FILTER_MIN_FREQ - 1e-9 &&
+            project.filter_freq <= FILTER_MAX_FREQ + 1e-9,
+            `filter at ${filter} is set to ${project.filter_freq}Hz`
+        );
+    }
+});
+
+test("the resonance runs from no peak at all up to the cap and no further", () =>
+{
+    // The top is a ceiling on the range rather than a clamp applied later, for
+    // the reason the delay feedback's is: a resonant peak is a boost, and the
+    // setting comes out of a link that somebody else made
+    let project = new Project();
+
+    // Far enough off the centre for the peak to be all the way up (see below)
+    project.set_filter(-MAX_FILTER);
+
+    project.set_resonance(MIN_RESONANCE);
+    assert.ok(Math.abs(project.filter_peak - FILTER_MIN_PEAK) < 1e-9);
+
+    project.set_resonance(MAX_RESONANCE);
+    assert.ok(Math.abs(project.filter_peak - FILTER_MAX_PEAK) < 1e-9);
+
+    for (let res = MIN_RESONANCE; res <= MAX_RESONANCE; ++res)
+    {
+        project.set_resonance(res);
+        assert.ok(
+            project.filter_peak >= FILTER_MIN_PEAK &&
+            project.filter_peak <= FILTER_MAX_PEAK,
+            `resonance ${res} peaks at ${project.filter_peak}`
+        );
+    }
+});
+
+test("every resonance setting peaks harder than the one before it", () =>
+{
+    let project = new Project();
+    project.set_filter(-MAX_FILTER);
+    let prev = 0;
+
+    for (let res = MIN_RESONANCE; res <= MAX_RESONANCE; ++res)
+    {
+        project.set_resonance(res);
+        assert.ok(project.filter_peak > prev, `resonance ${res} does not peak past ${res - 1}`);
+        prev = project.filter_peak;
+    }
+});
+
+test("the resonance fades out as the cutoff comes back to the centre", () =>
+{
+    // The filter is switched in and out at the centre and changes which kind
+    // it is on the way through, and neither can be ramped. Both are silent
+    // only while the filter either side is doing nothing audible, which a
+    // resonant peak sitting on the corner is not: hard over one way it is at
+    // 18 kHz where nobody can hear it, but the other way it is on the bass.
+    let project = new Project();
+    project.set_resonance(MAX_RESONANCE);
+
+    // Right beside the centre it has to be flat, whichever side it is on
+    for (let filter of [-1, 1])
+    {
+        project.set_filter(filter);
+        assert.ok(
+            project.filter_peak < FILTER_MIN_PEAK * 1.2,
+            `the peak at ${filter} is ${project.filter_peak}, not near flat`
+        );
+    }
+
+    // And all the way up again once the control is past the fade
+    for (let filter of [-FILTER_RESO_FADE, FILTER_RESO_FADE])
+    {
+        project.set_filter(filter);
+        assert.ok(Math.abs(project.filter_peak - FILTER_MAX_PEAK) < 1e-9);
+    }
+});
+
+test("the resonance only ever climbs as the cutoff leaves the centre", () =>
+{
+    // A fade that wasn't monotonic would be a peak that grew and shrank while
+    // the control was moved one way, which is the sort of thing the crossing
+    // is being smoothed to avoid in the first place
+    let project = new Project();
+    project.set_resonance(MAX_RESONANCE);
+
+    let prev = 0;
+
+    for (let filter = 0; filter <= MAX_FILTER; ++filter)
+    {
+        project.set_filter(filter);
+        assert.ok(project.filter_peak >= prev, `the peak dips at ${filter}`);
+        prev = project.filter_peak;
+    }
+});
+
+test("a filter with no resonance is flat wherever it is set", () =>
+{
+    // The fade scales a peak towards flat, so a control that was never asked
+    // for a peak has to come out flat the whole way across rather than dipping
+    // under it somewhere
+    let project = new Project();
+    project.set_resonance(MIN_RESONANCE);
+
+    for (let filter = MIN_FILTER; filter <= MAX_FILTER; ++filter)
+    {
+        project.set_filter(filter);
+        assert.ok(Math.abs(project.filter_peak - FILTER_MIN_PEAK) < 1e-9,
+            `the peak at ${filter} is ${project.filter_peak}`);
+    }
+});
+
+test("the two filter stages together make the peak the resonance asks for", () =>
+{
+    // A biquad passes its own corner at a gain of its Q, so a pair of them
+    // passes it at the product. Cascading two stages at the same Q would
+    // square the peak instead, which at the top of the range would be about
+    // 36 dB going back into somebody else's track.
+    let project = new Project();
+
+    project.set_filter(-MAX_FILTER);
+
+    for (let res = MIN_RESONANCE; res <= MAX_RESONANCE; ++res)
+    {
+        project.set_resonance(res);
+
+        assert.ok(
+            Math.abs(project.filter_pole_q * project.filter_q - project.filter_peak) < 1e-9,
+            `the stages at resonance ${res} do not come to the peak asked for`
+        );
+    }
+});
+
+test("the filter is flat at the bottom of the resonance range", () =>
+{
+    // Both stages together have to be a fourth-order Butterworth down there:
+    // no peak at all, which is what a filter does when nobody has asked it for
+    // a sound of its own. That is what fixes the slope stage's Q.
+    let project = new Project();
+    project.set_resonance(MIN_RESONANCE);
+
+    // The pole Qs of a fourth-order Butterworth, which pass the corner at the
+    // -3 dB that defines one
+    assert.ok(Math.abs(project.filter_pole_q - 0.5412) < 1e-4);
+    assert.ok(Math.abs(project.filter_q - 1.3066) < 1e-3);
+    assert.ok(Math.abs(project.filter_peak - Math.SQRT1_2) < 1e-9);
 });
 
 test("the delay feedback stays short of running away", () =>

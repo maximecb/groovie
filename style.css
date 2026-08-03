@@ -576,6 +576,58 @@ h1 {
     gap: 8px;
 }
 
+/* Controls given the whole width of their group instead of the 120px the
+   sliders otherwise take, which is what the two effects boxes use.
+
+   Precision on a slider is travel: what decides how easy a setting is to land
+   on is how many pixels it is spread over. That matters most on the filter
+   cutoff, which has 127 settings either side of its centre and is the one
+   control here meant to be swept by hand while the track runs. The delay's
+   sliders are laid out the same way because the two boxes stand side by side
+   on the same shelf, and one box of full-width controls next to a box of short
+   ones reads as one of them having gone wrong.
+
+   Each control takes a line of the row to itself and its slider takes whatever
+   the label beside it leaves, rather than a fixed width. The label stays where
+   labels are everywhere else on the page: above the track it reads as a
+   caption on the box rather than as the name of the control under it, which is
+   the one thing worth more here than the handful of pixels it costs. */
+.controls.stretch_ctls {
+    /* The group centres what it holds, and this wants its full width */
+    align-self: stretch;
+}
+
+.stretch_ctls > .slider_ctl {
+    /* A line of the controls row to itself, so that the slider on it has the
+       width of the group to spread over rather than a share of a row */
+    flex: 1 0 100%;
+}
+
+/* The labels are held to a common width so that the tracks below one another
+   start at the same place. They are different lengths -- one names a longer
+   control and reserves a wider readout -- and left to themselves they would
+   step the two sliders sideways against each other, which reads as a mistake
+   rather than as two controls of the same kind.
+
+   Wide enough for the longest of them, which is 'Feedback: ' and the readout
+   after it, and for 'Cutoff: ' and the ten characters its readout is reserved
+   at. Shared across both boxes rather than set per box, so that the four
+   controls on the shelf line up with each other and not just within their
+   own group. */
+.stretch_ctls > .slider_ctl > label {
+    min-width: 18ch;
+}
+
+.stretch_ctls > .slider_ctl > input[type="range"] {
+    /* Takes whatever the label leaves rather than a width of its own */
+    flex: 1;
+
+    /* A flex item refuses to shrink below its contents by default, which on a
+       narrow phone is what would push the group wider than the screen */
+    width: auto;
+    min-width: 0;
+}
+
 /* Numeric readout inside a control label. Reserved at its widest value (3
    digits) and right-aligned, so that the slider next to it doesn't shift as
    the number gains or loses digits. */
@@ -747,15 +799,27 @@ input[type="range"].send_slider {
     width: 60px;
 }
 
-input[type="range"].pan_slider {
+/* The filter cutoff slider, which is the pan slider's track on one of the
+   full-width sliders at the top of the page. It is lit from the centre out for
+   the same reason: the centre is where the value means "doing nothing", and
+   either side of it is a move away from that, one way into a low-pass and the
+   other into a high-pass. Which way it has been swept reads off the colour
+   without having to find the handle, which is what a control meant to be
+   grabbed mid-song needs.
+
+   It shares .ctr_slider with the pan slider rather than repeating the track,
+   and adds nothing but the width it doesn't override. */
+input[type="range"].ctr_slider {
     /* The purple and the red of the logo, at the full strength the other
        sliders take them to */
     --pan_left_color: #B400FF;
     --pan_right_color: #FF0000;
+}
 
+input[type="range"].pan_slider {
     width: 60px;
 }
-input[type="range"].pan_slider::-webkit-slider-runnable-track {
+input[type="range"].ctr_slider::-webkit-slider-runnable-track {
     background:
         linear-gradient(90deg,
             #000 min(50%, var(--val, 50%)),
@@ -765,7 +829,7 @@ input[type="range"].pan_slider::-webkit-slider-runnable-track {
         linear-gradient(90deg,
             var(--pan_left_color) 50%, var(--pan_right_color) 50%);
 }
-input[type="range"].pan_slider::-moz-range-track {
+input[type="range"].ctr_slider::-moz-range-track {
     background:
         linear-gradient(90deg,
             #000 min(50%, var(--val, 50%)),

@@ -21,6 +21,21 @@ to leave the song title in readable ASCII format, e.g.
 scheme and get gradually more clever with compression to try to shorten the
 encoded URLs.
 
+The data opens with a version number, which is what lets the format gain a
+field without the links already shared losing their meaning. A reader that
+guessed wrong about which fields a link carries would not fail, it would open
+the link as a different song, so a new field steps the version and the reader
+keeps a branch for every version there has been. Version 1 is what added the
+filter; version 0 links are still read, and open as the projects they always
+did with a filter sitting at its centre doing nothing.
+
+Every link the encoding has been pinned to is kept in `tests/golden_links.js`,
+a list that only ever grows. The ones naming a song in the corpus are checked
+against that song in both directions, which is what catches a decoder that has
+started reading an old link as a different one. The ones naming nothing are
+links that were shared before they were written down, and are held to a round
+trip instead, there being no hand-written project to compare them against.
+
 Samples in patterns can be referenced with an integer index, probably
 9 bits long (up to 512 samples). The `sample_list.js` file serves as a map
 of sample names to sample indices.
@@ -182,7 +197,8 @@ than off the end of them.
 Under the grids, the smaller groups stand on a row that wraps: as many side by
 side as there is room for, and a column when there isn't. What is added there
 later, such as exporting a track, lands beside what is already there instead of
-below it. The delay's own settings are the first thing to have gone there.
+below it. The delay's own settings were the first thing to have gone there,
+with the filter's beside them.
 
 ## Delay
 
@@ -227,6 +243,101 @@ The delay is left running when playback stops, so a tail rings out rather than
 being cut off mid-repeat, and it sits on the master gain like any other voice,
 so the master volume brings the echoes down with everything else. Its nodes are
 built on first use, so a project that sends it nothing never builds them.
+
+## Filter
+
+There is also one filter for the whole project, and unlike the delay it has no
+per-row send at all. A send is for an effect that is added to what a row
+already plays; a filter replaces it, so a send-and-return would need a wet/dry
+mix on every row and the dry path would undo the thing the filter is for. What
+this is for is the filter on a DJ mixer: one control across the whole track,
+swept during a breakdown. Per-row filtering is timbral shaping, which belongs
+to the sample rather than to the sequencer.
+
+It sits after the master gain, so it takes the delay's echoes with it and a
+sweep darkens a ringing tail rather than leaving it untouched behind the track.
+That also keeps it outside the delay's feedback loop, where sweeping it could
+otherwise change how much the loop returns.
+
+It is set with a single control rather than with a mode and a cutoff. The
+centre does nothing; moving off it one way brings a low-pass down over the
+track and the other way brings a high-pass up under it, and the distance from
+the centre is how much is being taken away whichever way it was moved. One
+control because the thing this is for is a gesture rather than a setting:
+having to stop and change mode halfway through a sweep is what a pair of radio
+buttons would cost. Both directions run over the same band, from under the
+lowest note anything in a kit is pitched at to past where a cymbal has anything
+left, spaced logarithmically because that is how the ear spaces frequencies.
+
+The travel either side of the centre is fine enough that a sweep by hand steps
+by about a semitone at a time, which is what keeps it from sounding like a
+control being clicked through positions. The readout names which kind of filter
+is running and where it is set, so a sweep can be read while it happens, and
+the centre reads as off rather than as a frequency, the way the centre of the
+pan control reads as C. Double-clicking returns it there.
+
+At the centre the filter is bypassed rather than opened all the way: a digital
+filter keeps some of its rolloff however far it is opened, and a project that
+isn't using one should pay nothing for it. A project that never sweeps one
+never builds one at all.
+
+Two things about a filter can only be stepped rather than glided: whether it is
+in the graph, and which kind of filter it is. Neither is ever done while it can
+be heard. Instead the master gain feeds three paths — a dry one, a low-pass and
+a high-pass — and the control fades between them. Nothing is connected,
+disconnected or retyped once the paths exist, so there is no step left to
+click. The usual objection to a crossfade doesn't apply here: near the centre
+the filtered path is barely filtering, so the paths carry very nearly the same
+signal, and two copies of the same signal faded between sum to themselves.
+
+The resonance also fades out towards the centre, which is what makes that true
+at any setting. Hard over one way the peak is at 18 kHz where nobody can hear
+it, but the other way it is at 30 Hz sitting on the bass, and a path carrying
+that is not a path the dry one resembles. It costs nothing musically: near the
+centre the filter is barely filtering, and a peak on a corner that isn't
+cutting anything is not what resonance is for.
+
+Everything that can be glided is. The corner and the resonance are ramped to
+over a few milliseconds rather than set outright, which is the opposite of what
+the delay time does and for the opposite reason: stepping a delay time bends
+the pitch of what is still in the line, which is a sound worth having, while
+stepping a filter's coefficients discontinues its output. The more resonance it
+carries the more energy is sitting in its memory to be discontinued, so an
+un-ramped sweep clicks its way across the band, worst exactly where the control
+is most worth using. The path that is currently silent is set outright rather
+than glided, and is kept at the setting the control passed through, so that it
+has nothing to catch up on the next time it is faded in.
+
+What is left after all of that is not a defect to chase. Sweeping a resonant
+filter quickly across the band moves a lot of stored energy through it, and it
+is supposed to be audible: that sound is most of what a filter sweep is.
+
+It is built out of two biquads in series rather than one. A single biquad
+rolls off at 12 dB per octave, which is gentle enough that a sweep sounds like
+the track is being covered up rather than filtered: there is always an octave
+of what was just cut still audible under the corner. Two stages give the 24 dB
+per octave that the filters people know the sound of are built at.
+
+Resonance is a peak at the corner, running from a response with no peak at all
+up to a cap. The cap is a ceiling on the range rather than a clamp applied
+afterwards, for the reason the delay's feedback ceiling is: a peak is a boost
+like any other, the setting arrives in a link somebody else made, and a mix
+already near the top of its range has nowhere to put another 18 dB. It reads as
+a percentage of its travel rather than as the Q it works out to, there being no
+unit here that carries meaning the way decibels do on the levels.
+
+The two stages are not the same filter twice. Cascading identical stages would
+square the response and so square the peak, which at the top of the range would
+be around 36 dB rather than 18. So they are split by job: the first is fixed at
+the Q that holds the pair maximally flat, and the second is the one resonance
+moves. A biquad passes its own corner at a gain of exactly its Q, so what the
+pair does there is the product of the two, which is what the resonance control
+actually sets and what the cap is a cap on. At the bottom of the range the two
+sit on the pole Qs of a fourth-order Butterworth and the pair passes its corner
+at the -3 dB that defines one.
+
+Unlike the delay, the filter does not follow the tempo. It is set in hertz, and
+a song played faster is the same song through the same filter.
 
 A screen too narrow to hold a row's steps and its place in the mix at once,
 which is any phone held upright, gets the steps, and a button below the grid

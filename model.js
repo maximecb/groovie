@@ -147,6 +147,91 @@ console.assert(
     'DELAY_STEP_FRACTIONS is expected to be in increasing order'
 );
 
+// How far the filter is opened, as a signed amount away from the centre.
+//
+// There is one filter for the whole project, sitting across everything on its
+// way out, and it is set with a single control rather than with a mode and a
+// cutoff. The centre is where it does nothing; moving off the centre one way
+// brings a low-pass down over the track, and the other way brings a high-pass
+// up under it. That is the filter of a DJ mixer, and it is one control because
+// the thing it is for is a sweep during a breakdown, which is a gesture rather
+// than a setting. Having to stop and change mode halfway through a sweep is
+// what a mode switch would cost.
+//
+// Both directions run over the same span of frequencies, so the distance from
+// the centre is how much is being taken away whichever way it was moved.
+export const MIN_FILTER = -127;
+export const MAX_FILTER = 127;
+export const DEFAULT_FILTER = 0;
+
+// The band the filter sweeps over, in Hz. The bottom is under the lowest note
+// anything in a kit is pitched at, so a low-pass reaching it has closed; the
+// top is past where a cymbal has anything left, so a high-pass reaching it has
+// done the same. Going further at either end would spend travel on settings
+// that all sound alike.
+export const FILTER_MIN_FREQ = 30;
+export const FILTER_MAX_FREQ = 18000;
+
+// Resonance, as an index into a range of Q values rather than as the Q itself,
+// so that the control has settings it stops at the way the others do.
+//
+// The bottom is a Butterworth response, i.e. no peak at all, which is what a
+// filter does when nobody has asked it for a sound of its own. The top is
+// where the peak is loud enough to be the effect rather than a colour on it.
+export const MIN_RESONANCE = 0;
+export const MAX_RESONANCE = 31;
+export const DEFAULT_RESONANCE = 0;
+
+// The filter is two biquads in series rather than one. A single biquad rolls
+// off at 12 dB per octave, which is gentle enough that a sweep sounds like the
+// track is being covered up rather than filtered: there is always an octave of
+// what was just cut still audible under the corner. Two stages give the 24 dB
+// per octave that the filters people know the sound of are built at.
+//
+// Cascading two identical stages would square the response, and so square the
+// resonant peak: a pair at a Q of 8 would put about 36 dB back into the track,
+// which is a very loud mistake to make with somebody else's link. So the two
+// stages do different jobs. The first is fixed at the Q that makes the pair
+// maximally flat, and the second is the one resonance moves, which gives one
+// peak of a height that can be reasoned about instead of two multiplying.
+//
+// 0.5412 and 1.3066 are the pole Qs of a fourth-order Butterworth. A biquad
+// passes its own corner at a gain of exactly Q, so the pair passes it at their
+// product, 0.7071, i.e. the -3 dB a Butterworth is defined by.
+export const FILTER_POLE_Q = 0.5412;
+
+// What the pair does at its own corner, which is what resonance actually sets:
+// the bottom is the flat response above, and the top is the peak the cascade
+// is allowed to reach.
+//
+// The top is a cap rather than a range that was cut off somewhere convenient.
+// A resonant peak is a boost like any other, 8 is about 18 dB of it going back
+// into the track at the corner, and a mix sitting near the top of its range
+// has nowhere to put that. Past it a sweep stops being a sweep and starts
+// being a sine wave with a drum track behind it.
+export const FILTER_MIN_PEAK = Math.SQRT1_2;
+export const FILTER_MAX_PEAK = 8;
+
+// How far from the centre the resonance takes to come all the way up, in
+// settings of the control.
+//
+// The filter is routed around at the centre and changes which kind of filter
+// it is on the way through, and neither of those can be ramped: one is a
+// connection and the other is a node property. Both are silent only while the
+// filter either side of the centre is doing nothing audible, which is true of
+// the corner frequency, since it opens onto the end of the band, but not of a
+// resonant peak sitting on it. Hard over one way that peak is at 18 kHz, where
+// it can't be heard, but the other way it is at 30 Hz, sitting on the bass:
+// crossing the centre would step between a flat mix and a large boost, which
+// is a click however slowly the control is moved.
+//
+// So the peak fades in over the first stretch of travel either side, which
+// leaves the crossing genuinely inaudible at any resonance setting. It also
+// costs nothing musically: near the centre the filter is barely filtering, and
+// a peak on a corner that isn't cutting anything is not what the control is up
+// there for.
+export const FILTER_RESO_FADE = 16;
+
 // Pattern length, in steps
 export const MIN_PAT_STEPS = 1;
 export const MAX_PAT_STEPS = 64;
@@ -511,6 +596,16 @@ export class Project
         this.delay_time = DEFAULT_DELAY_TIME;
         this.delay_feedback = DEFAULT_DELAY_FB;
 
+        // How far the filter is opened, signed, and how much it resonates
+        // where it is opened to (see above).
+        //
+        // Like the delay, this is one effect across the whole project rather
+        // than one per row: it sits on everything on its way out, echoes
+        // included, so that a sweep takes the whole track with it the way the
+        // filter on a mixer does.
+        this.filter = DEFAULT_FILTER;
+        this.resonance = DEFAULT_RESONANCE;
+
         this.patterns = [Pattern.with_default_samples()];
 
         // Timeline lanes, one per pattern. Cell `k` of a lane covers steps
@@ -558,6 +653,26 @@ export class Project
         console.assert(delay_feedback <= MAX_DELAY_FB);
         console.assert(delay_feedback % DELAY_FB_STEP == 0);
         this.delay_feedback = delay_feedback;
+    }
+
+    // Set how far the filter is opened, signed: negative brings a low-pass
+    // down over the track, positive brings a high-pass up under it, and zero
+    // is the centre, where it does nothing.
+    set_filter(filter)
+    {
+        console.assert(filter >= MIN_FILTER);
+        console.assert(filter <= MAX_FILTER);
+        console.assert(Number.isInteger(filter));
+        this.filter = filter;
+    }
+
+    // Set the resonance, as an index into the Q range (see MIN_RESONANCE)
+    set_resonance(resonance)
+    {
+        console.assert(resonance >= MIN_RESONANCE);
+        console.assert(resonance <= MAX_RESONANCE);
+        console.assert(Number.isInteger(resonance));
+        this.resonance = resonance;
     }
 
     // Number of patterns this project holds
@@ -663,6 +778,78 @@ export class Project
         return this.delay_feedback / 100;
     }
 
+    // Which kind of filter the control is currently asking for, named the way
+    // the audio graph names it, or null at the centre, where the answer is
+    // none: the filter is routed around entirely rather than opened all the
+    // way, since a digital filter never quite disappears however far it is
+    // opened.
+    get filter_type()
+    {
+        if (this.filter == 0)
+            return null;
+
+        return this.filter < 0? 'lowpass' : 'highpass';
+    }
+
+    // Where the filter is set, in Hz.
+    //
+    // Both directions sweep the same band, and both sweep it in the direction
+    // that takes more away the further the control is from the centre: a
+    // low-pass starts at the top and comes down, a high-pass starts at the
+    // bottom and goes up. The travel is logarithmic, an octave being a
+    // constant distance along it, because that is how the ear spaces
+    // frequencies: an even sweep in Hz would crawl through the bottom of the
+    // range and jump through the top.
+    get filter_freq()
+    {
+        if (this.filter == 0)
+            return null;
+
+        // The first setting either side of the centre is the open end of the
+        // sweep, the centre itself not being on the scale at all
+        let frac = (Math.abs(this.filter) - 1) / (MAX_FILTER - 1);
+        let span = FILTER_MAX_FREQ / FILTER_MIN_FREQ;
+
+        return this.filter < 0?
+            FILTER_MAX_FREQ / span ** frac :
+            FILTER_MIN_FREQ * span ** frac;
+    }
+
+    // How hard the pair of filters peaks at its own corner, which is what the
+    // resonance control sets. Logarithmic for the same reason the frequency
+    // is: the difference a step makes shrinks as the peak climbs.
+    //
+    // Faded out towards the centre of the cutoff's travel, where the filter is
+    // switched in and out and changes kind (see FILTER_RESO_FADE). The fade is
+    // geometric, i.e. even in decibels, so it runs at a constant rate by ear
+    // the way the rest of the control does.
+    get filter_peak()
+    {
+        let frac = this.resonance / MAX_RESONANCE;
+        let peak = FILTER_MIN_PEAK * (FILTER_MAX_PEAK / FILTER_MIN_PEAK) ** frac;
+        let fade = Math.min(1, Math.abs(this.filter) / FILTER_RESO_FADE);
+
+        return FILTER_MIN_PEAK * (peak / FILTER_MIN_PEAK) ** fade;
+    }
+
+    // The Q of the stage that only supplies slope, which never moves: it is
+    // what holds the pair flat, and resonance is the other stage's to add.
+    // Read off the project rather than imported by the audio graph, which
+    // would put a cycle between the two modules for one number.
+    get filter_pole_q()
+    {
+        return FILTER_POLE_Q;
+    }
+
+    // The Q the resonant stage of the filter is set to. A biquad passes its
+    // corner at a gain of its own Q, so what the two of them do there is the
+    // product: this is the peak above divided by the share the fixed stage
+    // already contributes.
+    get filter_q()
+    {
+        return this.filter_peak / FILTER_POLE_Q;
+    }
+
     //========================================================================
     // Timeline
     //========================================================================
@@ -763,8 +950,19 @@ export class Project
 // lane with it, which is what keeps lanes matched up with patterns.
 //============================================================================
 
-// Version of the encoding format
-const ENCODING_VERSION = 0;
+// Version of the encoding format.
+//
+// Version 0 is the format as it stood before the filter, and is still read:
+// the links written by it are out in the world, and the only thing that keeps
+// them opening as the songs they were made from is this field and the branch
+// on it below. A version is stepped rather than a field quietly appended
+// because a reader that guessed wrong about which fields a link carries would
+// not fail, it would open the link as a different song.
+const ENCODING_VERSION = 1;
+
+// Version that first carried the filter. A link older than this was written
+// before there was one, and is read as a project that leaves it alone.
+const FILTER_VERSION = 1;
 
 // Number of bits used for each field
 const VERSION_BITS = 4;
@@ -779,6 +977,8 @@ const VOLUME_BITS = 5;
 const SEND_BITS = 5;
 const DELAY_TIME_BITS = 5;
 const DELAY_FB_BITS = 4;
+const FILTER_BITS = 8;
+const RESONANCE_BITS = 5;
 
 // How the cells of a row are written. Every row says which of these it used,
 // and the encoder takes whichever writes that row in the fewest bits.
@@ -881,6 +1081,8 @@ console.assert(MAX_VOLUME - MIN_VOLUME < (1 << VOLUME_BITS));
 console.assert(MAX_SEND - MIN_SEND < (1 << SEND_BITS));
 console.assert(DELAY_STEP_FRACTIONS.length == (1 << DELAY_TIME_BITS));
 console.assert(MAX_DELAY_FB / DELAY_FB_STEP < (1 << DELAY_FB_BITS));
+console.assert(MAX_FILTER - MIN_FILTER < (1 << FILTER_BITS));
+console.assert(MAX_RESONANCE - MIN_RESONANCE < (1 << RESONANCE_BITS));
 console.assert(MAX_PATTERNS <= (1 << NUM_PATTERNS_BITS));
 console.assert(MAX_PAT_STEPS <= (1 << NUM_STEPS_BITS));
 console.assert(MAX_PAT_ROWS <= (1 << NUM_ROWS_BITS));
@@ -1616,6 +1818,22 @@ export function encode_project(project)
         writer.write(project.delay_feedback / DELAY_FB_STEP, DELAY_FB_BITS);
     }
 
+    // How the filter is set, on the same terms as the delay above: a project
+    // that left it at the centre says so in a bit and writes nothing else,
+    // which is nearly all of them. A filter is something a track is swept
+    // with, so it is the projects that were finished on one setting that
+    // pay for it here.
+    let filter_default = project.filter == DEFAULT_FILTER &&
+                         project.resonance == DEFAULT_RESONANCE;
+
+    writer.write(filter_default? 1:0, 1);
+
+    if (!filter_default)
+    {
+        writer.write(project.filter - MIN_FILTER, FILTER_BITS);
+        writer.write(project.resonance - MIN_RESONANCE, RESONANCE_BITS);
+    }
+
     writer.write(pat_idxs.length - 1, NUM_PATTERNS_BITS);
 
     // The pattern written before the one being written, which is what the
@@ -1693,7 +1911,7 @@ export function decode_project(b64_str)
     let reader = new BitReader(b64_str);
 
     let version = reader.read(VERSION_BITS);
-    if (version != ENCODING_VERSION)
+    if (version > ENCODING_VERSION)
         throw RangeError(`unsupported encoding version ${version}`);
 
     let project = new Project();
@@ -1706,6 +1924,15 @@ export function decode_project(b64_str)
     {
         project.set_delay_time(reader.read(DELAY_TIME_BITS));
         project.set_delay_feedback(reader.read(DELAY_FB_BITS) * DELAY_FB_STEP);
+    }
+
+    // A link written before there was a filter carries nothing about it, and
+    // opens as the project it always did, which now has one sitting at the
+    // centre doing nothing
+    if (version >= FILTER_VERSION && !reader.read(1))
+    {
+        project.set_filter(MIN_FILTER + reader.read(FILTER_BITS));
+        project.set_resonance(MIN_RESONANCE + reader.read(RESONANCE_BITS));
     }
 
     let num_patterns = reader.read(NUM_PATTERNS_BITS) + 1;

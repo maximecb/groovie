@@ -361,6 +361,10 @@ async function init_web_audio()
     global_gain.gain.setValueAtTime(volume, ctx.currentTime);
     global_gain.connect(ctx.destination);
 
+    // A project loaded from a link can arrive with its filter already swept,
+    // which there was nowhere to put it until now
+    apply_filter();
+
     // The audio context starts out in a paused state.
     //
     // This has to be reached without waiting on anything first: iOS only lets
@@ -496,6 +500,197 @@ export function update_delay(project)
         if (delay_fb)
             delay_fb.gain.setValueAtTime(delay_fb_gain, get_audio_ctx().currentTime);
     }
+}
+
+//============================================================================
+// Filter
+//
+// One filter for the whole project, sitting across the master gain on the way
+// out, so that it takes the echoes and everything else with it the way the
+// filter on a DJ mixer does. It is set with a single control that does nothing
+// at its centre (see MIN_FILTER in model.js).
+//
+// The master gain feeds three paths, and what the control does is fade between
+// them: a dry path that is up while the control sits at its centre, and a
+// low-pass and a high-pass chain, one of which comes up as the control leaves
+// it. Nothing is connected or disconnected and no node's type is ever changed
+// while it can be heard, which is what keeps the crossing silent. Both of
+// those are steps that no amount of ramping can smooth, being a connection and
+// a property rather than anything with a value over time.
+//
+// Fading rather than switching is also free of the usual crossfade problem.
+// Near the centre the filtered path is barely filtering, so the two paths
+// carry very nearly the same signal, and two copies of the same signal faded
+// between sum to exactly themselves.
+//============================================================================
+
+// The filter paths, built the first time the control is moved off its centre.
+// A project that never touches it never builds them, and goes on running with
+// the master gain wired straight to the output.
+//
+// Each filtered path is two biquads rather than one, for the slope: a single
+// biquad rolls off at 12 dB per octave, and a pair at 24, which is what the
+// filters people know the sound of are built at. The two stages differ only in
+// how hard each peaks at the corner (see FILTER_POLE_Q in model.js).
+let filter_dry = null;
+let filter_lp = null;
+let filter_hp = null;
+
+// The gain at the end of each of the three paths, which is what the control
+// actually moves
+let filter_dry_gain = null;
+let filter_lp_gain = null;
+let filter_hp_gain = null;
+
+// What the filter is currently set to, held here whether or not the nodes
+// exist, the way the delay settings are: a project loaded before the audio
+// context is running still has its filter waiting when the graph is built.
+let filter_type = null;
+let filter_freq = 0;
+let filter_pole_q = 0;
+let filter_q = 0;
+
+// How long the filter takes to reach a setting it has been moved to, and to
+// fade between its paths, in seconds.
+//
+// Its settings are glided to rather than stepped to, which is the opposite of
+// what the delay time does and for the opposite reason. Stepping a delay time
+// re-reads a ringing line at a new rate and bends the pitch of what is in it,
+// which is a sound worth having. Stepping a filter's coefficients discontinues
+// its output instead, and the more resonance it has the more energy is sitting
+// in its memory to be discontinued: it clicks, on the one control here that is
+// meant to be swept while the track runs.
+//
+// Short enough that the filter still arrives where the control is by the time
+// anyone could notice it hadn't, and long enough to cover the jump.
+const FILTER_GLIDE_SECS = 0.015;
+
+// Build the three paths and wire them in place of the master gain's own route
+// to the output. The dry path starts up and the other two down, which is what
+// the graph was already doing, so this is silent.
+function build_filter()
+{
+    let ctx = get_audio_ctx();
+
+    filter_dry_gain = ctx.createGain();
+    filter_lp_gain = ctx.createGain();
+    filter_hp_gain = ctx.createGain();
+
+    filter_dry_gain.gain.value = 1;
+    filter_lp_gain.gain.value = 0;
+    filter_hp_gain.gain.value = 0;
+
+    // Two stages per path. The first of each only supplies slope and is set
+    // once: it holds the pair flat, and resonance is the other stage's to add.
+    function make_chain(type, out_gain)
+    {
+        let stage1 = ctx.createBiquadFilter();
+        let stage2 = ctx.createBiquadFilter();
+
+        stage1.type = type;
+        stage2.type = type;
+        stage1.Q.value = filter_pole_q;
+
+        stage1.connect(stage2);
+        stage2.connect(out_gain);
+        out_gain.connect(ctx.destination);
+
+        return [stage1, stage2];
+    }
+
+    filter_lp = make_chain('lowpass', filter_lp_gain);
+    filter_hp = make_chain('highpass', filter_hp_gain);
+    filter_dry = filter_dry_gain;
+
+    // The master gain fed the output directly until now, and feeds the three
+    // paths instead from here on. The dry one is up, so what comes out is
+    // unchanged.
+    global_gain.disconnect();
+    global_gain.connect(filter_dry_gain);
+    global_gain.connect(filter_lp[0]);
+    global_gain.connect(filter_hp[0]);
+    filter_dry_gain.connect(ctx.destination);
+}
+
+// Apply a project's filter settings to the audio graph.
+//
+// Called when the controls are moved and when a project is loaded. Unlike the
+// delay this doesn't follow the tempo: a filter is set in Hz, and a song
+// played faster is the same song through the same filter.
+export function update_filter(project)
+{
+    let new_type = project.filter_type;
+    let new_freq = project.filter_freq;
+    let new_q = project.filter_q;
+
+    if (new_type == filter_type && new_freq == filter_freq && new_q == filter_q)
+        return;
+
+    filter_type = new_type;
+    filter_freq = new_freq;
+    filter_pole_q = project.filter_pole_q;
+    filter_q = new_q;
+
+    apply_filter();
+}
+
+// Set the filter nodes to whatever the filter is currently set to, building
+// them if this is the first time it has been asked for, and fade to whichever
+// path the setting calls for. Also called once the audio context comes up,
+// since a project can be loaded from a link with its filter already swept,
+// long before there is anything to hear it through.
+function apply_filter()
+{
+    // Nothing to do before there is a graph to do it to, and nothing to build
+    // for a project that has left the filter at its centre
+    if (!global_gain || (!filter_dry && filter_type === null))
+        return;
+
+    let ctx = get_audio_ctx();
+    let now = ctx.currentTime;
+
+    if (!filter_dry)
+        build_filter();
+
+    // Where the corner is set only matters on the path that is coming up, but
+    // both are moved: the one that is going down is where the control will
+    // come back through, and a path left behind at an old setting would have
+    // to jump to catch up the next time it was faded in.
+    //
+    // A path that is silent is set outright rather than glided, there being
+    // nothing audible to glide. One that can be heard glides, which is what
+    // keeps a sweep from clicking its way across the band.
+    if (filter_freq !== null)
+    {
+        for (let [chain, out_gain] of [[filter_lp, filter_lp_gain], [filter_hp, filter_hp_gain]])
+        {
+            let audible = out_gain.gain.value > 0;
+
+            for (let stage of chain)
+            {
+                if (audible)
+                    stage.frequency.setTargetAtTime(filter_freq, now, FILTER_GLIDE_SECS);
+                else
+                    stage.frequency.setValueAtTime(filter_freq, now);
+            }
+
+            if (audible)
+                chain[1].Q.setTargetAtTime(filter_q, now, FILTER_GLIDE_SECS);
+            else
+                chain[1].Q.setValueAtTime(filter_q, now);
+        }
+    }
+
+    // And fade to the path this setting calls for. All three are always
+    // connected, so this is the whole of what switching between them is.
+    let wanted = [
+        [filter_dry_gain, filter_type === null],
+        [filter_lp_gain, filter_type == 'lowpass'],
+        [filter_hp_gain, filter_type == 'highpass'],
+    ];
+
+    for (let [gain, up] of wanted)
+        gain.gain.setTargetAtTime(up? 1:0, now, FILTER_GLIDE_SECS);
 }
 
 // Play a sample once, right away, to preview what it sounds like.

@@ -137,7 +137,7 @@
                 <!-- How much of each row goes to the delay is set per row, on
                      the sliders beside its steps. These are what the echoes it
                      sends there sound like. -->
-                <div class="controls">
+                <div class="controls stretch_ctls">
                     <div class="slider_ctl">
                         <label>Time: <span class="wide_val" id="delay_time_val">3 steps</span></label>
                         <!-- Range is set in main.js, from MIN/MAX_DELAY_TIME -->
@@ -153,6 +153,31 @@
                 <div class="share_note">
                     Set how much of a row is echoed with the
                     delay slider beside its steps.
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="label">Filter</div>
+
+                <!-- One filter across the whole track, set with one control:
+                     the centre does nothing, left brings a low-pass down over
+                     it and right brings a high-pass up under it. -->
+                <div class="controls stretch_ctls">
+                    <div class="slider_ctl wide">
+                        <label>Cutoff: <span class="wide_val" id="filter_val">off</span></label>
+                        <!-- Range is set in main.js, from MIN/MAX_FILTER -->
+                        <input type="range" id="filter_slider" class="ctr_slider">
+                    </div>
+                    <div class="slider_ctl">
+                        <label>Resonance: <span class="num_val" id="resonance_val">0</span>%</label>
+                        <!-- Range is set in main.js, from MIN/MAX_RESONANCE -->
+                        <input type="range" id="resonance_slider">
+                    </div>
+                </div>
+
+                <div class="share_note">
+                    Sweep left for a low-pass, right for a high-pass.
+                    Double-click to centre.
                 </div>
             </div>
 

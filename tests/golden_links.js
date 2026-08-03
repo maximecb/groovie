@@ -82,4 +82,61 @@ export const GOLDEN_LINKS = [
 
     { song: "a phasing pulse of tiny patterns", link:
         "untitled/BcBMAAK5mb_sBANZXt_yBABsgq3zpkDAWZJ6vEv4FAD5CEnxKcCAAT0RFTiV0EgIvSQOjxKKDQHJIHNV_VIiAnJASIl-4UAI0gKSP_YKgPiQGgofrPwI5oAU1Z2OnLr9A5XY_ASmABTVn7dPBjWNgA" },
+
+    { song: "the amen break", link:
+        "untitled/FgBgfmCKIHFgLjDWCShL2cNa1AYNBqDw" },
+
+    { song: "a drum and bass roller", link:
+        "untitled/GGBgfqCKIHDCsBABO4UVqiqp1Ndt_FniBBIUAiECSQ411Ag7cQ60AQQ1hpz0gA" },
+
+    { song: "a 32 bar hip hop arrangement", link:
+        "untitled/EyBiPmG9aAIC3GAgjwuLSbpe-mJSpQ-c4Ag-BGCvlVr__BigV_yyw-dGHou8LyIPSPnTBDHpMp4x4l9SLxEULibWJJI--USA" },
+
+    { song: "a 32 bar techno arrangement", link:
+        "untitled/FaBiPiHoxwpEvSPn3AkgjhSJcMSAvpalj598CNFf4vv_v5I-neQR4l4lxQOSSPyVgwEdJH1TuA" },
+
+    { song: "a 64 bar house arrangement", link:
+        "untitled/FUBjniHAxwvEvfbF2PiE9BOuLiZrc_Fyxcj4gRAjBPE1NWufEvYuR8RFOSSeAqhmW1-StEvPyA-BP4A4nfACDERRxygB-qv80kPkCKIOBBBHC8S-KSPkMMCIqf_Cf1d_47-D0VfVJPyA2oQK7TghWAAgycjEfvqVgA" },
+
+    { song: "patterns of prime lengths", link:
+        "untitled/FQBiHiGxQHCoS99ggC3JfsouQYANkj7pvBQAJ0SPql2GAOZQX5SqAA" },
+
+    { song: "a default kit barely touched", link:
+        "untitled/FQBhHlKA8gjwvSpIeelBD9-4EEEfSVA8pQH8EBf9VX_-AA" },
+
+    { song: "a 32 bar house groove panned wide", link:
+        "untitled/FUNhvqHAxwIII8SM5AQ-AhyBADgIYEEp9aJWPt3wIwT9Ijj9-_cRQj_ix9AIII4TiRmF5AQ-AlaQICwPMCCU_EqDzHIoALHciArG0ghLAhHiv1JA" },
+
+    { song: "a 64 bar psytrance arrangement", link:
+        "untitled/FpBinqHIxxAE7cMRIhaFIJqUW0cEUiMInobw9-_fv379yOIIBRkcQEmdxL0S9lLkPfv8ef9-_fuPSV6MrAajAilxT2U8fQkSgKkDqhATBJQGgRiBJKJ6TtCoQRRAUxxSw8hr6Iq7EKQTcCks4pbjVhYgh0IQZ0DuJIRO-p3g" },
+
+    { song: "a dub techno arrangement", link:
+        "untitled/FUAnkM8g4GOFAkMrAgggxjfYeAsplXnrMcXYeIlI4Ik2BqLIIJYl7FyHjRjickSonmYp4A" },
+
+    { song: "a 32 bar two step arrangement", link:
+        "untitled/FgYm8N8w9UAqFuMhBBDZ4VCSChAtqLtvwaK97Fj560AQFvgRgrUwiir8AggEu1iVl5CN8kkokqgUBgFrAgQkeSTSA5Mqq0U1jTz8SJSAsOWaI1NrbwBFzSVJAA" },
+
+    { song: "a 64 bar drill and bass arrangement", link:
+        "untitled/F9ATMf8w2sUBBAETQrHF-uEBIQwmpiXDApoWZlx379OTEFqEhICIikmSBEFa1LUs_PIBQRAghIogRxrgRBIpBAKisxtLQuCq7Pfz2KkNgkRBISYkEooRRY4liS8REkBBFBAi5HJMp6gJJDSaExC461aTRWIuBEQJzOpRKaTI2QDeKSkUM84DYERAhBBQRaMAxhHWql4-Qz8V199_msJjdVgiQICJFAUmz30lV_lnlnicR9SAeAQbAJI6RM1z7ESsXIPygCmgBcgRBJ6KoYiQiZ-qWA" },
+
+    { song: "a 60 bar rave with vocal one shots", link:
+        "untitled/FiAm8t8oxw6F5cKhK1rljkrHwBciCkJx7GSPiIsRCMEtoARuu7ltbKHErRKJHwCsOn5K3mB8A7GLyPJW8wBgRMTOxh-yfwDAhtrY4-pLw_AGBBbNxEn9JtAMAAkaOMk-KH5gJYDmACYLGts6yQFUHXnyzgGTa58CmgOm3v6lJ8tSQMCAkWwMRR9n2fZ0h8AyEqflPA" },
+
+    { song: "the longest song there can be", link:
+        "untitled/FhBjnjGPII9_-iJf9ox90HCE4Q7ERRJFP1lxK8d_hgBeixyvlPq6CgAhIoQY_1OdQgIs04jQi0D0UGIe-2OkGAckQUl7mM3ZbmM3ZEgHxFQSPWUv6kWAI0gPTP_u0b4A" },
+
+    { song: "a hardcore stomp at the top of the range", link:
+        "untitled/Hwy_8E8hDGN4LRJRtsayCAGG6w8hEC_QJIIhvcWA" },
+
+    { song: "a doom crawl at the bottom of the range", link:
+        "untitled/EAAAEA8pQHBFELEckcDUSrA" },
+
+    { song: "a sixteen row percussion wall", link:
+        "untitled/E8Bgv_GPII8LyAvTJTn9p0rOl-ir0W-i_6JHnJFHpAh6IPO1rfSRj4RAigPWfiLX5IodZckiic1DUY9Y" },
+
+    { song: "a phasing pulse of tiny patterns", link:
+        "untitled/FcBmAAFczN_2AgGsr2_5AgA2QVb50yBgLMk9XiX8CgB8hCT4lOBAAJ6IipxK6CQEXpIHR4lFBoDkkDmq_qkRATkgJES_cKAEaQFJH_sFQHxIDQUP1n4Ec0AKas7HTl1-gcrsfgJTAApqz9ungxrGwA" },
+
+    { song: "a filtered acid techno stretch", link:
+        "untitled/FcAnSz0EeQcjHCkSHWgSQQazvoPIMSAjlEhbokCJMCekeIoGcXQ-IlpMsGk2RiYtdQPV48A" },
 ];

@@ -32,6 +32,11 @@ import {
     MAX_TEMPO,
     MIN_VOLUME,
     MIN_SEND,
+    MIN_FILTER,
+    MAX_FILTER,
+    DEFAULT_FILTER,
+    MAX_RESONANCE,
+    FILTER_MAX_PEAK,
 } from "../model.js";
 
 import {
@@ -41,6 +46,7 @@ import {
     play_pattern,
     play_song,
     stop_playback,
+    update_filter,
 } from "../audio.js";
 
 // The audio context is made on first use, so this has to be in place before
@@ -422,4 +428,171 @@ test("the delay is built once and shared by the rows that use it", async () =>
 
     assert.equal(first, second);
     assert.equal(first.type, 'gain');
+});
+
+//============================================================================
+// The filter
+//
+// One filter across the whole project, sitting on the master gain on its way
+// out, so what these check is the route rather than any one voice's chain.
+//============================================================================
+
+// Play one step of a plain pattern through a project's filter, and hand back
+// the master gain every voice went through
+async function filtered_master(project)
+{
+    project.set_tempo(ONE_STEP_TEMPO);
+
+    let pat = new Pattern([KICK], 1);
+    pat.rows = [[1]];
+    project.patterns = [pat];
+
+    await play_pattern(project, 0);
+    update_filter(project);
+    stop_playback();
+
+    let voices = drain_voices();
+    assert.equal(voices.length, 1);
+
+    // source -> master gain
+    return voices[0].dst;
+}
+
+// The three paths the master gain feeds once the filter has been built, in the
+// order audio.js wires them
+function filter_paths(master)
+{
+    let [dry, lp1, hp1] = master.dsts;
+
+    return {
+        dry,
+        lp: [lp1, lp1.dst],
+        hp: [hp1, hp1.dst],
+        lp_gain: lp1.dst.dst,
+        hp_gain: hp1.dst.dst,
+    };
+}
+
+test("a project with the filter centred reaches the output without one", async () =>
+{
+    // A digital filter keeps a little of its rolloff however far it is opened,
+    // so a project that never sweeps one never builds one and goes on running
+    // with the master gain wired straight to the output
+    let master = await filtered_master(new Project());
+
+    assert.deepEqual(master.dsts.map(node => node.kind), ['destination']);
+});
+
+test("a swept filter is a path beside the dry one rather than in front of it", async () =>
+{
+    // Everything goes through the master gain, echoes included, so a filter
+    // after it is a filter across the whole track the way a mixer's is.
+    //
+    // It is built as a path of its own beside a dry one, and both a low-pass
+    // and a high-pass are built at once. What the control does is fade between
+    // the three, so that crossing the centre never connects, disconnects or
+    // retypes anything: those are steps no amount of ramping can smooth.
+    let project = new Project();
+    project.set_filter(-64);
+
+    let master = await filtered_master(project);
+
+    assert.deepEqual(master.dsts.map(node => node.kind), ['gain', 'filter', 'filter']);
+
+    let paths = filter_paths(master);
+
+    // Two stages per filtered path, for the 24 dB per octave: a single biquad
+    // rolls off at 12, which leaves an octave of what was just cut still
+    // audible under the corner
+    assert.equal(paths.lp[0].type, 'lowpass');
+    assert.equal(paths.lp[1].type, 'lowpass');
+    assert.equal(paths.hp[0].type, 'highpass');
+    assert.equal(paths.hp[1].type, 'highpass');
+
+    // All three arrive at the output
+    for (let gain of [paths.dry, paths.lp_gain, paths.hp_gain])
+        assert.deepEqual(gain.dsts.map(node => node.kind), ['destination']);
+});
+
+test("only the path the control asks for is up", async () =>
+{
+    let project = new Project();
+    project.set_filter(-64);
+
+    let master = await filtered_master(project);
+    let paths = filter_paths(master);
+
+    assert.equal(paths.dry.gain.value, 0);
+    assert.equal(paths.lp_gain.gain.value, 1);
+    assert.equal(paths.hp_gain.gain.value, 0);
+
+    // Swept the other way it is the other path, the low-pass going down
+    project.set_filter(64);
+    update_filter(project);
+
+    assert.equal(paths.dry.gain.value, 0);
+    assert.equal(paths.lp_gain.gain.value, 0);
+    assert.equal(paths.hp_gain.gain.value, 1);
+});
+
+test("sweeping back to the centre fades to the dry path rather than unwiring", async () =>
+{
+    // The route has to come back, not just stop filtering. It comes back as a
+    // fade rather than as a disconnection: a graph change is a step, and a
+    // step is the click this is all here to avoid.
+    let project = new Project();
+    project.set_filter(-64);
+
+    let master = await filtered_master(project);
+    let paths = filter_paths(master);
+
+    project.set_filter(DEFAULT_FILTER);
+    update_filter(project);
+
+    assert.equal(paths.dry.gain.value, 1);
+    assert.equal(paths.lp_gain.gain.value, 0);
+    assert.equal(paths.hp_gain.gain.value, 0);
+
+    // Still wired exactly as it was, which is the point
+    assert.deepEqual(master.dsts.map(node => node.kind), ['gain', 'filter', 'filter']);
+});
+
+test("the filter is set to what the project asks of it", async () =>
+{
+    let project = new Project();
+    project.set_filter(MIN_FILTER);
+    project.set_resonance(MAX_RESONANCE);
+
+    let master = await filtered_master(project);
+    let [stage1, stage2] = filter_paths(master).lp;
+
+    // Both stages sit at the same corner, which is what makes the pair one
+    // filter with twice the slope
+    for (let stage of [stage1, stage2])
+        assert.ok(Math.abs(stage.frequency.value - project.filter_freq) < 1e-9);
+
+    // They differ only in how hard each peaks there. The first supplies slope
+    // and never moves, the second is the one resonance is on, and what they do
+    // together is the product.
+    assert.ok(Math.abs(stage1.Q.value - project.filter_pole_q) < 1e-9);
+    assert.ok(Math.abs(stage2.Q.value - project.filter_q) < 1e-9);
+    assert.ok(Math.abs(stage1.Q.value * stage2.Q.value - FILTER_MAX_PEAK) < 1e-9);
+});
+
+test("the path that is down is kept at the setting the control passed through", async () =>
+{
+    // The control comes back through the path that is currently silent, and a
+    // path left behind at an old setting would have to jump to catch up the
+    // next time it was faded in, which is the jump being avoided
+    let project = new Project();
+    project.set_filter(-64);
+
+    let master = await filtered_master(project);
+    let paths = filter_paths(master);
+
+    project.set_filter(-32);
+    update_filter(project);
+
+    for (let stage of [...paths.lp, ...paths.hp])
+        assert.ok(Math.abs(stage.frequency.value - project.filter_freq) < 1e-9);
 });

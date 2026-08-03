@@ -27,6 +27,10 @@
 // Rows can be sent to the delay the same way, in the decibels a send is held
 // in, and the song can say how the delay itself is set. A song that says
 // nothing about either is played dry.
+//
+// A song can also say where the project's filter is left, signed either side
+// of a centre where it does nothing, and how much it resonates there. One that
+// says nothing about either is played unfiltered.
 
 import { get_sample_idx } from "../audio.js";
 import {
@@ -1478,6 +1482,67 @@ export const CORPUS = [
     ],
 },
 
+
+{
+    // Acid techno at 132, and the song the filter is here for. A filter is a
+    // gesture rather than a setting, so a song that carries one is a song that
+    // was left mid-sweep: this one is parked with the high-pass up around 400
+    // Hz and the resonance well up, which is where a track sits during the
+    // filtered stretch before it drops. The kick is still playing every beat
+    // and almost none of it is getting through, which is the point.
+    //
+    // It is also the only song here that sets the filter and the delay at
+    // once, both being project-wide effects that a link has to carry side by
+    // side. Nothing else in the corpus can, the filter being newer than the
+    // rest of them.
+    name: 'a filtered acid techno stretch',
+    tempo: 132,
+    filter: 52,             // a high-pass a little over a third of the way up
+    resonance: 26,          // and enough of a peak to be heard as one
+    delay_time: 19,         // three steps, i.e. a dotted eighth
+    delay_feedback: 50,
+    song_bars: 24,
+    patterns: [
+        {   // the four to the floor the filter is sitting on top of
+            samples: ['kick_05', 'hat_closed_03', 'clap_02'],
+            rows: [
+                'x...x...x...x...',
+                '..x...x...x...x.',
+                '....x.......x...',
+            ],
+            pans:    [ 0, -3,  3],
+            volumes: [ 0, -8, -5],
+            lane: 'xxxxxxxxxxxxxxxxxxxxxxxx',
+        },
+        {   // the roll that opens up underneath it, echoed rather than dry so
+            // that the repeats are what carries through the high-pass
+            samples: ['hat_open_03', 'rimshot_03', 'perc_03'],
+            rows: [
+                '......x.......x.',
+                '..x..x..x..x..x.',
+                '...x........x...',
+            ],
+            pans:    [  4,  -6,   7],
+            volumes: [-10, -12, -14],
+            sends:   [-12,  -6, -18],
+            lane: '....xxxxxxxxxxxxxxxxxxxx',
+        },
+        {   // a two bar stab layer, sent hardest of anything here: a resonant
+            // high-pass leaves the metallic end of these almost untouched,
+            // which is what the top of the track is made of while it is up
+            samples: ['metal_02', 'zap_02'],
+            rows: [
+                //  bar 1              bar 2
+                '............x...' + '......x.........',
+                '..x.............' + '..........x..x..',
+            ],
+            pans:    [ -7,   6],
+            volumes: [-12, -15],
+            sends:   [ -3,  -9],
+            lane: '....xxxxxxxx',
+        },
+    ],
+},
 ];
 
 // Turn one of the entries above into a project
@@ -1497,6 +1562,12 @@ export function build_song(song)
 
     if (song.delay_feedback !== undefined)
         project.set_delay_feedback(song.delay_feedback);
+
+    if (song.filter !== undefined)
+        project.set_filter(song.filter);
+
+    if (song.resonance !== undefined)
+        project.set_resonance(song.resonance);
 
     for (let { samples, rows, lane, pans, volumes, sends } of song.patterns)
     {
