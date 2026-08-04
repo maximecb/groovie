@@ -1543,6 +1543,284 @@ export const CORPUS = [
         },
     ],
 },
+
+{
+    // The longest arrangement here that isn't the artificial maximum: 96 bars
+    // at 133, ten patterns, and layered rather than tiled, so its lanes are
+    // long unbroken runs of hundreds of cells between them. That is what it is
+    // in the corpus for. Everything else long is either one pattern repeated
+    // to the end of the timeline or a handful of two bar patterns handing off
+    // to each other, and neither of those says much about what a link costs
+    // once a real arrangement fills it out.
+    //
+    // Its patterns come in four lengths — 12, 16 and 32 steps — so the lanes
+    // hold cells of three quarters of a bar, one bar and two bars alongside
+    // each other. The 12 step layer is the one that doesn't divide the bar: it
+    // comes back into line with the grid every three bars and starts halfway
+    // through a bar the second time it comes in, which is why its lane is
+    // written out rather than built from bar numbers.
+    //
+    // The arrangement is the hypnotic one: kick and offbeat open hat holding
+    // under everything, layers arriving one section at a time, a breakdown at
+    // bar 48 that drops the kick and leaves the delay holding the room, and a
+    // peak from bar 56 to the end.
+    name: 'a 96 bar berlin techno arrangement',
+    tempo: 133,
+    delay_feedback: 55,
+    song_bars: 96,
+    patterns: [
+        {   // the kick and the offbeat open hat, under all of it but the
+            // breakdown
+            samples: ['hat_open_03', 'kick_09'],
+            rows: [
+                '..x...x...x...x.',
+                'x...x...x...x...',
+            ],
+            pans:    [ 3,  0],
+            volumes: [-12, 0],
+            lane: 'x'.repeat(48) + '.'.repeat(8) + 'x'.repeat(40),
+        },
+        {   // two bars of hats, the second closing up at its end
+            samples: ['hat_closed_05', 'hat_closed_02'],
+            rows: [
+                //  bar 1              bar 2
+                '.x.x.x.x.x.x.x.x' + '.x.x.x.x.x.x.xxx',
+                '..x...x...x...x.' + '..x...x...x.x.x.',
+            ],
+            pans:    [ -7,   6],
+            volumes: [-17, -13],
+            lane: '..xxxxxxxxxxxxxxxxxx........xxxxxxxxxxxxxxxxxxxx',
+        },
+        {   // the backbeat, with the rimshot sent to the delay
+            samples: ['rimshot_02', 'clap_02'],
+            rows: [
+                '..........x..x..',
+                '....x.......x...',
+            ],
+            pans:    [  6,  -2],
+            volumes: [-11,  -4],
+            sends:   [ -8, -30],
+            lane: '.'.repeat(8) + 'x'.repeat(40) + '.'.repeat(12) + 'x'.repeat(36),
+        },
+        {   // the stabs, both sent hard, which is what the breakdown is left
+            // holding once the kick goes
+            samples: ['metal_01', 'zap_02'],
+            rows: [
+                //  bar 1              bar 2
+                '............x...' + '................',
+                '................' + '..........x.....',
+            ],
+            pans:    [ -8,   7],
+            volumes: [-13, -16],
+            sends:   [ -4,  -8],
+            lane: '......xxxxxxxxxx..xxxxxx........xxxxxxxxxxxxxx',
+        },
+        {   // twelve steps, so it walks around the bar and only lines up again
+            // every three of them. It comes in halfway through bar 16 the
+            // first time and halfway through bar 64 the second, a lane cell
+            // being three quarters of a bar rather than a bar
+            samples: ['perc_02', 'bongo_02'],
+            rows: [
+                'x....x..x...',
+                '..x.......x.',
+            ],
+            pans:    [  9,  -9],
+            volumes: [-15, -18],
+            sends:   [-14, -20],
+            lane: '.'.repeat(22) + 'x'.repeat(42) + '.'.repeat(22) + 'x'.repeat(31),
+        },
+        {   // ride and a low tom, over the second half of each long stretch
+            samples: ['ride_01', 'tom_low_03'],
+            rows: [
+                '..x...x...x...x.',
+                '..........x.....',
+            ],
+            pans:    [ -5,   5],
+            volumes: [-16, -14],
+            sends:   [-20, -12],
+            lane: '.'.repeat(32) + 'x'.repeat(16) + '.'.repeat(20) + 'x'.repeat(28),
+        },
+        {   // the breakdown itself: five rows, no kick, everything sent, and
+            // the widest pattern here
+            samples: ['crash_01', 'hat_open_03', 'glass_01', 'metal_01', 'rimshot_01'],
+            rows: [
+                //  bar 1              bar 2
+                'x...............' + '................',
+                '..x.......x.....' + '..x.......x...x.',
+                '............x...' + '......x.........',
+                '............x...' + '....x.......x...',
+                '......x.........' + '......x...x.....',
+            ],
+            pans:    [  0,   4,   8,  -8,   6],
+            volumes: [-10, -13, -15, -12, -11],
+            sends:   [-16, -12,  -3,  -3,  -6],
+            lane: '........................xxxx',
+        },
+        {   // the four bars that build back out of the breakdown, the distorted
+            // snare filling in as they go
+            samples: ['hat_closed_02', 'clap_03', 'snare_distort_01'],
+            rows: [
+                '.x.x.x.x.x.x.x.x',
+                '............x.x.',
+                'x...x...x.x.x.xx',
+            ],
+            pans:    [  6,   0,   0],
+            volumes: [-13,  -8,  -7],
+            sends:   [-30, -12, -14],
+            lane: '.'.repeat(56) + 'xxxx',
+        },
+        {   // the top of the peak, glass and bongos over the last stretch
+            samples: ['glass_02', 'bongo_03', 'tom_mid_04'],
+            rows: [
+                //  bar 1              bar 2
+                '..........x.....' + '..........x..x..',
+                'x..x..x..x..x...' + 'x..x..x..x..x..x',
+                '................' + '...........x.x..',
+            ],
+            pans:    [ -9,   8,  -4],
+            volumes: [-16, -14, -12],
+            sends:   [-12, -18, -30],
+            lane: '.'.repeat(36) + 'xxxxxxxx',
+        },
+        {   // one crash, dropped onto the timeline wherever a section turns
+            // over. A one bar pattern across 96 bars reads as nothing written
+            // out as a grid, and as the eight bars it lands on written this way
+            samples: ['crash_01'],
+            rows: ['x...............'],
+            volumes: [-9],
+            sends: [-12],
+            lane: lane_at_cells([8, 24, 32, 60, 64, 72, 80, 88]),
+        },
+    ],
+},
+
+{
+    // Boom bap again, but as a whole song rather than as an arrangement: 64
+    // bars at 88 is two minutes and fifty-five seconds, which is where a rap
+    // single sits, and the corpus is otherwise short on songs that run as long
+    // as a real one at a tempo this slow. A slow song is the expensive case for
+    // the encoding in bars rather than in patterns.
+    //
+    // Laid out the way the hip hop arrangement above is, two bar patterns
+    // tiling the timeline, but sectioned the way a song with a vocal over it
+    // has to be: four bars of intro, sixteen bar verses that give their last
+    // two bars to the turnaround so they fill into the hook rather than
+    // repeating into it, hooks that add a clap and a vocal stab, a breakdown
+    // that drops the kick, and an outro that crashes and stops.
+    name: 'a 64 bar rap arrangement',
+    tempo: 88,
+    swing: 57,              // enough shuffle to sit behind a vocal
+    delay_time: 14,         // two steps, for the rimshot throws
+    delay_feedback: 25,
+    song_bars: 64,
+    patterns: [
+        {   // intro: hats and rimshot, kick walking in over the second bar
+            samples: ['hat_closed_02', 'rimshot_03', 'kick_05'],
+            rows: [
+                //  bar 1              bar 2
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '..x.......x.....' + '..x.......x...x.',
+                '................' + 'x.........x.....',
+            ],
+            pans:    [  4,  -6,   0],
+            volumes: [-12, -14,   0],
+            sends:   [-30, -12, -30],
+            lane: 'xx..............................',
+        },
+        {   // main verse groove
+            samples: ['hat_closed_02', 'rimshot_03', 'snare_06', 'kick_05'],
+            rows: [
+                //  bar 1              bar 2
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '..............x.' + '..x...........x.',
+                '....x.......x...' + '....x.......x...',
+                'x.....x...x.....' + 'x.......x.x.....',
+            ],
+            pans:    [  4,  -6,   0,   0],
+            volumes: [-11, -15,  -3,   0],
+            sends:   [-30, -14, -30, -30],
+            lane: '..xxxxxxx.....xxxxxxx.......xx..',
+        },
+        {   // turnaround, fill in the second bar, closing each verse
+            samples: ['hat_closed_02', 'rimshot_03', 'snare_06', 'kick_05'],
+            rows: [
+                //  bar 1              bar 2
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.xxxxxx',
+                '..............x.' + '................',
+                '....x.......x...' + '....x.......x.x.',
+                'x.....x...x.....' + 'x.........x.x...',
+            ],
+            pans:    [  4,  -6,   0,   0],
+            volumes: [-11, -15,  -3,   0],
+            sends:   [-30, -14, -30, -30],
+            lane: '.........x...........x........x.',
+        },
+        {   // hook: clap doubling the snare, open hat, and a vocal stab sent to
+            // the delay
+            samples: [
+                'hat_open_02',
+                'hat_closed_02',
+                'vocal_what_01',
+                'clap_02',
+                'snare_06',
+                'kick_05',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                '......x.......x.' + '......x.......x.',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                'x...............' + '............x...',
+                '....x.......x...' + '....x.......x...',
+                '....x.......x...' + '....x.......x...',
+                'x.....x...x.....' + 'x.....x...x...x.',
+            ],
+            pans:    [  7,   4,  -3,   3,   0,   0],
+            volumes: [-13, -11,  -8,  -8,  -3,   0],
+            sends:   [-30, -30, -10, -30, -30, -30],
+            lane: '..........xxxx..........xxxx....',
+        },
+        {   // breakdown: kick out, rimshot and hats holding the space
+            samples: ['hat_closed_02', 'rimshot_03', 'snare_06', 'kick_05'],
+            rows: [
+                //  bar 1              bar 2
+                'x...x...x...x...' + 'x...x...x...x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                '............x...' + '....x...........',
+                'x...............' + 'x.......x.......',
+            ],
+            pans:    [  4,  -7,   0,   0],
+            volumes: [-11, -13,  -5,  -2],
+            sends:   [-30,  -8, -30, -30],
+            lane: '......................xx........',
+        },
+        {   // outro: last two bars, crash on the downbeat and a stop
+            samples: ['crash_01', 'hat_closed_02', 'snare_06', 'kick_05'],
+            rows: [
+                //  bar 1              bar 2
+                'x...............' + '................',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x...........',
+                '....x.......x...' + '....x...........',
+                'x.....x...x.....' + 'x.......x.......',
+            ],
+            pans:    [  0,   4,   0,   0],
+            volumes: [ -8, -11,  -3,   0],
+            lane: '...............................x',
+        },
+        {   // three bars long, so the shaker never lines up with the two bar
+            // patterns and walks around them for the whole middle of the song
+            samples: ['maracas_01', 'perc_03'],
+            rows: [
+                //  bar 1              bar 2              bar 3
+                '..x..x..x..x..x.' + '..x..x..x..x..x.' + '..x..x..x..x..x.',
+                '........x.......' + '............x...' + '......x.........',
+            ],
+            pans:    [ -8,   9],
+            volumes: [-16, -17],
+            sends:   [-30, -16],
+            lane: '.......' + 'x'.repeat(14),
+        },
+    ],
+},
 ];
 
 // Turn one of the entries above into a project
