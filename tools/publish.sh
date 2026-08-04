@@ -48,6 +48,7 @@ readonly SITE_PATHS=(
     model.js
     view.js
     audio.js
+    midi.js
     sample_list.js
     samples
 )
