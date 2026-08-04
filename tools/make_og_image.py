@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 
-"""Builds og_image.png, the picture that shows up when a link is shared.
+"""Builds og_image.jpg, the picture that shows up when a link is shared.
 
 Social media and chat apps read the picture named by the og:image tag in
-index.html, and they don't run JavaScript or read SVG, so this is a flat PNG
-committed to the repo rather than anything drawn at load time.
+index.html, and they don't run JavaScript or read SVG, so this is a flat
+bitmap committed to the repo rather than anything drawn at load time.
+
+Two files come out. The JPEG is the one index.html points at: the picture has
+to be fetched before the card can be drawn, and the same picture as a PNG is
+close to five times the bytes, since a PNG stores every one of the scanlines
+exactly. The PNG is kept because links shared before this changed still ask
+for it, and a card whose picture 404s is shown as a bare link.
 
 The picture is the logo over a step sequencer grid playing a plain four-four
 beat, in the colours the app draws patterns in. There is no text in it beyond
@@ -31,7 +37,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 LOGO = REPO / 'logo.svg'
-OUT = REPO / 'og_image.png'
+OUT_PNG = REPO / 'og_image.png'
+OUT_JPG = REPO / 'og_image.jpg'
 
 # What every social network asks for. Anything near this ratio is shown
 # uncropped by X, Facebook, Messenger and Signal alike.
@@ -323,6 +330,29 @@ def find_chrome():
              '       Install it, or add its path to CHROMES in this script.')
 
 
+def screenshot(chrome, page, out):
+    """Draw the page and save it, in whatever format `out` is named for.
+
+    Chrome picks the format off the extension and compresses a JPEG at a
+    quality of its own choosing, which lands around where an encoder set to
+    85 would. There is no flag to move it, and no reason to want one here:
+    the artefacts are only findable by zooming in on the edge of a lit cell,
+    and the card is looked at at half this picture's width or less.
+    """
+    subprocess.run(
+        [chrome, '--headless', '--disable-gpu', '--hide-scrollbars',
+         f'--window-size={WIDTH},{HEIGHT}',
+         f'--screenshot={out}', f'--virtual-time-budget=2000',
+         page.as_uri()],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    if not out.exists():
+        sys.exit(f'error: Chrome did not produce {out.name}')
+
+    print(f'wrote {out.name}, {WIDTH}x{HEIGHT}, '
+          f'{out.stat().st_size / 1024:.0f} KB')
+
+
 def main():
     chrome = find_chrome()
 
@@ -340,20 +370,12 @@ def main():
             f'background:{BACKGROUND};overflow:hidden}}</style></head>'
             f'<body>{build_svg()}</body></html>')
 
-        subprocess.run(
-            [chrome, '--headless', '--disable-gpu', '--hide-scrollbars',
-             f'--window-size={WIDTH},{HEIGHT}',
-             f'--screenshot={OUT}', f'--virtual-time-budget=2000',
-             page.as_uri()],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Twice over the same page, once per format. Chrome writes one
+        # screenshot per run, and drawing it again costs a second.
+        screenshot(chrome, page, OUT_JPG)
+        screenshot(chrome, page, OUT_PNG)
     finally:
         shutil.rmtree(work, ignore_errors=True)
-
-    if not OUT.exists():
-        sys.exit('error: Chrome did not produce a screenshot')
-
-    size_kb = OUT.stat().st_size / 1024
-    print(f'wrote {OUT.name}, {WIDTH}x{HEIGHT}, {size_kb:.0f} KB')
 
 
 if __name__ == '__main__':
