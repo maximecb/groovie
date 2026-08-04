@@ -40,17 +40,27 @@ HEIGHT = 630
 
 # Colours the app draws with, from view.js and style.css. A row of the grid is
 # drawn in the colour its pattern would be, so the picture and the app agree.
-BACKGROUND = '#000000'
+#
+# The background is a hair off black rather than black. Scanlines work by
+# taking light away, so on a truly black field there is nothing for them to
+# take and they only show where the picture is already lit. Lifting the floor
+# a little gives them something to bite on everywhere.
+BACKGROUND = '#0d1117'
 CELL_OFF_BORDER = '#666666'
 
 # One row per colour, each with the part a kit piece would play. Read together
 # they are an ordinary four-four beat, which is what makes the picture legible
 # as a sequencer rather than as an abstract grid.
+#
+# The lit colours are the app's hues pushed up in brightness and saturation.
+# A preview is looked at small, on a feed full of other pictures, and the
+# palette the editor uses at full size goes muddy there. Each lit cell also
+# gets a bloom of its own colour, which is what a bright thing does on a tube.
 ROWS = [
-    ('#fe2204', 'x...x...x...x...'),   # kick
-    ('#fec802', '....x.......x...'),   # snare
-    ('#00d0d0', 'x.x.x.x.x.x.x.x.'),   # closed hat
-    ('#7433ff', '..x...x...x...x.'),   # a perc line off the beat
+    ('#ff3b1a', 'x...x...x...x...'),   # kick
+    ('#ffdd00', '....x.......x...'),   # snare
+    ('#00fff0', 'x.x.x.x.x.x.x.x.'),   # closed hat
+    ('#a259ff', '..x...x...x...x.'),   # a perc line off the beat
 ]
 
 # Grid geometry. A beat is four steps, and the gap between beats is wider than
@@ -59,7 +69,39 @@ CELL = 44
 STEP_GAP = 8
 BEAT_GAP = 16
 ROW_GAP = 10
-CORNER = 6
+
+# The tagline under the grid, in the app's own words. It is burnt into the
+# picture as well as being in the og:description tag: a preview card is often
+# shown with the description cut off or dropped, and this is the line that
+# says what the thing is.
+TAGLINE = [
+    'THE MOST ADVANCED DRUM MACHINE ON THE WEB.',
+    'OPEN SOURCE, NO ADS, 100% FREE.',
+]
+TAGLINE_FONT = 'Helvetica Neue, Helvetica, Arial, sans-serif'
+TAGLINE_SIZE = 38
+TAGLINE_LEAD = 50
+
+# How tall a capital stands as a fraction of the font size. Helvetica's is
+# 0.717, and the tagline is all capitals, so this is the height the block of
+# text actually occupies: laying it out by the font size instead would leave
+# it sitting visibly low, since most of the slack in a font is under it.
+CAP_RATIO = 0.717
+
+# Where the logo's ink starts and stops inside its own 212 unit box, measured
+# off a render of it rather than read off the paths, because what the eye
+# lines up against is the glow around the letters and not the letters. The
+# box is taller than the drawing at both ends to give that glow somewhere to
+# go, and spacing the picture by the box rather than by these leaves the logo
+# looking like it is floating too low.
+LOGO_INK_TOP = 36
+LOGO_INK_BOTTOM = 189
+
+# The scanlines. A dark line every SCANLINE_PITCH pixels, the way a tube draws
+# with a gap between the rows it lights. Two pixels dark in four reads as a
+# screen; anything finer turns to grey once a feed rescales the picture.
+SCANLINE_PITCH = 4
+SCANLINE_DARK = 0.42
 
 
 def grid_width():
@@ -96,31 +138,121 @@ def logo_markup():
     return body.group(1), float(size.group(1)), float(size.group(2))
 
 
+def defs_markup():
+    """The bloom filters and the tube overlays, one per thing that needs one.
+
+    A filter per row colour rather than one shared one: feDropShadow takes the
+    colour it spreads as an attribute, not from what it is applied to, so a
+    shared filter would bloom every row in the same colour.
+    """
+    out = ['<defs>']
+
+    for row_idx, (color, _) in enumerate(ROWS):
+        # The region is grown well past the shape, because the default box
+        # clips at ten percent and the bloom is wider than the cell it leaves.
+        out.append(
+            f'<filter id="bloom{row_idx}" '
+            f'x="-150%" y="-150%" width="400%" height="400%">'
+            f'<feDropShadow dx="0" dy="0" stdDeviation="9" '
+            f'flood-color="{color}" flood-opacity="0.95"/>'
+            f'<feDropShadow dx="0" dy="0" stdDeviation="22" '
+            f'flood-color="{color}" flood-opacity="0.55"/>'
+            f'</filter>'
+        )
+
+    # The scanlines, as a tile the height of one line pair rather than as a
+    # thousand rects. shape-rendering keeps the edges hard: left to antialias
+    # them the pattern turns into a flat wash at this pitch.
+    out.append(
+        f'<pattern id="scanlines" width="{SCANLINE_PITCH}" '
+        f'height="{SCANLINE_PITCH}" patternUnits="userSpaceOnUse">'
+        f'<rect width="{SCANLINE_PITCH}" height="{SCANLINE_PITCH / 2}" '
+        f'fill="#000000" fill-opacity="{SCANLINE_DARK}" '
+        f'shape-rendering="crispEdges"/>'
+        f'</pattern>'
+    )
+
+    # The bloom off the face of the tube: a cool wash that is brightest in the
+    # middle and gone by the edges, laid over everything in screen mode.
+    out.append(
+        '<radialGradient id="tubeGlow" cx="50%" cy="46%" r="72%">'
+        '<stop offset="0%" stop-color="#6fd8ff" stop-opacity="0.20"/>'
+        '<stop offset="45%" stop-color="#4aa6ff" stop-opacity="0.09"/>'
+        '<stop offset="100%" stop-color="#000000" stop-opacity="0"/>'
+        '</radialGradient>'
+    )
+
+    # And the dark at the corners, which is the other half of a tube looking
+    # like a tube: the picture has to fall off where the glass curves away.
+    out.append(
+        '<radialGradient id="vignette" cx="50%" cy="50%" r="78%">'
+        '<stop offset="62%" stop-color="#000000" stop-opacity="0"/>'
+        '<stop offset="100%" stop-color="#000000" stop-opacity="0.45"/>'
+        '</radialGradient>'
+    )
+
+    # The tagline gets a bloom too, for the same reason the cells do: the
+    # scanlines cut a fifth out of everything they cross, and white text is
+    # the one thing in the picture that has to still look white afterwards.
+    out.append(
+        '<filter id="textBloom" x="-40%" y="-140%" width="180%" height="380%">'
+        '<feDropShadow dx="0" dy="0" stdDeviation="3" '
+        'flood-color="#ffffff" flood-opacity="0.60"/>'
+        '<feDropShadow dx="0" dy="0" stdDeviation="10" '
+        'flood-color="#ffffff" flood-opacity="0.34"/>'
+        '<feDropShadow dx="0" dy="0" stdDeviation="26" '
+        'flood-color="#9fd8ff" flood-opacity="0.26"/>'
+        '</filter>'
+    )
+
+    out.append('</defs>')
+
+    return out
+
+
 def build_svg():
     logo, logo_w, logo_h = logo_markup()
 
-    # The logo sits across the top, the grid under it, both centred, with the
-    # space left over split above and below so the pair reads as one block.
-    #
-    # The gap above the logo is smaller than the one below the grid, which
-    # looks wrong written down and right on the picture. The logo's glow needs
-    # room inside its own box, so it carries roughly twenty units of its own
-    # padding above the letters: matching the two gaps by the numbers leaves
-    # the drawing visibly top heavy. These are the figures that come out even.
+    # Three bands down the picture: logo, grid, tagline. The four gaps around
+    # them -- above the logo, between each pair, and below the tagline -- are
+    # all the same, and rather than being picked by eye they are what is left
+    # of the height once the three bands are taken out of it. Each band is
+    # measured by its ink: the logo by the marks inside its box, the tagline
+    # by the height of a capital rather than by the font size.
     logo_scale = 700 / logo_w
     logo_x = (WIDTH - 700) / 2
-    logo_y = 68
+
+    logo_ink_top = LOGO_INK_TOP * logo_scale
+    logo_ink_h = (LOGO_INK_BOTTOM - LOGO_INK_TOP) * logo_scale
 
     g_w = grid_width()
     g_h = len(ROWS) * CELL + (len(ROWS) - 1) * ROW_GAP
     g_x = (WIDTH - g_w) / 2
-    g_y = logo_y + logo_h * logo_scale + 74
+
+    cap_h = TAGLINE_SIZE * CAP_RATIO
+    text_h = (len(TAGLINE) - 1) * TAGLINE_LEAD + cap_h
+
+    gap = (HEIGHT - logo_ink_h - g_h - text_h) / 4
+
+    # Each band is placed by where its ink has to land, then walked back to
+    # the coordinate the thing is actually drawn at
+    logo_y = gap - logo_ink_top
+    g_y = gap + logo_ink_h + gap
+
+    # The text is drawn from the middle of its line, so the first line's
+    # centre is half a capital below where the block starts
+    text_y = g_y + g_h + gap + cap_h / 2
 
     out = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'xmlns:xlink="http://www.w3.org/1999/xlink" '
         f'viewBox="0 0 {WIDTH} {HEIGHT}" width="{WIDTH}" height="{HEIGHT}">',
         f'<rect width="{WIDTH}" height="{HEIGHT}" fill="{BACKGROUND}"/>',
+    ]
+
+    out += defs_markup()
+
+    out += [
         f'<g transform="translate({logo_x} {logo_y}) scale({logo_scale})">',
         logo,
         '</g>',
@@ -129,16 +261,43 @@ def build_svg():
     for row_idx, (color, steps) in enumerate(ROWS):
         y = g_y + row_idx * (CELL + ROW_GAP)
 
-        for step_idx, step in enumerate(steps):
-            x = g_x + cell_x(step_idx)
-            on = step == 'x'
-            fill = color if on else BACKGROUND
-            stroke = color if on else CELL_OFF_BORDER
+        # The dark cells first and the lit ones after, so that a bloom spills
+        # over its neighbours rather than being painted on by the next cell.
+        for on in (False, True):
+            for step_idx, step in enumerate(steps):
+                if (step == 'x') != on:
+                    continue
 
-            out.append(
-                f'<rect x="{x:.1f}" y="{y:.1f}" width="{CELL}" height="{CELL}" '
-                f'rx="{CORNER}" fill="{fill}" stroke="{stroke}" stroke-width="2"/>'
-            )
+                x = g_x + cell_x(step_idx)
+                fill = color if on else BACKGROUND
+                stroke = color if on else CELL_OFF_BORDER
+                glow = f' filter="url(#bloom{row_idx})"' if on else ''
+
+                out.append(
+                    f'<rect x="{x:.1f}" y="{y:.1f}" '
+                    f'width="{CELL}" height="{CELL}" '
+                    f'fill="{fill}" stroke="{stroke}" stroke-width="2"{glow}/>'
+                )
+
+    for line_idx, line in enumerate(TAGLINE):
+        y = text_y + line_idx * TAGLINE_LEAD
+
+        out.append(
+            f'<text x="{WIDTH / 2}" y="{y:.1f}" text-anchor="middle" '
+            f'dominant-baseline="middle" fill="#ffffff" '
+            f'font-family="{TAGLINE_FONT}" font-size="{TAGLINE_SIZE}" '
+            f'font-weight="700" letter-spacing="1.5" '
+            f'filter="url(#textBloom)">{line}</text>'
+        )
+
+    # The tube, over the lot. Order matters: the glow lifts the whole picture,
+    # then the lines cut into what the glow lifted, then the corners go dark.
+    out += [
+        f'<rect width="{WIDTH}" height="{HEIGHT}" fill="url(#tubeGlow)" '
+        f'style="mix-blend-mode:screen"/>',
+        f'<rect width="{WIDTH}" height="{HEIGHT}" fill="url(#scanlines)"/>',
+        f'<rect width="{WIDTH}" height="{HEIGHT}" fill="url(#vignette)"/>',
+    ]
 
     out.append('</svg>')
 
