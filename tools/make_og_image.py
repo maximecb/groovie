@@ -107,8 +107,24 @@ LOGO_INK_BOTTOM = 189
 # The scanlines. A dark line every SCANLINE_PITCH pixels, the way a tube draws
 # with a gap between the rows it lights. Two pixels dark in four reads as a
 # screen; anything finer turns to grey once a feed rescales the picture.
+#
+# How dark those two pixels are is a tax on the whole picture, and it is paid
+# twice. A feed does not show the picture at the size it was drawn: Facebook
+# takes it to 1000x522, and once the lines are below a pixel each they stop
+# reading as lines and just come out as a veil over everything. Taking 30
+# percent rather than 42 still reads as a tube up close and leaves the colours
+# with enough left in them to survive the rescale.
 SCANLINE_PITCH = 4
-SCANLINE_DARK = 0.42
+SCANLINE_DARK = 0.30
+
+# The wash across the face of the tube, brightest in the middle. This is a
+# screen blend, so what it really does is lift the black the picture sits on,
+# and it was doing it hard enough to be the main reason a shared card came
+# back looking washed out: the background under the logo was arriving at
+# roughly (27, 37, 47) instead of the near black it is drawn on. Enough of it
+# is kept for the middle to read as lit; the rest went.
+TUBE_GLOW_CORE = 0.07
+TUBE_GLOW_MID = 0.03
 
 
 def grid_width():
@@ -183,8 +199,10 @@ def defs_markup():
     # middle and gone by the edges, laid over everything in screen mode.
     out.append(
         '<radialGradient id="tubeGlow" cx="50%" cy="46%" r="72%">'
-        '<stop offset="0%" stop-color="#6fd8ff" stop-opacity="0.20"/>'
-        '<stop offset="45%" stop-color="#4aa6ff" stop-opacity="0.09"/>'
+        f'<stop offset="0%" stop-color="#6fd8ff" '
+        f'stop-opacity="{TUBE_GLOW_CORE}"/>'
+        f'<stop offset="45%" stop-color="#4aa6ff" '
+        f'stop-opacity="{TUBE_GLOW_MID}"/>'
         '<stop offset="100%" stop-color="#000000" stop-opacity="0"/>'
         '</radialGradient>'
     )
