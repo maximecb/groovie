@@ -746,9 +746,13 @@ new ResizeObserver(() =>
 // there, which is the one state where it can't say so: the song button greys
 // itself out when there is no song, and a key has no way to.
 //
-// The shortcuts are ignored while a control has focus, so that a key still does
-// whatever that control does with it, and while a modifier is held, so that the
-// browser's own shortcuts are left alone.
+// The shortcuts are ignored while typing in a text field, and the arrows also
+// while a slider or a dropdown has focus, since those move it. A focused button
+// otherwise activates on the spacebar, which is taken back here so that the key
+// plays no matter what was last clicked; Enter still activates it.
+//
+// They are also ignored while a modifier is held, so that the browser's own
+// shortcuts are left alone.
 document.onkeydown = async function (evt)
 {
     if (!['Space', 'KeyP', 'KeyT', 'ArrowLeft', 'ArrowRight'].includes(evt.code))
@@ -757,8 +761,17 @@ document.onkeydown = async function (evt)
     if (evt.ctrlKey || evt.metaKey || evt.altKey)
         return;
 
-    let focus_tag = document.activeElement?.tagName;
-    if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(focus_tag))
+    let focus = document.activeElement;
+    let focus_tag = focus?.tagName;
+    let is_slider = (focus_tag == 'INPUT' && focus.type == 'range');
+
+    // Typing in a text field claims every key
+    if (focus_tag == 'TEXTAREA' || (focus_tag == 'INPUT' && !is_slider))
+        return;
+
+    // The arrows belong to a slider or a dropdown while it has focus
+    if (['ArrowLeft', 'ArrowRight'].includes(evt.code) &&
+        (is_slider || focus_tag == 'SELECT'))
         return;
 
     // Otherwise the spacebar and the arrows scroll the page
