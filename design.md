@@ -346,6 +346,68 @@ pattern are already wider than the screen and scroll sideways, so controls kept
 past the end of them would be controls nobody could find. Nothing is dropped on
 a phone, only shown one part at a time.
 
+## MIDI Clock
+
+Groovie can act as the clock master for outboard gear: a Start when playback
+begins, a stream of clock pulses while it runs, and a Stop when it ends,
+broadcast to every connected output. There is no device picker. A device that
+isn't following a clock ignores what arrives, where a list to choose from is a
+setup step standing between somebody and hearing anything at all.
+
+The pulses ride the same position line the samples are queued on, laid down by
+the same pass of the scheduler. That is the whole of why the clock stays in
+time: the two can't drift apart when neither is measured independently of the
+other, and moving the tempo mid-song moves both by construction rather than by
+two pieces of code agreeing to move together.
+
+What has to be bridged instead is the timebase. Samples are scheduled on the
+audio clock and MIDI is stamped on the performance clock, and the two are
+correlated by `getOutputTimestamp`, which names the frame leaving the output
+device together with the moment it leaves. That correlation carries the output
+latency with it, so a pulse is stamped for when the audio beside it is *heard*
+rather than for when it was rendered, which is the difference between hardware
+roughly in time with the page and hardware in time with it. Stamping messages
+ahead rather than sending them at the moment they fall due is what keeps the
+clock off the main thread's jitter, the same way the lookahead window does for
+the samples.
+
+Swing is deliberately not applied, for a stronger version of the reason the
+delay doesn't take it either. Swing moves when a step is heard without moving
+the grid it is counted on, and the clock *is* that grid: swinging it would tell
+the device the tempo itself was wobbling by twenty percent every step, and
+everything the device derives from the clock would wobble with it. A drum
+machine sends a straight clock and swings its own voices.
+
+The rate is a control rather than a constant, which the spec says it shouldn't
+have to be. MIDI clock is defined at 24 pulses per quarter note, and that is the
+1:1 setting, but enough hardware miscounts pulses and ends up running at some
+multiple of the tempo it was handed that slowing the clock down is the only
+thing that brings those devices back in time. The rates offered are 1:1, 3:4,
+1:2, 1:3, 1:4, 1:6 and 1:12, which is 24, 18, 12, 8, 6, 4 and 2 PPQ. The last
+two are slow enough to be a different idea rather than a correction: 4 PPQ puts
+a pulse on every step of the grid and 2 PPQ on every other one, which is what a
+box counting steps rather than counting MIDI clock wants to be fed. They are
+held as ratio pairs
+rather than as the divisor each works out to, since the useful ones are not all
+whole numbers and the pair is what the control is labelled with. Every one of
+them lands on a whole number of pulses per quarter note, which is what makes
+that label worth showing beside the ratio: it is how a device names its own
+clock setting.
+
+Access is requested when the checkbox is ticked rather than at startup, browsers
+prompting for it: that is a question for somebody who has asked for MIDI, not
+for everybody who opens a link. The setting is likewise not carried in the URL.
+It describes the machine the page is open on rather than the song, and a link
+that silently drove the recipient's hardware would be doing something nobody
+asked it to. On a browser with no Web MIDI the whole group is left out of the
+page, there being nothing behind it to offer.
+
+Devices are picked up as they are plugged in, the outputs being re-read on every
+message. One that arrives mid-song has missed the Start that told the others to
+run, so it is sent one of its own and comes up out of phase with the page;
+whoever plugged it in can restart playback to line the two up, which is better
+than leaving it silent until they work out why.
+
 ## Future Features
 
 [DONE] It would be desirable to have a hit counter (can we find a free provider?)

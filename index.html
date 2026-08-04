@@ -181,6 +181,35 @@
                 </div>
             </div>
 
+            <!-- Clock for outboard gear, so that a hardware box can be played
+                 in time with what this page is playing. Hidden until main.js
+                 finds that the browser can send MIDI at all: there is nothing
+                 behind these controls on one that can't. -->
+            <div class="group" id="midi_group" hidden>
+                <div class="label">MIDI</div>
+
+                <div class="share_row midi_row">
+                    <label class="check_ctl">
+                        <input type="checkbox" id="midi_clock">
+                        Broadcast MIDI clock
+                    </label>
+
+                    <span class="midi_rate">
+                        <label for="midi_rate">Rate:</label>
+                        <!-- Options are generated in main.js, from CLOCK_RATES -->
+                        <select id="midi_rate"></select>
+                    </span>
+                </div>
+
+                <div class="share_note">
+                    Sends MIDI start, stop and clock to every connected device.
+                    Lower the rate for gear that runs too fast.
+                </div>
+
+                <!-- What the clock is currently reaching, filled in by main.js -->
+                <div class="share_note" id="midi_status"></div>
+            </div>
+
             <div class="group">
                 <div class="label">Share</div>
 

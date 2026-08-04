@@ -57,6 +57,13 @@ h1 {
     margin: 4px 0 2px 0;
 }
 
+/* The hidden attribute only carries a display of none, which any display given
+   to the element beats. The groups are flex containers, so hiding one takes
+   this to hold. */
+[hidden] {
+    display: none !important;
+}
+
 .logo {
     display: block;
     width: 420px;
@@ -882,6 +889,37 @@ input[type="range"].ctr_slider::-moz-range-track {
     border-color: #999;
 }
 
+/* The clock switch and the rate it runs at. These are two controls rather than
+   one phrase, and at the spacing the share row puts between a label and the
+   field it belongs to they run together into "Broadcast clock Rate", so they
+   are held further apart than that. */
+.midi_row {
+    gap: 18px;
+}
+
+/* The rate and its label, which do belong together and keep the closer
+   spacing between them */
+.midi_rate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* A checkbox and what ticking it does, which read as the one control: the
+   words are part of the same target as the box, both because a box on its own
+   is a small thing to hit and because they are what says what it means. */
+.check_ctl {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+
+    /* Ticked in the color the sliders run through, rather than in the
+       browser's own blue, which is the one color on the page that belongs to
+       nothing else on it */
+    accent-color: #B400FF;
+}
+
 /* What sharing a link means, and what the last copy did. Dimmer than the
    controls above, being something to read once rather than to operate. */
 .share_note {
@@ -890,9 +928,10 @@ input[type="range"].ctr_slider::-moz-range-track {
     text-align: center;
 }
 
-/* What stopped a link from being made, shown in the same line that otherwise
-   says what the last copy did. Marked rather than dim, being something to act
-   on before the button will do anything. */
+/* A note line carrying something that went wrong rather than something to
+   read once: what stopped a link from being made, or what stopped the MIDI
+   clock from being switched on. Marked rather than dim, being something to act
+   on before the control above it will do anything. */
 .share_error {
     color: #E22;
 }

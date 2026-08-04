@@ -1,4 +1,5 @@
 import { SAMPLE_MAP } from "./sample_list.js";
+import * as midi from "./midi.js";
 
 // The audio context is created on first use rather than when this module is
 // loaded. Browsers log an autoplay policy warning for a context created before
@@ -719,6 +720,43 @@ export async function preview_sample(sample_idx)
 // How far ahead of the audio clock we queue samples, in seconds
 const LOOKAHEAD_TIME = 0.1;
 
+// Take the correlation between the audio clock and the performance clock, and
+// return a function converting a time on the first to one on the second. That
+// is the timebase MIDI sends are stamped in, the audio clock being private to
+// Web Audio.
+//
+// getOutputTimestamp correlates the two by naming the frame leaving the output
+// device (contextTime) and the moment it leaves (performanceTime), so the
+// mapping carries the output latency with it: a pulse comes out stamped for
+// when the audio beside it is heard rather than for when it was rendered,
+// which is the difference between hardware that is roughly in time and
+// hardware that is in time.
+//
+// The correlation is taken once and handed out as a closure rather than read
+// per message. The two clocks drift slowly against each other, and re-reading
+// it between the pulses of one update would move those pulses against each
+// other over a window where nothing has actually drifted.
+function perf_time_mapper()
+{
+    let ctx = get_audio_ctx();
+    let ts = ctx.getOutputTimestamp? ctx.getOutputTimestamp() : null;
+
+    // Both fields read zero until the context has rendered anything, which is
+    // the answer "no correlation yet" rather than a correlation at the origin
+    if (ts && ts.contextTime)
+    {
+        let perf_time = ts.performanceTime;
+        let ctx_time = ts.contextTime;
+        return audio_time => perf_time + (audio_time - ctx_time) * 1000;
+    }
+
+    // Where there is no correlation to be had, the latency the one above would
+    // have carried is added by hand
+    let perf_time = performance.now();
+    let ctx_time = ctx.currentTime - (ctx.outputLatency || 0);
+    return audio_time => perf_time + (audio_time - ctx_time) * 1000;
+}
+
 // How often the playback update runs, in milliseconds
 const UPDATE_INTERV_MS = 1000 / 25;
 
@@ -1014,6 +1052,11 @@ async function start_playback(project, mode)
     last_pos = 0;
     next_step = 0;
 
+    // The MIDI clock runs off the same position, so it is reset here with it.
+    // This only arms the clock: the Start message goes out from the first
+    // update, alongside the first pulse it can be timed against.
+    midi.start_clock();
+
     // Queue the first steps immediately, so that playback starts without
     // waiting for the first interval to elapse. This is also what starts the
     // interval: an empty song stops playback instead of starting it.
@@ -1030,6 +1073,8 @@ export function stop_playback()
     clearInterval(update_interv);
     update_interv = null;
     play_project = null;
+
+    midi.stop_clock();
 }
 
 // Update playback
@@ -1075,6 +1120,17 @@ function update_playback()
             return;
         }
     }
+
+    // Lay the MIDI clock over the same window, off the same straight line the
+    // steps below are back-projected from, so that the pulses and the samples
+    // can't come apart however the tempo is moved while they run. Note that
+    // the positions handed over are the unswung ones: see queue_clock.
+    let to_perf_time = perf_time_mapper();
+
+    midi.queue_clock(
+        queue_until_pos,
+        pos => to_perf_time(queue_until_t - (queue_until_pos - pos) / steps_per_sec)
+    );
 
     // For each step falling inside the lookahead window
     for (; next_step <= queue_until_pos; ++next_step)

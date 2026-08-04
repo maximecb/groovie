@@ -45,6 +45,19 @@ import {
 } from "./audio.js";
 
 import {
+    CLOCK_RATES,
+    DEFAULT_RATE_IDX,
+    midi_available,
+    enable_clock,
+    disable_clock,
+    set_clock_rate,
+    num_outputs,
+    rate_label,
+    rate_ppq,
+    set_outputs_listener,
+} from "./midi.js";
+
+import {
     render_pattern,
     render_pat_tabs,
     render_timeline,
@@ -107,6 +120,14 @@ const pat_seq = document.getElementById('pat_seq');
 
 // Song length readout, below the timeline
 const song_len = document.getElementById('song_len');
+
+// MIDI clock controls, and the line saying what the clock is currently
+// reaching. The group holding them is left out of the page entirely on a
+// browser that can't send MIDI.
+const midi_group = document.getElementById('midi_group');
+const midi_clock_cb = document.getElementById('midi_clock');
+const midi_rate_sel = document.getElementById('midi_rate');
+const midi_status = document.getElementById('midi_status');
 
 // Title field, the button copying a link to the project, and the line saying
 // what that button last did
@@ -330,6 +351,29 @@ for (let num_steps = MIN_PAT_STEPS; num_steps <= MAX_PAT_STEPS; ++num_steps)
     num_steps_sel.appendChild(option);
 }
 
+// Populate the clock rate selector and reveal the MIDI group, on a browser
+// that has Web MIDI to put behind it. The group is in the page hidden and
+// shown here rather than built here: what it holds is markup like every other
+// group's, and only whether it applies is decided at runtime.
+//
+// Each rate is labelled with the pulse count it works out to as well as the
+// ratio, that being how a device's own clock setting is usually named. The
+// options carry their index rather than the ratio, a ratio being a pair.
+if (midi_available())
+{
+    for (let rate_idx = 0; rate_idx < CLOCK_RATES.length; ++rate_idx)
+    {
+        let option = document.createElement('option');
+        option.value = rate_idx;
+        option.textContent = `${rate_label(rate_idx)} (${rate_ppq(rate_idx)} PPQ)`;
+        midi_rate_sel.appendChild(option);
+    }
+
+    midi_rate_sel.value = DEFAULT_RATE_IDX;
+    set_outputs_listener(update_midi_status);
+    midi_group.hidden = false;
+}
+
 // Keep the fill of the sliders at the top of the page up to date as they're
 // dragged. Hooked up in one place rather than in each slider's own handler:
 // how a control draws itself is the same job for all three, and none of them
@@ -536,6 +580,64 @@ song_title.onchange = function ()
     project.title = clean_title(song_title.value);
     song_title.value = project.title;
     update_page_title();
+}
+
+function set_midi_status(msg, is_error = false)
+{
+    midi_status.textContent = msg;
+    midi_status.classList.toggle('share_error', is_error);
+}
+
+// Say what the MIDI clock is currently reaching. Called when the clock is
+// switched on or off and again whenever a device is plugged in or unplugged,
+// so that the line keeps up with what is actually out there.
+function update_midi_status()
+{
+    if (!midi_clock_cb.checked)
+    {
+        set_midi_status('');
+        return;
+    }
+
+    let count = num_outputs();
+
+    // Marked rather than dim, the way a link that couldn't be made is: a clock
+    // switched on with nothing to send to looks exactly like one that is
+    // working, and there is something to do about it before it will be
+    if (count == 0)
+    {
+        set_midi_status('No MIDI devices connected.', true);
+        return;
+    }
+
+    set_midi_status(`Sending clock to ${count} device${count > 1? 's' : ''}.`);
+}
+
+midi_clock_cb.onchange = async function ()
+{
+    if (!midi_clock_cb.checked)
+    {
+        disable_clock();
+        update_midi_status();
+        return;
+    }
+
+    // MIDI access is asked for here, the first time the box is ticked. The
+    // browser prompts for it, and the prompt can be refused or dismissed,
+    // which leaves the box to come back off: it can't say the clock is on.
+    if (!await enable_clock())
+    {
+        midi_clock_cb.checked = false;
+        set_midi_status('MIDI access was refused by the browser.', true);
+        return;
+    }
+
+    update_midi_status();
+}
+
+midi_rate_sel.onchange = function ()
+{
+    set_clock_rate(Number(midi_rate_sel.value));
 }
 
 // Say what the share button just did. What stopped a link from being made is
