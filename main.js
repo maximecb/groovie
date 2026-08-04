@@ -351,29 +351,6 @@ for (let num_steps = MIN_PAT_STEPS; num_steps <= MAX_PAT_STEPS; ++num_steps)
     num_steps_sel.appendChild(option);
 }
 
-// Populate the clock rate selector and reveal the MIDI group, on a browser
-// that has Web MIDI to put behind it. The group is in the page hidden and
-// shown here rather than built here: what it holds is markup like every other
-// group's, and only whether it applies is decided at runtime.
-//
-// Each rate is labelled with the pulse count it works out to as well as the
-// ratio, that being how a device's own clock setting is usually named. The
-// options carry their index rather than the ratio, a ratio being a pair.
-if (midi_available())
-{
-    for (let rate_idx = 0; rate_idx < CLOCK_RATES.length; ++rate_idx)
-    {
-        let option = document.createElement('option');
-        option.value = rate_idx;
-        option.textContent = `${rate_label(rate_idx)} (${rate_ppq(rate_idx)} PPQ)`;
-        midi_rate_sel.appendChild(option);
-    }
-
-    midi_rate_sel.value = DEFAULT_RATE_IDX;
-    set_outputs_listener(update_midi_status);
-    midi_group.hidden = false;
-}
-
 // Keep the fill of the sliders at the top of the page up to date as they're
 // dragged. Hooked up in one place rather than in each slider's own handler:
 // how a control draws itself is the same job for all three, and none of them
@@ -391,6 +368,7 @@ for (let slider of document.querySelectorAll('input[type="range"]'))
 set_volume(volume_slider.valueAsNumber / 100);
 fetch_project_samples(project);
 render_all();
+init_midi();
 
 // Count this visit, and show what the count is now at. The service keeps every
 // counter under one public namespace, so the key has to be specific enough not
@@ -582,6 +560,46 @@ song_title.onchange = function ()
     update_page_title();
 }
 
+// Build the MIDI group and wire it up, on a browser that has Web MIDI to put
+// behind it. The group is in the page hidden and revealed here rather than
+// built here: what it holds is markup like every other group's, and only
+// whether it applies is decided at runtime.
+//
+// Called after the pattern and the timeline have been rendered, and it gives up
+// rather than throwing if the markup isn't where it expects. The clock is the
+// last thing on the page to matter and the only part of it that can go missing:
+// a browser holding a stale copy of the page would otherwise take the whole
+// editor down over a group it can't build.
+function init_midi()
+{
+    if (!midi_available())
+        return;
+
+    if (!midi_group || !midi_rate_sel || !midi_clock_cb || !midi_status)
+    {
+        console.log('MIDI controls missing from the page, skipping');
+        return;
+    }
+
+    // Each rate is labelled with the pulse count it works out to as well as the
+    // ratio, that being how a device's own clock setting is usually named. The
+    // options carry their index rather than the ratio, a ratio being a pair.
+    for (let rate_idx = 0; rate_idx < CLOCK_RATES.length; ++rate_idx)
+    {
+        let option = document.createElement('option');
+        option.value = rate_idx;
+        option.textContent = `${rate_label(rate_idx)} (${rate_ppq(rate_idx)} PPQ)`;
+        midi_rate_sel.appendChild(option);
+    }
+
+    midi_rate_sel.value = DEFAULT_RATE_IDX;
+    midi_rate_sel.onchange = change_midi_rate;
+    midi_clock_cb.onchange = toggle_midi_clock;
+
+    set_outputs_listener(update_midi_status);
+    midi_group.hidden = false;
+}
+
 function set_midi_status(msg, is_error = false)
 {
     midi_status.textContent = msg;
@@ -613,7 +631,7 @@ function update_midi_status()
     set_midi_status(`Sending clock to ${count} device${count > 1? 's' : ''}.`);
 }
 
-midi_clock_cb.onchange = async function ()
+async function toggle_midi_clock()
 {
     if (!midi_clock_cb.checked)
     {
@@ -635,7 +653,7 @@ midi_clock_cb.onchange = async function ()
     update_midi_status();
 }
 
-midi_rate_sel.onchange = function ()
+function change_midi_rate()
 {
     set_clock_rate(Number(midi_rate_sel.value));
 }
