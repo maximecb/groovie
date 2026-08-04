@@ -143,4 +143,8 @@ export const GOLDEN_LINKS = [
     // The berlin techno arrangement linked from the README
     { song: null, link:
         "a_96_bar_berlin_techno_arrangement/FdAnck8QxEjUoejHv1EvwfEK6CeBmwopEcII9JpEroPEWkq1BNYCSCCGuJfjJXg-IlIsCRaI1HSJy3kypqJbIWInFCJnoAKRACYV6k66nWHiLAkKcUOiNHoJYx8spdj6AiiApQ4MYQYiORhGkyyR7YlJspwJJsWUzW0gmxi1h5BQCgiABSWcUtGvoirKXQx6x8gkTVroJyQDVpJIPpIGD0lvoyQHMeHgCKIFK8SfJ5dlnnng" },
+
+    // The rap arrangement linked from the README
+    { song: null, link:
+        "a_64_bar_rap_arrangement/EwOcsZ8goCOSi3CDEQiCQcpQ16R8-p6bpenoDEQRbhzWgiBNH05rnpHzyq1_6LvgRgr60EQJs-ZLkiQ-oYEBIowoCOTAIhIHB1lAJIINWjEQRbhzWgiA99StUrHzCgYOTi2JBorDEkyhTIAcpghgpz6kj5giiApaFHq9AJyYFMjKW-QQgQG9_YvERTJJII6J6ZDkyZp32yA" },
 ];

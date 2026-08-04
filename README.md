@@ -65,6 +65,10 @@ you can play it, take it apart and remix it.
 - [A drill and bass arrangement](https://maximecb.github.io/groovie/#a_64_bar_drill_and_bass_arrangement/B9ATI_5htYoCCAImhWOL9cICQhhNTEuGBTQszLjv36cmILUJCQERFJMkCIK1qWpZ-eQCgiBBCRRAjjXAiCRSCAVFZjaWhcFV2e_nsVIbBIiCQkxIJRQiixxLEl4iJICCKCBFyOSZT1ASSGk0JiFx1q0misRcCIgTmdSiU0mRsgG8UlIoZ5wGwIiBCCCgi0YBjCOtVLx8hn4rr77_NYTG6rBEgQESKApNnvpKr_LPLPE4j6kA8Ag2ASR0iZrn2IlYuQflAFNAC5AiCT0VQxEhEz9UsA) —
   64 bars across eight patterns at 165, the longest and busiest of these, and the
   one that pushes the encoding hardest at 354 characters.
+- [A rap arrangement](https://maximecb.github.io/groovie/#a_64_bar_rap_arrangement/EwOcsZ8goCOSi3CDEQiCQcpQ16R8-p6bpenoDEQRbhzWgiBNH05rnpHzyq1_6LvgRgr60EQJs-ZLkiQ-oYEBIowoCOTAIhIHB1lAJIINWjEQRbhzWgiA99StUrHzCgYOTi2JBorDEkyhTIAcpghgpz6kj5giiApaFHq9AJyYFMjKW-QQgQG9_YvERTJJII6J6ZDkyZp32yA) —
+  a three minute song laid out the way a rap single is, four bars of intro then
+  sixteen bar verses that hand off to the hook on a fill, with a shaker three bars
+  long drifting against the two bar kit underneath all of it.
 
 ## Features
 
