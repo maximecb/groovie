@@ -159,4 +159,8 @@ export const GOLDEN_LINKS = [
 
     { song: "a 64 bar rap arrangement", link:
         "untitled/EwOcsZ8goCOSi3CDEQiCQcpQ16R8-p6bpenoDEQRbhzWgiBNH05rnpHzyq1_6LvgRgr60EQJs-ZLkiQ-oYEBIowoCOTAIhIHB1lAJIINWjEQRbhzWgiA99StUrHzCgYOTi2JBorDEkyhTIAcpghgpz6kj5giiApaFHq9AJyYFMjKW-QQgQG9_YvERTJJII6J6ZDkyZp32yA" },
+
+    // A synthwave beat that was shared before it was written down here
+    { song: null, link:
+        "a_synthwave_beat/EwAqsl8gwEgz4UDAx8OSgLekfTqPqMDCCDGUhpIIIVKDmQGgvpbEqD6cEplE0vWlMCMFVjJwER_JYkfKk61NADCCDGWRpRYQrxKR9fi-CGiAFHo-CMiABiZGUMZSHhLGj1DhzS54VQ4OSgP-R-IqWICAAAg0QSWI1G4E1jTC8RZTOWqSNQE4iAQsrKJAwIeQUylij9AYEDh1VsYf58gMCIhIpqa8_wA" },
 ];
