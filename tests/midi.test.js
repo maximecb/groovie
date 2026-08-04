@@ -16,6 +16,9 @@ import assert from "node:assert/strict";
 import {
     install_web_midi,
     install_no_web_midi,
+    install_refusing_web_midi,
+    FIREFOX_UA,
+    FIREFOX_FORK_UA,
     add_output,
     announce,
     clear_outputs,
@@ -28,6 +31,7 @@ import {
     CLOCK_RATES,
     DEFAULT_RATE_IDX,
     midi_available,
+    clock_is_enabled,
     enable_clock,
     disable_clock,
     set_clock_rate,
@@ -89,6 +93,37 @@ test('a browser with no Web MIDI has no clock to offer', () =>
 
     install_web_midi();
     assert.equal(midi_available(), true);
+});
+
+test('Firefox is turned away even though it has Web MIDI', () =>
+{
+    // It has the API and won't hand it over without an add-on the user has to
+    // install, so having the API is not what decides this
+    install_web_midi(FIREFOX_UA);
+    assert.equal(midi_available(), false);
+
+    // Its forks carry the same gating, and say Firefox in among their own name
+    install_web_midi(FIREFOX_FORK_UA);
+    assert.equal(midi_available(), false);
+
+    install_web_midi();
+    assert.equal(midi_available(), true);
+});
+
+// Runs before anything that enables the clock successfully, access being kept
+// once granted: a later refusal would never reach the browser to be refused.
+test('a browser refusing access says why, and leaves the clock off', async () =>
+{
+    let reason = 'WebMIDI requires a site permission add-on to activate';
+    install_refusing_web_midi(reason);
+
+    // The refusal is the browser's to explain. Reporting it as a plain failure
+    // here would drop the one part of it that says what to do.
+    await assert.rejects(enable_clock(), err => err.message == reason);
+
+    assert.equal(clock_is_enabled(), false);
+
+    install_web_midi();
 });
 
 test('a rate is named by the pulse count it works out to', () =>

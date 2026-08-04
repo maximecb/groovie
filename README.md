@@ -87,6 +87,11 @@ resetting every bar.
 - Tempo from 40 to 280 BPM, plus a swing control
 - Patterns can be switched while the music plays: the one you pick is queued and
   launches when the playing one comes around, the way a groovebox does it
+- MIDI clock output, to run a drum machine or synth in time with the page: start,
+  stop and clock broadcast to every connected device, at rates from the standard
+  24 PPQ down to 2 PPQ for gear that wants a slower one. Chrome and other
+  Chromium browsers only, since Safari has no Web MIDI and Firefox will only hand
+  it over once you have installed an add-on
 - Works on desktop, tablets and phones
 
 ### Keyboard shortcuts
@@ -135,12 +140,13 @@ which the CI will check.
 ### Codebase overview
 
 Plain ES modules, no build step and no dependencies. `index.html` loads `main.js`,
-which pulls in the other three.
+which pulls in the rest.
 
 | | |
 |---|---|
 | `model.js` | The project itself: patterns, rows, the timeline, and the URL encoding a link is made of. Knows nothing about the DOM or about audio. |
 | `audio.js` | The sample library and the Web Audio graph, including the scheduler that decides what plays when. |
+| `midi.js` | The MIDI clock sent to outboard gear. The scheduler hands it the same position line it queues samples on, so the two can't drift apart. |
 | `view.js` | Renders the pattern grid and the timeline. The views are a function of the model: rendering reads project state and never writes it. |
 | `main.js` | The wiring. Controls, buttons, keyboard, and keeping the link in the address bar in step with the project. |
 | `sample_list.js` | Generated map of sample paths to indices. Rebuilt by `tools/update_samples.py`, not edited by hand. |

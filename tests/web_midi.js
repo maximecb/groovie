@@ -11,6 +11,24 @@
 // would never be seen.
 let midi_access = null;
 
+// User agents to answer with. Which browser this is decides whether the clock
+// is offered at all, so a fake navigator has to carry one.
+//
+// The default is a Chromium agent, that being the case where Web MIDI is simply
+// available. The Firefox pair is here because Firefox is turned away on its
+// agent alone, forks included.
+const CHROME_UA =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+export const FIREFOX_UA =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) ' +
+    'Gecko/20100101 Firefox/128.0';
+
+export const FIREFOX_FORK_UA =
+    'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 ' +
+    'Firefox/128.0 LibreWolf/128.0';
+
 // One MIDI output, i.e. one device as far as the page is concerned
 class FakeOutput
 {
@@ -38,7 +56,7 @@ class FakeOutput
 // The access object is built once however often this is called. midi.js holds
 // onto its access once granted, so handing it a second one would leave the
 // devices added here somewhere it never looks.
-export function install_web_midi()
+export function install_web_midi(user_agent = CHROME_UA)
 {
     if (!midi_access)
     {
@@ -48,10 +66,18 @@ export function install_web_midi()
         };
     }
 
-    // Node has a navigator of its own, which is why this is defined over the
-    // global rather than assigned into the object already there
+    set_navigator({
+        userAgent: user_agent,
+        requestMIDIAccess: async () => midi_access,
+    });
+}
+
+// Node has a navigator of its own, which is why this is defined over the global
+// rather than assigned into the object already there
+function set_navigator(value)
+{
     Object.defineProperty(globalThis, 'navigator', {
-        value: { requestMIDIAccess: async () => midi_access },
+        value: value,
         configurable: true,
         writable: true,
     });
@@ -61,10 +87,20 @@ export function install_web_midi()
 // decide whether MIDI can be sent at all
 export function install_no_web_midi()
 {
-    Object.defineProperty(globalThis, 'navigator', {
-        value: {},
-        configurable: true,
-        writable: true,
+    set_navigator({ userAgent: CHROME_UA });
+}
+
+// Install a fake API that has Web MIDI but refuses to hand it over, the way a
+// browser gating it behind a permission or an add-on does. The message is the
+// browser's own account of what it wants, which is the part worth carrying.
+export function install_refusing_web_midi(message)
+{
+    set_navigator({
+        userAgent: CHROME_UA,
+        requestMIDIAccess: async () =>
+        {
+            throw new DOMException(message, 'SecurityError');
+        },
     });
 }
 

@@ -640,13 +640,22 @@ async function toggle_midi_clock()
         return;
     }
 
-    // MIDI access is asked for here, the first time the box is ticked. The
-    // browser prompts for it, and the prompt can be refused or dismissed,
-    // which leaves the box to come back off: it can't say the clock is on.
-    if (!await enable_clock())
+    // MIDI access is asked for here, the first time the box is ticked, and it
+    // can be refused. The box comes back off when it is, not being able to say
+    // the clock is on, and what the browser said is passed through rather than
+    // summarised: browsers gate Web MIDI in quite different ways, so the reason
+    // is the only part of this that tells the user what to do about it.
+    // Firefox, for one, answers that it wants a site permission add-on
+    // installed, which nothing generic here would ever have said.
+    try
     {
+        await enable_clock();
+    }
+    catch (e)
+    {
+        console.log('MIDI access refused:', e);
         midi_clock_cb.checked = false;
-        set_midi_status('MIDI access was refused by the browser.', true);
+        set_midi_status(`No MIDI: ${e.message || e.name}`, true);
         return;
     }
 

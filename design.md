@@ -395,8 +395,30 @@ that label worth showing beside the ratio: it is how a device names its own
 clock setting.
 
 Access is requested when the checkbox is ticked rather than at startup, browsers
-prompting for it: that is a question for somebody who has asked for MIDI, not
-for everybody who opens a link. The setting is likewise not carried in the URL.
+asking before they grant it: that is a question for somebody who has asked for
+MIDI, not for everybody who opens a link.
+
+A refusal carries the browser's own account of itself all the way to the status
+line rather than being reported as a generic failure. "MIDI access was refused"
+is true of every refusal and useful for none of them, and the page needs no
+list of which browser wants what, which is a list that would go out of date.
+
+Firefox is left out of the group entirely, though, and not because it lacks Web
+MIDI. It has it, and gates it behind a *site permission add-on*: an add-on
+generated for one origin that the user has to install before access is granted.
+Worse, when the real problem is that no MIDI device is plugged in at all,
+Firefox refuses with that same add-on message anyway, and does it after a
+randomised delay of three to thirteen seconds to frustrate fingerprinting.
+Mozilla tracks the confusion this causes in bug 1805582. None of that is
+something this page can act on or explain, and a checkbox that hangs for ten
+seconds and then blames an add-on is worse than no checkbox, so Firefox gets
+what Safari gets: no MIDI group.
+
+That check is the one piece of browser sniffing in the project, there being no
+feature test for "has the API and won't let you use it". It reads Firefox's
+forks as Firefox, which is correct — they carry the same gating — and a Firefox
+reporting somebody else's user agent gets the controls and the refusal, which is
+no worse than where it would have been. The setting is likewise not carried in the URL.
 It describes the machine the page is open on rather than the song, and a link
 that silently drove the recipient's hardware would be doing something nobody
 asked it to. On a browser with no Web MIDI the whole group is left out of the

@@ -104,12 +104,30 @@ let started_ports = new Set();
 // what the clock is currently reaching. Null until the page asks.
 let outputs_listener = null;
 
-// Whether this browser can send MIDI at all. Safari has no Web MIDI, and the
-// controls are left out of the page there rather than offered and then failing
-// when they're used.
+// Whether this browser can send MIDI without something standing in the way.
+// The controls are left out of the page where it can't, rather than offered
+// and then failing when they're used.
+//
+// Safari is the easy case: it has no Web MIDI, so there is nothing to call.
+//
+// Firefox has Web MIDI and still can't have the controls. It gates access
+// behind a site permission add-on the user has to install, and when the real
+// problem is that no device is plugged in it refuses with that same message
+// anyway, after a delay of up to thirteen seconds (see design.md). There is
+// nothing this page can do about either, and a checkbox that hangs and then
+// blames an add-on is worse than no checkbox.
+//
+// Firefox is picked out by its user agent because there is no feature test for
+// "has this and won't let you use it". That reads its forks as Firefox too,
+// which is right: they carry the same gating. A Firefox reporting somebody
+// else's agent gets the controls and the refusal, which is where it was before
+// this test existed.
 export function midi_available()
 {
-    return typeof navigator.requestMIDIAccess == 'function';
+    if (typeof navigator.requestMIDIAccess != 'function')
+        return false;
+
+    return !/Firefox\//.test(navigator.userAgent || '');
 }
 
 // Whether the clock is currently switched on
@@ -149,28 +167,25 @@ export function set_outputs_listener(listener)
 }
 
 // Turn the clock on, asking the browser for MIDI access the first time.
-// Returns false if access was refused or is unavailable, leaving the clock
-// off.
+// Throws if access is refused or unavailable, leaving the clock off.
 //
-// Access is requested from here, i.e. off the checkbox, rather than at
-// startup: browsers prompt for it, and that is a question for somebody who has
+// Access is requested from here, i.e. off the checkbox, rather than at startup:
+// browsers ask before granting it, and that is a question for somebody who has
 // asked for MIDI rather than for everybody who opens a link.
+//
+// A refusal is let through rather than reported as a plain false. Every browser
+// with Web MIDI gates it differently — a permission prompt in one, a
+// site-permission add-on to install in another — so what the browser says about
+// the refusal is the only thing that tells the user which of those is in their
+// way, and it would be thrown away here.
 export async function enable_clock()
 {
     if (!midi_available())
-        return false;
+        throw new Error('this browser has no Web MIDI');
 
     if (!midi_access)
     {
-        try
-        {
-            midi_access = await navigator.requestMIDIAccess();
-        }
-        catch (e)
-        {
-            console.log('MIDI access refused:', e);
-            return false;
-        }
+        midi_access = await navigator.requestMIDIAccess();
 
         // Devices come and go while the page is open. The outputs are read
         // fresh on every send, so one plugged in later is broadcast to without
@@ -184,8 +199,6 @@ export async function enable_clock()
     // Playback may already be running, in which case the clock joins it where
     // it has got to rather than at the top of the song (see queue_clock)
     start_pending = true;
-
-    return true;
 }
 
 // Turn the clock off, telling whatever was following it to stop
