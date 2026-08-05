@@ -163,4 +163,12 @@ export const GOLDEN_LINKS = [
     // A synthwave beat that was shared before it was written down here
     { song: null, link:
         "a_synthwave_beat/EwAqsl8gwEgz4UDAx8OSgLekfTqPqMDCCDGUhpIIIVKDmQGgvpbEqD6cEplE0vWlMCMFVjJwER_JYkfKk61NADCCDGWRpRYQrxKR9fi-CGiAFHo-CMiABiZGUMZSHhLGj1DhzS54VQ4OSgP-R-IqWICAAAg0QSWI1G4E1jTC8RZTOWqSNQE4iAQsrKJAwIeQUylij9AYEDh1VsYf58gMCIhIpqa8_wA" },
+
+    // A two bar loop that was shared with its title on it, which the corpus
+    // holds as 'a shared two bar loop' and the entry below pins untitled
+    { song: null, link:
+        "Purple_Light_=_Dance_Party/FAAch_MA-ulB3xegRgvhRSIr9H_1gAwOjeiQautA" },
+
+    { song: "a shared two bar loop", link:
+        "untitled/FAAch_MA-ulB3xegRgvhRSIr9H_1gAwOjeiQautA" },
 ];

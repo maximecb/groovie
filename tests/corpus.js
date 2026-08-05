@@ -1821,6 +1821,58 @@ export const CORPUS = [
         },
     ],
 },
+
+{
+    // A song somebody made in the editor and shared, kept here as it came:
+    // two bars at 104 played once, which is what most of what gets shared
+    // actually is rather than the arrangements the rest of this list is made
+    // of. The link it was shared as is pinned in tests/golden_links.js.
+    //
+    // Its mixer is what the others here aren't. Every song above that touches
+    // panning or levels sets them for every row it has, because they were
+    // written out row by row; this one leaves four of its six rows exactly
+    // where a new pattern puts them and moves only the clap and the rimshot,
+    // which is what a mixer looks like when somebody sets the two things that
+    // bothered them and stops. The rimshot is the only row sent to the delay.
+    //
+    // It is also the only song here that resonates with the filter left at
+    // the centre, where FILTER_RESO_FADE means the peak is faded out and the
+    // setting can't be heard at all. That still has to survive a round trip:
+    // a setting nobody can hear is one the encoding could quietly drop, and
+    // this is what says it doesn't, since the control has to come back up
+    // where it was left when the link is opened.
+    name: 'a shared two bar loop',
+    tempo: 104,
+    delay_time: 14,         // two steps, for the rimshot
+    delay_feedback: 20,
+    resonance: 6,           // with the filter at the centre, so inaudible
+    song_bars: 2,
+    patterns: [
+        {   // the default kit with a different snare and closed hat
+            samples: [
+                'kick_01',
+                'snare_02',
+                'hat_closed_02',
+                'hat_open_01',
+                'clap_01',
+                'rimshot_01',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                'x...x...x...x...' + 'x...x...x...x..x',
+                '....x.......x...' + '....x.......x.xx',
+                '..x...x...x...xx' + '..x...x...x...x.',
+                '................' + '...............x',
+                '..........xx....' + '..........xx.x..',
+                '..x..x..x..x..x.' + '.x..x..x..x..x..',
+            ],
+            pans:    [0, 0, 0, 0, -4,  3],
+            volumes: [0, 0, 0, 0,  0, -7],
+            sends:   [-30, -30, -30, -30, -30, -8],
+            lane: 'x',
+        },
+    ],
+},
 ];
 
 // Turn one of the entries above into a project
