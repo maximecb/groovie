@@ -8,15 +8,21 @@ bitmap committed to the repo rather than anything drawn at load time.
 
 Two files come out. The JPEG is the one index.html points at: the picture has
 to be fetched before the card can be drawn, and the same picture as a PNG is
-close to five times the bytes, since a PNG stores every one of the scanlines
-exactly. The PNG is kept because links shared before this changed still ask
-for it, and a card whose picture 404s is shown as a bare link.
+around three times the bytes. The PNG is kept because links shared before this
+changed still ask for it, and a card whose picture 404s is shown as a bare
+link.
 
 The picture is the logo over a step sequencer grid playing a plain four-four
-beat, in the colours the app draws patterns in. There is no text in it beyond
-the logo: what a preview says comes from the og:title and og:description tags,
-where it stays selectable and translatable, and where it doesn't have to be
-rendered in whatever font happens to be installed.
+beat, in the colours the app draws patterns in, and a one line tagline under
+it. The rest of what a preview says comes from the og:title and
+og:description tags, where it stays selectable and translatable, and where it
+doesn't have to be rendered in whatever font happens to be installed.
+
+It is drawn on flat black with nothing laid over the whole field. Facebook and
+the rest rescale and re-encode the picture, and a wash or a screenful of
+scanlines does not survive that as the effect it was meant to be -- it arrives
+as a haze over everything, which is what made an earlier version of this look
+blurry and faded once shared.
 
 Rasterising is done by Chrome in headless mode, which is the one renderer on
 hand that draws an SVG at the size it was drawn at. The obvious alternative on
@@ -48,11 +54,11 @@ HEIGHT = 630
 # Colours the app draws with, from view.js and style.css. A row of the grid is
 # drawn in the colour its pattern would be, so the picture and the app agree.
 #
-# The background is a hair off black rather than black. Scanlines work by
-# taking light away, so on a truly black field there is nothing for them to
-# take and they only show where the picture is already lit. Lifting the floor
-# a little gives them something to bite on everywhere.
-BACKGROUND = '#0d1117'
+# The background is fully black. A feed rescales the picture and re-encodes it,
+# and anything laid over the whole field -- a lifted floor, a wash, scanlines --
+# survives that as a grey veil rather than as the effect it was meant to be.
+# Black keeps the lit cells and the logo as the only things in the picture.
+BACKGROUND = '#000000'
 CELL_OFF_BORDER = '#666666'
 
 # One row per colour, each with the part a kit piece would play. Read together
@@ -77,17 +83,15 @@ STEP_GAP = 8
 BEAT_GAP = 16
 ROW_GAP = 10
 
-# The tagline under the grid, in the app's own words. It is burnt into the
-# picture as well as being in the og:description tag: a preview card is often
-# shown with the description cut off or dropped, and this is the line that
-# says what the thing is.
+# The tagline under the grid. It is burnt into the picture as well as being in
+# the og:description tag: a preview card is often shown with the description
+# cut off or dropped, and this is the line that says what the thing is.
 TAGLINE = [
-    'THE MOST ADVANCED DRUM MACHINE ON THE WEB.',
-    'OPEN SOURCE, NO ADS, 100% FREE.',
+    'ADVANCED DRUM/BEAT SEQUENCER',
 ]
 TAGLINE_FONT = 'Helvetica Neue, Helvetica, Arial, sans-serif'
-TAGLINE_SIZE = 38
-TAGLINE_LEAD = 50
+TAGLINE_SIZE = 48
+TAGLINE_LEAD = 62
 
 # How tall a capital stands as a fraction of the font size. Helvetica's is
 # 0.717, and the tagline is all capitals, so this is the height the block of
@@ -108,23 +112,20 @@ LOGO_INK_BOTTOM = 189
 # with a gap between the rows it lights. Two pixels dark in four reads as a
 # screen; anything finer turns to grey once a feed rescales the picture.
 #
-# How dark those two pixels are is a tax on the whole picture, and it is paid
-# twice. A feed does not show the picture at the size it was drawn: Facebook
-# takes it to 1000x522, and once the lines are below a pixel each they stop
-# reading as lines and just come out as a veil over everything. Taking 30
-# percent rather than 42 still reads as a tube up close and leaves the colours
-# with enough left in them to survive the rescale.
+# They are laid over the tagline alone rather than over the whole picture. A
+# feed does not show the picture at the size it was drawn -- Facebook takes it
+# to 1000x522 -- and once the lines are below a pixel each they stop reading as
+# lines and come out as a veil, which is what made a shared card look blurry
+# and faded. Over one band of white text they are small enough to read as a
+# texture on the words and to cost the rest of the picture nothing.
 SCANLINE_PITCH = 4
-SCANLINE_DARK = 0.30
+SCANLINE_DARK = 0.32
 
-# The wash across the face of the tube, brightest in the middle. This is a
-# screen blend, so what it really does is lift the black the picture sits on,
-# and it was doing it hard enough to be the main reason a shared card came
-# back looking washed out: the background under the logo was arriving at
-# roughly (27, 37, 47) instead of the near black it is drawn on. Enough of it
-# is kept for the middle to read as lit; the rest went.
-TUBE_GLOW_CORE = 0.07
-TUBE_GLOW_MID = 0.03
+# How far past the ink the scanline band reaches, so the lines cross the bloom
+# around the words too and not just the letters. Everything outside the words
+# is black, and dark lines over black are invisible, so the band can be
+# generous without showing an edge.
+SCANLINE_PAD = 34
 
 
 def grid_width():
@@ -162,7 +163,7 @@ def logo_markup():
 
 
 def defs_markup():
-    """The bloom filters and the tube overlays, one per thing that needs one.
+    """The bloom filters and the scanline tile, one per thing that needs one.
 
     A filter per row colour rather than one shared one: feDropShadow takes the
     colour it spreads as an attribute, not from what it is applied to, so a
@@ -195,29 +196,8 @@ def defs_markup():
         f'</pattern>'
     )
 
-    # The bloom off the face of the tube: a cool wash that is brightest in the
-    # middle and gone by the edges, laid over everything in screen mode.
-    out.append(
-        '<radialGradient id="tubeGlow" cx="50%" cy="46%" r="72%">'
-        f'<stop offset="0%" stop-color="#6fd8ff" '
-        f'stop-opacity="{TUBE_GLOW_CORE}"/>'
-        f'<stop offset="45%" stop-color="#4aa6ff" '
-        f'stop-opacity="{TUBE_GLOW_MID}"/>'
-        '<stop offset="100%" stop-color="#000000" stop-opacity="0"/>'
-        '</radialGradient>'
-    )
-
-    # And the dark at the corners, which is the other half of a tube looking
-    # like a tube: the picture has to fall off where the glass curves away.
-    out.append(
-        '<radialGradient id="vignette" cx="50%" cy="50%" r="78%">'
-        '<stop offset="62%" stop-color="#000000" stop-opacity="0"/>'
-        '<stop offset="100%" stop-color="#000000" stop-opacity="0.45"/>'
-        '</radialGradient>'
-    )
-
     # The tagline gets a bloom too, for the same reason the cells do: the
-    # scanlines cut a fifth out of everything they cross, and white text is
+    # scanlines cut a third out of everything they cross, and white text is
     # the one thing in the picture that has to still look white afterwards.
     out.append(
         '<filter id="textBloom" x="-40%" y="-140%" width="180%" height="380%">'
@@ -315,14 +295,17 @@ def build_svg():
             f'filter="url(#textBloom)">{line}</text>'
         )
 
-    # The tube, over the lot. Order matters: the glow lifts the whole picture,
-    # then the lines cut into what the glow lifted, then the corners go dark.
-    out += [
-        f'<rect width="{WIDTH}" height="{HEIGHT}" fill="url(#tubeGlow)" '
-        f'style="mix-blend-mode:screen"/>',
-        f'<rect width="{WIDTH}" height="{HEIGHT}" fill="url(#scanlines)"/>',
-        f'<rect width="{WIDTH}" height="{HEIGHT}" fill="url(#vignette)"/>',
-    ]
+    # The scanlines, over the tagline and its bloom and nothing else. The band
+    # is snapped to the pitch so the lines land the same way every run, rather
+    # than shifting by a pixel whenever the text moves.
+    band_top = text_y - cap_h / 2 - SCANLINE_PAD
+    band_top -= band_top % SCANLINE_PITCH
+    band_h = text_h + 2 * SCANLINE_PAD
+
+    out.append(
+        f'<rect x="0" y="{band_top:.0f}" width="{WIDTH}" '
+        f'height="{band_h:.0f}" fill="url(#scanlines)"/>'
+    )
 
     out.append('</svg>')
 
