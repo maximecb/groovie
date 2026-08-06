@@ -31,7 +31,10 @@ import {
     MAX_PAT_ROWS,
     MAX_TEMPO,
     MIN_VOLUME,
+    MAX_VOLUME,
     MIN_SEND,
+    MAX_HUMANIZE,
+    HUMANIZE_MAX_TIME,
     MIN_FILTER,
     MAX_FILTER,
     DEFAULT_FILTER,
@@ -595,4 +598,173 @@ test("the path that is down is kept at the setting the control passed through", 
 
     for (let stage of [...paths.lp, ...paths.hp])
         assert.ok(Math.abs(stage.frequency.value - project.filter_freq) < 1e-9);
+});
+
+//============================================================================
+// Humanizing
+//
+// A hit is pushed late and pulled down by a draw of its own, so what these are
+// about is the bounds that hold rather than the values that come out: the
+// draws are random, and a test that pinned one would be pinning Math.random.
+//
+// The hard bounds are worth holding down because what they protect is the
+// grid. A hit that could be pushed past its neighbour, or a row that could be
+// nudged out of silence, is a control that stops being a feel and starts being
+// a bug in somebody's song.
+//============================================================================
+
+// Play one step of a pattern of `num_rows` rows, all playing `sample_idx` and
+// all landing on it, at the given humanize setting. Repeated `num_runs` times,
+// since one step is a handful of draws and what these are checking is what
+// every draw has to satisfy.
+async function humanized_voices(sample_idx, num_rows, humanize, num_runs = 1)
+{
+    let project = new Project();
+    project.set_tempo(ONE_STEP_TEMPO);
+    project.set_humanize(humanize);
+
+    let pat = new Pattern(Array(num_rows).fill(sample_idx), 1);
+    pat.rows = pat.rows.map(row => row.fill(1));
+
+    // Every row at the top of its range, so that the gain a voice carries is
+    // the draw it was given and nothing else
+    for (let row_idx = 0; row_idx < num_rows; ++row_idx)
+        pat.set_row_volume(row_idx, MAX_VOLUME);
+
+    project.patterns = [pat];
+
+    let voices = [];
+
+    for (let run = 0; run < num_runs; ++run)
+    {
+        await play_pattern(project, 0);
+        stop_playback();
+        voices.push(...drain_voices());
+    }
+
+    return { project, voices };
+}
+
+// How far each voice was pushed off the step it belongs to. Every voice here
+// comes from the same step, so the earliest of them is the one that drew the
+// smallest offset and the grid is at or before it.
+function voice_offsets(voices, step_time)
+{
+    return voices.map(voice => voice.start_time - step_time);
+}
+
+test("a project that left humanize alone puts every hit exactly on the grid", async () =>
+{
+    // The default, and what the great majority of links carry. Nothing about
+    // the timing of a project written before there was a humanize control may
+    // change, which means exactly on the step and not nearly on it.
+    let { voices } = await humanized_voices(KICK, MAX_PAT_ROWS, 0);
+
+    assert.equal(voices.length, MAX_PAT_ROWS);
+
+    let start_times = new Set(voices.map(voice => voice.start_time));
+    assert.equal(start_times.size, 1, 'the hits of one step should share a time');
+
+    // And no gain node of its own, the row being at full level. Compared
+    // against a humanized voice rather than against a chain written out here,
+    // since what a voice passes through on its way to the output depends on
+    // where the filter was left and this is only about the one node.
+    let humanized = await humanized_voices(KICK, 1, MAX_HUMANIZE);
+
+    assert.equal(
+        voice_chain(humanized.voices[0]).length,
+        voice_chain(voices[0]).length + 1,
+        'humanize off should cost a voice nothing'
+    );
+});
+
+test("a humanized hit is pushed late and never early", async () =>
+{
+    let { project, voices } = await humanized_voices(
+        SNARE, MAX_PAT_ROWS, MAX_HUMANIZE, 8);
+
+    // The step is the earliest a hit may land, everything being pushed back
+    // from it (see the humanizing section in audio.js)
+    let step_time = Math.min(...voices.map(voice => voice.start_time));
+    let offsets = voice_offsets(voices, step_time);
+
+    assert.ok(offsets.every(offs => offs >= 0), 'a hit was pulled early');
+
+    // And a spread is what it has to be rather than one offset shared by the
+    // step: hits landing together is the thing being broken up
+    assert.ok(
+        new Set(offsets).size > 1,
+        'the hits of one step should not share an offset'
+    );
+
+    assert.ok(
+        Math.max(...offsets) <= project.humanize_max_offs,
+        'a hit was pushed past the bound that keeps it on the grid'
+    );
+});
+
+test("the kick is held closer to the grid than the rest of the kit", async () =>
+{
+    // The pulse is taken off the kick, so scattering it as far as everything
+    // else would move the beat rather than loosen it (see HUMANIZE_TIME_SCALES)
+    let kick = await humanized_voices(KICK, MAX_PAT_ROWS, MAX_HUMANIZE, 16);
+    let snare = await humanized_voices(SNARE, MAX_PAT_ROWS, MAX_HUMANIZE, 16);
+
+    // The ceiling a kick can reach, i.e. the widest draw the spread allows
+    // scaled by the kick's share of it. This is a bound rather than a
+    // likelihood: no draw can put a kick past it.
+    let kick_ceiling = HUMANIZE_MAX_TIME * 0.25 * 2.5;
+
+    let kick_step = Math.min(...kick.voices.map(voice => voice.start_time));
+    let snare_step = Math.min(...snare.voices.map(voice => voice.start_time));
+
+    assert.ok(
+        Math.max(...voice_offsets(kick.voices, kick_step)) <= kick_ceiling,
+        'a kick was scattered as far as the rest of the kit'
+    );
+
+    // The other half of it: the rest of the kit really does go further. Over
+    // this many draws a snare staying inside the kick's ceiling throughout is
+    // not a run of luck, it is the scaling having been applied to everything.
+    assert.ok(
+        Math.max(...voice_offsets(snare.voices, snare_step)) > kick_ceiling,
+        'the rest of the kit was held as close as the kick'
+    );
+});
+
+test("a humanized hit is pulled down and never up", async () =>
+{
+    // The row is at full level, so its gain is the draw and nothing else. A
+    // draw above unity would put a hit over the level the row was set to,
+    // which on a step where every row lands at once is where it would be heard.
+    let { voices } = await humanized_voices(SNARE, MAX_PAT_ROWS, MAX_HUMANIZE, 8);
+
+    for (let voice of voices)
+    {
+        assert.equal(voice.dst.type, 'gain');
+        assert.ok(voice.dst.gain.value <= 1, 'a hit was pushed above its level');
+        assert.ok(voice.dst.gain.value > 0, 'a hit was pulled down to silence');
+    }
+});
+
+test("humanize does not bring a muted row back", async () =>
+{
+    // The level is scaled by the draw rather than offset by it, so a row
+    // pulled all the way down stays where it was put however loose the project
+    let project = new Project();
+    project.set_tempo(ONE_STEP_TEMPO);
+    project.set_humanize(MAX_HUMANIZE);
+
+    let pat = new Pattern([KICK, SNARE], 1);
+    pat.rows = [[1], [1]];
+    pat.set_row_volume(0, MIN_VOLUME);
+    project.patterns = [pat];
+
+    await play_pattern(project, 0);
+    stop_playback();
+
+    let voices = drain_voices();
+
+    assert.equal(voices.length, 1);
+    assert.equal(voice_sample(voices[0]), 'snare_01');
 });

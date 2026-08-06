@@ -4,6 +4,8 @@ import {
     MAX_TEMPO,
     MIN_SWING,
     MAX_SWING,
+    MIN_HUMANIZE,
+    MAX_HUMANIZE,
     MIN_DELAY_TIME,
     MAX_DELAY_TIME,
     MIN_DELAY_FB,
@@ -68,6 +70,7 @@ import {
     delay_time_label,
     filter_label,
     resonance_label,
+    humanize_label,
 } from "./view.js";
 
 //============================================================================
@@ -85,6 +88,10 @@ const tempo_val = document.getElementById('tempo_val');
 // Swing slider
 const swing_slider = document.getElementById('swing_slider');
 const swing_val = document.getElementById('swing_val');
+
+// Humanize slider
+const humanize_slider = document.getElementById('humanize_slider');
+const humanize_val = document.getElementById('humanize_val');
 
 // Volume slider
 const volume_slider = document.getElementById('volume_slider');
@@ -246,6 +253,8 @@ function render_all()
     tempo_val.textContent = project.tempo;
     swing_slider.value = project.swing;
     swing_val.textContent = project.swing;
+    humanize_slider.value = project.humanize;
+    humanize_val.textContent = humanize_label(project.humanize);
     delay_time_slider.value = project.delay_time;
     delay_time_val.textContent = delay_time_label(project.delay_time);
     delay_fb_slider.value = project.delay_feedback;
@@ -256,6 +265,7 @@ function render_all()
     resonance_val.textContent = resonance_label(project.resonance);
     update_slider_fill(tempo_slider);
     update_slider_fill(swing_slider);
+    update_slider_fill(humanize_slider);
     update_slider_fill(delay_time_slider);
     update_slider_fill(delay_fb_slider);
     update_slider_fill(filter_slider);
@@ -316,6 +326,11 @@ tempo_slider.max = MAX_TEMPO;
 // middle of it.
 swing_slider.min = MIN_SWING;
 swing_slider.max = MAX_SWING;
+
+// Humanize runs over its indices rather than over the percentage it reads out
+// as, so that every stop on the slider is a setting a link has room for
+humanize_slider.min = MIN_HUMANIZE;
+humanize_slider.max = MAX_HUMANIZE;
 
 // The delay time slider runs along the table of times rather than over a
 // quantity, so its travel is that table's indices: every stop on it is a
@@ -457,6 +472,15 @@ swing_slider.oninput = function ()
 {
     project.set_swing(swing_slider.valueAsNumber);
     swing_val.textContent = project.swing;
+}
+
+// Humanize is read off the project as each step is queued, so a change lands
+// on the steps queued from here on without anything having to be pushed at the
+// audio engine the way the delay and the filter are
+humanize_slider.oninput = function ()
+{
+    project.set_humanize(humanize_slider.valueAsNumber);
+    humanize_val.textContent = humanize_label(project.humanize);
 }
 
 volume_slider.oninput = function ()

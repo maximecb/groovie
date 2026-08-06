@@ -1227,6 +1227,83 @@ function queue_song_step(step_time, song_len)
     song_step++;
 }
 
+//============================================================================
+// Humanizing
+//
+// Timing and level are scattered per hit, so that a row playing the same step
+// through a whole song doesn't play it identically each time.
+//
+// Both spreads are one-sided: a hit is pushed late and pulled down, never
+// early and never up. That costs less than it looks like it does, because what
+// is heard is the spread between hits -- two rows on one step coming apart, a
+// run of hats sitting unevenly -- and that is the same either way. The only
+// thing a constant lateness has to be late against is the MIDI clock, which
+// stays straight (see queue_clock), and at these spans that is a few
+// milliseconds of external gear running ahead. Pulling down rather than up is
+// what keeps a hit from ever exceeding the level its row was set to, which
+// matters most on the steps where every row lands at once.
+//
+// The amounts themselves belong to the project, which is what says what its
+// controls mean (see humanize_time). What lives here is how they are drawn.
+//============================================================================
+
+// Where the tail of a spread is cut off, in standard deviations. A normal
+// distribution has no bound of its own, and one hit in a few hundred landing
+// three times further out than the rest reads as a mistake rather than as
+// looseness.
+const HUMANIZE_MAX_DEVS = 2.5;
+
+// How much of the timing spread a sample gets, by the prefix its name starts
+// with. Anything not named here gets all of it.
+//
+// The kick is what the ear takes the pulse from: scattering it doesn't loosen
+// the groove, it moves the groove, and a beat whose pulse wanders sounds wrong
+// rather than played. The backbeat anchors nearly as hard and gives up a
+// little less.
+//
+// Level is deliberately not scaled this way. A drummer's kicks vary in weight
+// like everything else does, and it is only in time that the rest of the kit
+// is heard against them.
+const HUMANIZE_TIME_SCALES = [
+    ['kick_', 0.25],
+    ['snare_', 0.6],
+    ['clap_', 0.6],
+];
+
+// The above resolved per sample index, so that a hit is a lookup rather than a
+// walk down a list of prefixes. Indices are reserved permanently and may have
+// no sample behind them (see sample_paths), and a hole gets the full spread it
+// would have gotten as an unrecognized name.
+const humanize_time_scales = [];
+for (let sample_idx = 0; sample_idx < NUM_SAMPLES; ++sample_idx)
+{
+    let sample_name = sample_names[sample_idx];
+
+    let scale = sample_name?
+        HUMANIZE_TIME_SCALES.find(([prefix]) => sample_name.startsWith(prefix)) :
+        null;
+
+    humanize_time_scales[sample_idx] = scale? scale[1] : 1;
+}
+
+// Draw from the positive half of a normal distribution with the given standard
+// deviation, cut off at HUMANIZE_MAX_DEVS.
+//
+// Normal rather than uniform because that is the shape the deviations of a
+// played part actually take: most hits land near where they were aimed and a
+// few stray, where a uniform draw makes every distance from the grid equally
+// likely and comes out sounding shaken rather than loose.
+function draw_spread(sigma)
+{
+    // Box-Muller. The log needs something that can't be zero, which is what
+    // subtracting from one gives: random() returns a value in [0, 1).
+    let u = 1 - Math.random();
+    let v = Math.random();
+    let devs = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+
+    return Math.min(Math.abs(devs), HUMANIZE_MAX_DEVS) * sigma;
+}
+
 // Trigger the sample of each active cell on one step of a pattern, stopping
 // once it has started as many voices as it is allowed to.
 // There is one row per sample, and the number of rows is variable.
@@ -1239,6 +1316,13 @@ function queue_pat_cells(pat, step_idx, step_time, max_voices)
 {
     let num_voices = 0;
 
+    // How far the hits of this step may be scattered. Read once per step
+    // rather than per hit, so that everything landing together is queued at
+    // one setting even if the control is moved while the step is being built.
+    let time_spread = play_project.humanize_time;
+    let gain_spread = play_project.humanize_gain;
+    let max_offs = play_project.humanize_max_offs;
+
     for (let row_idx = 0; row_idx < pat.num_rows; ++row_idx)
     {
         if (num_voices >= max_voices)
@@ -1247,12 +1331,30 @@ function queue_pat_cells(pat, step_idx, step_time, max_voices)
         if (!pat.get_cell(row_idx, step_idx))
             continue;
 
+        let sample_idx = pat.sample_idxs[row_idx];
+        let hit_time = step_time;
+        let gain = pat.row_gain(row_idx);
+
+        // Every hit is drawn for on its own, which is the whole point of it:
+        // two rows sharing a step come apart because they drew different
+        // offsets, and a row repeating a step is loosened by drawing again.
+        if (time_spread > 0)
+        {
+            let sample_spread = time_spread * humanize_time_scales[sample_idx];
+            hit_time += Math.min(draw_spread(sample_spread), max_offs);
+        }
+
+        // Scaled rather than offset, so that a row pulled all the way down
+        // stays silent instead of being nudged back into audibility
+        if (gain_spread > 0)
+            gain *= 10 ** (-draw_spread(gain_spread) / 20);
+
         let started = samples.play_sample(
-            pat.sample_idxs[row_idx],
-            step_time,
+            sample_idx,
+            hit_time,
             global_gain,
             pat.row_stereo_pan(row_idx),
-            pat.row_gain(row_idx),
+            gain,
             pat.row_send_gain(row_idx)
         );
 

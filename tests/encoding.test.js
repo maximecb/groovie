@@ -28,6 +28,9 @@ import {
     MAX_TEMPO,
     MIN_SWING,
     MAX_SWING,
+    MIN_HUMANIZE,
+    MAX_HUMANIZE,
+    DEFAULT_HUMANIZE,
     MIN_PAN,
     MAX_PAN,
     MIN_VOLUME,
@@ -181,10 +184,11 @@ function bits_to_b64(bits)
 }
 
 // Field widths of the encoding, mirrored from model.js on purpose (see above)
-const ENCODING_VERSION = 1;
+const ENCODING_VERSION = 2;
 const VERSION_BITS = 4;
 const TEMPO_BITS = 8;
 const SWING_BITS = 5;
+const HUMANIZE_BITS = 5;
 const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
@@ -225,6 +229,7 @@ const ONE_EMPTY_PATTERN =
     field(ENCODING_VERSION, VERSION_BITS) +            // encoding version
     field(80, TEMPO_BITS) +             // tempo, offset from MIN_TEMPO
     field(0, SWING_BITS) +              // swing, offset from MIN_SWING
+    field(0, HUMANIZE_BITS) +           // humanize, offset from MIN_HUMANIZE
     '1' +                               // the delay is set the way it starts
     '1' +                               // and so is the filter
     field(0, NUM_PATTERNS_BITS) +       // one pattern
@@ -288,6 +293,32 @@ test("both ends of the swing range survive a round trip", () =>
 
         assert.equal(round_trip(project).swing, swing);
     }
+});
+
+test("every humanize setting survives a round trip", () =>
+{
+    // The field is exactly as wide as the range, so every setting the control
+    // stops at is one a link can hold and there is no value to guard against.
+    // That is worth checking rather than assuming: it is what makes this the
+    // one control with no way to write a link the decoder has to refuse.
+    for (let humanize = MIN_HUMANIZE; humanize <= MAX_HUMANIZE; ++humanize)
+    {
+        let project = make_project(120, [
+            { sample_idxs: [0], rows: [[1]] },
+        ]);
+        project.set_humanize(humanize);
+
+        assert.equal(round_trip(project).humanize, humanize);
+    }
+});
+
+test("a link written before there was humanize opens with it off", () =>
+{
+    // The version 1 links pinned below carry no humanize field at all, and
+    // have to open as what they always were rather than as a project scattered
+    // by whatever the bits after the swing happen to say
+    for (let link of ['untitled/FQBgHhA4', 'test_song/FkiXkEMQAC4CwQGEqUgIH_mOAb0A'])
+        assert.equal(project_from_hash(link).humanize, DEFAULT_HUMANIZE);
 });
 
 test("both ends of the pattern length range survive a round trip", () =>
@@ -695,6 +726,7 @@ test("a link repeating a cell as long as its row is refused", () =>
         field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        field(0, HUMANIZE_BITS) +
         '1' +                               // the delay is set the way it starts
         '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
@@ -718,6 +750,7 @@ const FOUR_STEP_ROW =
     field(ENCODING_VERSION, VERSION_BITS) +
     field(80, TEMPO_BITS) +
     field(0, SWING_BITS) +
+    field(0, HUMANIZE_BITS) +
     '1' +                               // the delay is set the way it starts
     '1' +                               // and so is the filter
     field(0, NUM_PATTERNS_BITS) +
@@ -830,6 +863,7 @@ test("a link playing a step its row does not have is refused", () =>
         field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        field(0, HUMANIZE_BITS) +
         '1' +                               // the delay is set the way it starts
         '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
@@ -923,6 +957,7 @@ test("a link panning a row past hard over is refused", () =>
         field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        field(0, HUMANIZE_BITS) +
         '1' +                               // the delay is set the way it starts
         '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
@@ -996,6 +1031,7 @@ test("a link setting a row past the top of the range is refused", () =>
         field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        field(0, HUMANIZE_BITS) +
         '1' +                               // the delay is set the way it starts
         '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
@@ -1156,6 +1192,7 @@ test("a link setting the filter past the end of its travel is refused", () =>
         field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        field(0, HUMANIZE_BITS) +
         '1' +                               // the delay is set the way it starts
         '0' +                               // the filter is not
         field(255, FILTER_BITS) +           // swept past MAX_FILTER
@@ -1204,6 +1241,7 @@ test("a link setting a row past the top of the send range is refused", () =>
         field(ENCODING_VERSION, VERSION_BITS) +
         field(80, TEMPO_BITS) +
         field(0, SWING_BITS) +
+        field(0, HUMANIZE_BITS) +
         '1' +                               // the delay is set the way it starts
         '1' +                               // and so is the filter
         field(0, NUM_PATTERNS_BITS) +
@@ -1251,12 +1289,14 @@ test("a link setting a row past the top of the send range is refused", () =>
 const GOLDEN_EMPTY = [
     'untitled/BQBAPCBw',                // version 0
     'untitled/FQBgHhA4',                // version 1, which added the filter
+    'untitled/JQADAPCBwA',              // version 2, which added humanize
 ];
 
 // A single one-step pattern, its one cell on, placed once on the timeline
 const GOLDEN_MINIMAL = [
     'untitled/BQBAAAAJ8A',
     'untitled/FQBgAAAE-A',
+    'untitled/JQADAAAAJ8A',
 ];
 
 // Two patterns of different lengths, a title, a tempo, a swing and a delay off
@@ -1268,6 +1308,7 @@ const GOLDEN_MINIMAL = [
 const GOLDEN_MIXED = [
     'test_song/BkiXgIYgAFwFggMJUpAQP_McA3oA',
     'test_song/FkiXkEMQAC4CwQGEqUgIH_mOAb0A',
+    'test_song/JkiAvIIYgAFwFggMJUpAQP_McA3oAA',
 ];
 
 // The project above again with the filter swept part of the way down and some
@@ -1275,6 +1316,7 @@ const GOLDEN_MIXED = [
 // the one nothing else here pins.
 const GOLDEN_FILTER = [
     'filter_sweep/FkiXgfoCGIABcBYIDCVKQED_zHAN6AA',
+    'filter_sweep/JkiAvA_QEMQAC4CwQGEqUgIH_mOAb0A',
 ];
 
 // What a project written today encodes to, i.e. the newest of its links

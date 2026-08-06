@@ -19,7 +19,7 @@ html {
        1145px, and about 50px of the page goes on the margins, borders and
        padding between it and the window, so 1220px is where the longest pattern
        anyone writes in fours stops having to be scrolled to be seen. */
-    --page_max: 980px;
+    --page_max: 1040px;
 
     /* Width of the sample drop-down at the left of a pattern row, which the
        button adding a row below the grid matches so that the two line up.
@@ -141,7 +141,20 @@ h1 {
 }
 
 .util_row > .group {
-    flex: 1 1 320px;
+    /* Two boxes to a row at most, however wide the page is allowed to get.
+       Three of them fit once --page_max is raised much past 1000px, and the
+       width is there rather than the room: these are boxes of controls with a
+       line of explanation under them, and at a third of the page each the
+       controls sit shoulder to shoulder and the text sets in a column too
+       narrow to read as a sentence.
+
+       The basis is the larger of a fixed width and just over a third of the
+       row. The third is what caps it at two without tying the cap to a
+       particular --page_max: three boxes of a third plus a pixel can never
+       share a line, whatever the page is widened to later. The 320px floor is
+       what still drops the shelf to one box a row on a phone, where a third of
+       the row is no width at all. */
+    flex: 1 1 max(320px, calc(33.34% + 1px));
     min-width: 0;
 }
 

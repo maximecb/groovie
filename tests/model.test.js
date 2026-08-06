@@ -15,6 +15,11 @@ import {
     MIN_SWING,
     MAX_SWING,
     DEFAULT_SWING,
+    MIN_HUMANIZE,
+    MAX_HUMANIZE,
+    DEFAULT_HUMANIZE,
+    HUMANIZE_MAX_TIME,
+    HUMANIZE_MAX_GAIN,
     MIN_PAN,
     MAX_PAN,
     DEFAULT_PAN,
@@ -787,6 +792,65 @@ test("swing holds a step back by its share of a step pair", () =>
     assert.ok(Math.abs(project.swing_delay - 1 / 3) < 0.01);
 });
 
+test("humanize scatters nothing at the bottom of its travel", () =>
+{
+    let project = new Project();
+
+    // The default, and what every link written before there was a humanize
+    // control opens as. Both spreads have to be exactly zero rather than
+    // nearly so: the audio engine tests them to decide whether to draw at all.
+    assert.equal(project.humanize, DEFAULT_HUMANIZE);
+    assert.equal(project.humanize_time, 0);
+    assert.equal(project.humanize_gain, 0);
+
+    project.set_humanize(MIN_HUMANIZE);
+    assert.equal(project.humanize_time, 0);
+    assert.equal(project.humanize_gain, 0);
+});
+
+test("humanize reaches its full spread at the top of its travel", () =>
+{
+    let project = new Project();
+    project.set_humanize(MAX_HUMANIZE);
+
+    assert.equal(project.humanize_time, HUMANIZE_MAX_TIME);
+    assert.equal(project.humanize_gain, HUMANIZE_MAX_GAIN);
+
+    // And runs evenly between the ends, the control being linear in both
+    project.set_humanize(MAX_HUMANIZE / 2);
+    assert.ok(Math.abs(project.humanize_time - HUMANIZE_MAX_TIME / 2) < 1e-9);
+    assert.ok(Math.abs(project.humanize_gain - HUMANIZE_MAX_GAIN / 2) < 1e-9);
+});
+
+test("how far a humanized hit may be pushed follows the tempo", () =>
+{
+    let project = new Project();
+
+    // The spread is set in seconds and a step is not, so what keeps a hit on
+    // the grid at the fast end of the range is a bound that shrinks with the
+    // step (see HUMANIZE_MAX_STEPS)
+    project.set_tempo(MIN_TEMPO);
+    let slow = project.humanize_max_offs;
+
+    project.set_tempo(MAX_TEMPO);
+    let fast = project.humanize_max_offs;
+
+    assert.ok(fast < slow, 'a faster song should hold its hits closer in');
+    assert.ok(
+        Math.abs(slow / fast - MAX_TEMPO / MIN_TEMPO) < 1e-9,
+        'the bound should scale with the step and not with something else'
+    );
+
+    // At the top of the tempo range the bound is what actually binds: it comes
+    // out under the widest draw the timing spread can produce, which is what
+    // this is here to guarantee.
+    project.set_humanize(MAX_HUMANIZE);
+    assert.ok(
+        project.humanize_max_offs < HUMANIZE_MAX_TIME * 2.5,
+        'the fastest tempo should clamp the tail of the spread'
+    );
+});
+
 test("a pattern can be added up to the pattern limit and no further", () =>
 {
     let project = new Project();
@@ -984,6 +1048,17 @@ test("a swing outside the allowed range is refused", () =>
     assert.equal(drain_asserts().length, 1);
 
     project.set_swing(MAX_SWING + 1);
+    assert.equal(drain_asserts().length, 1);
+});
+
+test("a humanize outside the allowed range is refused", () =>
+{
+    let project = new Project();
+
+    project.set_humanize(MIN_HUMANIZE - 1);
+    assert.equal(drain_asserts().length, 1);
+
+    project.set_humanize(MAX_HUMANIZE + 1);
     assert.equal(drain_asserts().length, 1);
 });
 

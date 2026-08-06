@@ -1873,6 +1873,151 @@ export const CORPUS = [
         },
     ],
 },
+
+{
+    // The one song here that is humanized, which is the whole reason it is
+    // here: the setting is a project field like the tempo and the swing, and
+    // without a song carrying it off its default the encoding would only ever
+    // see it in the hand-written cases in encoding.test.js.
+    //
+    // It is also the longest arrangement in the list that is a song rather
+    // than a stress test. 'the longest song there can be' is longer and is
+    // one pattern repeated to the end of the timeline; this is 112 bars of
+    // eight patterns that tile, which is what the lanes of a real long song
+    // look like and is a different thing to encode.
+    //
+    // Rock is where humanize belongs, and 'the amen break' at the top of this
+    // file says why: a break played by a person sits off the grid throughout,
+    // and everything else here is written on it exactly. This is the straight
+    // grid with the player put back, which is why the swing is left at 50.
+    name: 'a 112 bar rock arrangement',
+    tempo: 132,
+    swing: 50,              // rock sits straight, the feel comes from humanize
+    humanize: 11,           // a drummer behind the kit rather than a grid
+    delay_time: 14,         // two steps, for the rimshot in the bridge
+    delay_feedback: 20,
+    song_bars: 112,
+    patterns: [
+        {   // intro: hats and kick, snare walking in at the end of every second bar
+            samples: ['hat_closed_01', 'snare_02', 'kick_03'],
+            rows: [
+                //  bar 1              bar 2
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '................' + '..........x.x.x.',
+                'x.......x.......' + 'x.....x.x.......',
+            ],
+            pans:    [  4,   0,   0],
+            volumes: [-11,  -4,   0],
+            //     0        8        16       24       32       40       48
+            lane: 'xxxx....' + '........' + '........' + '........' +
+                  '........' + '........' + '........',
+        },
+        {   // verse: the backbeat, kick moving under the second bar
+            samples: ['hat_closed_01', 'snare_02', 'kick_03'],
+            rows: [
+                //  bar 1              bar 2
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '....x.......x...' + '....x.......x...',
+                'x.....x.x.......' + 'x.....x...x.....',
+            ],
+            pans:    [  4,   0,   0],
+            volumes: [-11,  -3,   0],
+            lane: '....xxxx' + 'xxx.....' + '....xxxx' + 'xxx.....' +
+                  '........' + '........' + '........',
+        },
+        {   // chorus: ride instead of hats, an open hat on the way round, a
+            // clap thickening the backbeat and the kick pushing twice a bar
+            samples: ['ride_01', 'hat_open_02', 'clap_02', 'snare_02', 'kick_03'],
+            rows: [
+                //  bar 1              bar 2
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.x.x.x.x.',
+                '..............x.' + '..............x.',
+                '....x.......x...' + '....x.......x...',
+                '....x.......x...' + '....x.......x...',
+                'x.....x.x.....x.' + 'x.....x.x...x...',
+            ],
+            pans:    [  5,   7,  -3,   0,   0],
+            volumes: [-12, -13,  -9,  -3,   0],
+            lane: '........' + '....xxxx' + 'xxx.....' + '....xxxx' +
+                  'xxx.....' + '..xxxxxx' + 'xxxxx...',
+        },
+        {   // the fill closing every section: a bar of the groove, then the
+            // toms coming down across the second one
+            samples: [
+                'hat_closed_01',
+                'tom_hi_01',
+                'tom_mid_01',
+                'tom_low_01',
+                'snare_02',
+                'kick_03',
+            ],
+            rows: [
+                //  bar 1              bar 2
+                'x.x.x.x.x.x.x.x.' + 'x.x.x.x.........',
+                '................' + '........x.x.....',
+                '................' + '............x...',
+                '................' + '..............x.',
+                '....x.......x...' + '....x...x.......',
+                'x.....x.x.......' + 'x...............',
+            ],
+            pans:    [  4,   6,   0,  -6,   0,   0],
+            volumes: [-11,  -5,  -5,  -5,  -3,   0],
+            lane: '........' + '...x....' + '...x....' + '...x....' +
+                  '...x....' + '.x......' + '.....x..',
+        },
+        {   // bridge: the kick drops to half time and the rimshot carries the
+            // pulse, echoing off into the space the guitars would leave
+            samples: ['ride_01', 'rimshot_02', 'snare_02', 'kick_03'],
+            rows: [
+                //  bar 1              bar 2
+                'x...x...x...x...' + 'x...x...x...x...',
+                '..x...x...x...x.' + '..x...x...x...x.',
+                '............x...' + '....x...........',
+                'x.......x.......' + 'x.....x.........',
+            ],
+            pans:    [  5,  -7,   0,   0],
+            volumes: [-13, -14,  -5,  -2],
+            sends:   [-30, -14, -30, -30],
+            lane: '........' + '........' + '........' + '........' +
+                  '....xxxx' + 'x.......' + '........',
+        },
+        {   // outro: crash on the downbeat and the kit stopping mid-bar
+            samples: ['crash_01', 'hat_closed_01', 'snare_02', 'kick_03'],
+            rows: [
+                //  bar 1              bar 2
+                'x...............' + '................',
+                'x.x.x.x.x.x.x.x.' + 'x.x.x...........',
+                '....x.......x...' + '....x...........',
+                'x.....x.x.......' + 'x.......x.......',
+            ],
+            pans:    [ -7,   4,   0,   0],
+            volumes: [ -8, -11,  -3,   0],
+            lane: '........' + '........' + '........' + '........' +
+                  '........' + '........' + '......xx',
+        },
+        {   // one bar long, dropped on the downbeat of each section so the
+            // crash marks the seams rather than repeating on a cycle
+            samples: ['crash_01'],
+            rows: [
+                'x...............',
+            ],
+            pans:    [ -7],
+            volumes: [ -8],
+            lane: lane_at_cells([0, 8, 24, 40, 56, 72, 84]),
+        },
+        {   // three bars long, so the shaker never lines up with the two bar
+            // patterns and walks around the choruses for as long as it runs
+            samples: ['maracas_01'],
+            rows: [
+                //  bar 1              bar 2              bar 3
+                '..x..x..x..x..x.' + '..x..x..x..x..x.' + '..x..x..x..x..x.',
+            ],
+            pans:    [ -8],
+            volumes: [-17],
+            lane: lane_over_bars(48, 112, [[24, 40], [56, 72], [84, 108]]),
+        },
+    ],
+},
 ];
 
 // Turn one of the entries above into a project
@@ -1883,6 +2028,9 @@ export function build_song(song)
 
     if (song.swing !== undefined)
         project.set_swing(song.swing);
+
+    if (song.humanize !== undefined)
+        project.set_humanize(song.humanize);
 
     project.patterns = [];
     project.lanes = [];

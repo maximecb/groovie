@@ -200,6 +200,60 @@ later, such as exporting a track, lands beside what is already there instead of
 below it. The delay's own settings were the first thing to have gone there,
 with the filter's beside them.
 
+## Humanize
+
+Swing moves the off-beats and leaves everything landing exactly where the grid
+puts it, at exactly the level its row was set to. That sameness is most of what
+makes a programmed pattern sound programmed, and it is what this control breaks
+up: every hit is pushed a little late and pulled down a little, drawn afresh
+each time, so a row playing the same step for a whole song never plays it
+identically twice.
+
+The draw is normal rather than uniform, which is the shape the deviations of a
+played part actually take: most hits land near where they were aimed and a few
+stray. A uniform draw makes every distance from the grid equally likely and
+comes out sounding shaken rather than loose. Both spreads are held as standard
+deviations rather than as bounds, with the tail cut off a couple of deviations
+out, past which a stray hit reads as a mistake rather than as looseness.
+
+Both are one-sided: a hit is pushed late and never early, and pulled down and
+never up. That costs less than it looks like it does, because what is heard is
+the spread *between* hits — two rows on one step coming apart, a run of hats
+sitting unevenly — and that is the same whichever side the offsets fall on. The
+only fixed thing a constant lateness has to be late against is the MIDI clock,
+which stays straight for the reasons below, and at these spans that is a few
+milliseconds. Pulling down rather than up is what keeps a hit from ever
+exceeding the level its row was set to, which matters most on the steps where
+every row lands at once.
+
+The timing spread is held in seconds rather than in fractions of a step,
+because the wobble in a human arm is a fixed amount of time: a pattern played
+twice as fast is not played twice as accurately. That leaves the fast end of
+the tempo range to protect, a sixteenth at 280 BPM being 53 ms, so a hit is
+additionally held to a fraction of a step and cannot be pushed into its
+neighbour however loose the project is.
+
+How far a hit is scattered in time depends on what it plays. The ear takes the
+pulse off the kick, so scattering it as far as everything else would move the
+beat rather than loosen it; the backbeat anchors nearly as hard and gives up a
+little less. Level is deliberately not scaled this way — a drummer's kicks vary
+in weight like everything else does, and it is only in time that the rest of the
+kit is heard against them. This is read off the sample a row plays rather than
+set per row: it needs no control, no space in the link, and it is right for the
+kit as it is actually used.
+
+The setting belongs to the project for the reason swing does, and for one of its
+own: it is a property of the hand the song is imagined as being played by, and a
+song is played by one player. It costs five bits in a link, written flat rather
+than behind a bit saying it was left alone — that gating is worth it for the
+delay and the filter, which each gate a pair of fields, and not for a single
+field this small.
+
+One consequence worth stating: a humanized project does not play back
+identically twice. The project is still exactly reproducible from its link, and
+the link is what is shared; what is not reproducible is the performance, which
+is the point of the control.
+
 ## Delay
 
 There is one delay for the whole project, which rows feed through their own
@@ -377,6 +431,13 @@ the grid it is counted on, and the clock *is* that grid: swinging it would tell
 the device the tempo itself was wobbling by twenty percent every step, and
 everything the device derives from the clock would wobble with it. A drum
 machine sends a straight clock and swings its own voices.
+
+Humanize is left off the clock for the same reason and more plainly still. It
+scatters individual voices, and a clock is not a voice: a pulse train with the
+looseness of a human arm in it is a tempo that will not sit still, and the
+device on the end of it has no way to tell that from the page speeding up and
+slowing down. What the gear is being handed is the grid, and the grid is exactly
+the thing humanize is defined as not moving.
 
 The rate is a control rather than a constant, which the spec says it shouldn't
 have to be. MIDI clock is defined at 24 pulses per quarter note, and that is the

@@ -83,6 +83,8 @@ const {
     MAX_TEMPO,
     MIN_SWING,
     MAX_SWING,
+    MIN_HUMANIZE,
+    MAX_HUMANIZE,
     MIN_PAN,
     MAX_PAN,
     MIN_VOLUME,
@@ -180,6 +182,9 @@ function check_song(song)
 
     if (song.swing !== undefined)
         check_range(song.swing, MIN_SWING, MAX_SWING, 'the swing');
+
+    if (song.humanize !== undefined)
+        check_range(song.humanize, MIN_HUMANIZE, MAX_HUMANIZE, 'the humanize');
 
     if (song.delay_time !== undefined)
         check_range(song.delay_time, MIN_DELAY_TIME, MAX_DELAY_TIME,
@@ -337,7 +342,8 @@ if (assert_fails.length)
 
     console.error();
     console.error('Ranges: pan -10 to 10, volume and delay send -30 to 0 dB,');
-    console.error('tempo 40 to 280, swing 50 to 75, delay feedback 0 to 75 in 5s.');
+    console.error('tempo 40 to 280, swing 50 to 75, humanize 0 to 31,');
+    console.error('delay feedback 0 to 75 in 5s.');
     process.exit(1);
 }
 

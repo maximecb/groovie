@@ -17,6 +17,7 @@ import {
     delay_time_label,
     filter_label,
     resonance_label,
+    humanize_label,
 } from "../view.js";
 
 import {
@@ -25,6 +26,8 @@ import {
     MAX_FILTER,
     MIN_RESONANCE,
     MAX_RESONANCE,
+    MIN_HUMANIZE,
+    MAX_HUMANIZE,
     MIN_PAN,
     MAX_PAN,
     DEFAULT_PAN,
@@ -204,4 +207,16 @@ test("every resonance setting fits the width its readout is given", () =>
 {
     for (let res = MIN_RESONANCE; res <= MAX_RESONANCE; ++res)
         assert.ok(resonance_label(res).length <= 3, `${res}: ${resonance_label(res)}`);
+});
+
+test("humanize reads as a percentage of its travel, ends included", () =>
+{
+    assert.equal(humanize_label(MIN_HUMANIZE), '0');
+    assert.equal(humanize_label(MAX_HUMANIZE), '100');
+});
+
+test("every humanize setting fits the width its readout is given", () =>
+{
+    for (let hum = MIN_HUMANIZE; hum <= MAX_HUMANIZE; ++hum)
+        assert.ok(humanize_label(hum).length <= 3, `${hum}: ${humanize_label(hum)}`);
 });

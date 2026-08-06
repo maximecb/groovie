@@ -17,6 +17,7 @@ import {
     MAX_SEND,
     DELAY_STEP_FRACTIONS,
     MAX_RESONANCE,
+    MAX_HUMANIZE,
     STEPS_PER_BAR,
 } from "./model.js";
 
@@ -318,6 +319,14 @@ export function filter_label(project)
 export function resonance_label(resonance)
 {
     return `${Math.round(100 * resonance / MAX_RESONANCE)}`;
+}
+
+// Humanize is an index into a range like the resonance is, and reads out as a
+// percentage of the range for the same reason: how far along its travel the
+// control sits is the only thing about it anybody can judge by ear.
+export function humanize_label(humanize)
+{
+    return `${Math.round(100 * humanize / MAX_HUMANIZE)}`;
 }
 
 // Generate the DOM for a pattern grid, replacing whatever the div held before.

@@ -171,4 +171,73 @@ export const GOLDEN_LINKS = [
 
     { song: "a shared two bar loop", link:
         "untitled/FAAch_MA-ulB3xegRgvhRSIr9H_1gAwOjeiQautA" },
+
+    { song: "the amen break", link:
+        "untitled/JgADA_MEUQOLAXGGsElCXs4a1qAwaDUHgA" },
+
+    { song: "a drum and bass roller", link:
+        "untitled/KGADA_UEUQOGFYCACdworVFVTqa7b-LPECCQoBEIEkhxrqBB24h1oAghrDTnpA" },
+
+    { song: "a 32 bar hip hop arrangement", link:
+        "untitled/IyADEfMN60AQFuMBBHhcWk3S99MSlSh85wBB8CMFfKrX_-DFAr_llh86MPRd4XkQekfOmCGPSZTxjxL6kXiIoXE2sSSR98ok" },
+
+    { song: "a 32 bar techno arrangement", link:
+        "untitled/JaADEfEPRjhSJekfPuBJBHCkS4YkBfS1LHz74EaK_xff_fyR9O8gjxLxLigckkfkrBgI6SPqncA" },
+
+    { song: "a 64 bar house arrangement", link:
+        "untitled/JUADHPEOBjheJe-2LsfEJ6CdcXEzW5-Lli5HxAiBGCeJqatc-Jexcj4iKckk8BVDMtr8laJefkB8CfwBxO-AEGIijjlAD9Vf5pIfIEUQcCCCOF4l8UkfIYYERU_-E_q7_x38Hoq-qSfkBtQgV2nBCsABBk5GI_fUrA" },
+
+    { song: "patterns of prime lengths", link:
+        "untitled/JQADEPENigOFQl77BAFuS_ZRcgwAbJH3TeCgATokfVLsMAcygvylUA" },
+
+    { song: "a default kit barely touched", link:
+        "untitled/JQADCPKUB5BHhelSQ89KCH79wIII-kqB5SgP4IC_6qv_8A" },
+
+    { song: "a 32 bar house groove panned wide", link:
+        "untitled/JUMDDfUOBjgQQR4kZyAh8BDkCAHAQwIJT60SsfbvgRgn6RHH79-4ihH_Fj6AQQRwnEjMLyAh8BK0gQFgeYEEp-JUHmORQAWO5EBWNpBCWBCPFfqSAA" },
+
+    { song: "a 64 bar psytrance arrangement", link:
+        "untitled/JpADFPUORjiAJ24YiRC0KQTUoto4IpEYRPQ3h79-_fv37kcQQCjI4gJM7iXol7KXIe_f48_79-_cekr0ZWA1GBFLinsp4-hIlAVIHVCAmCSgNAjECSUT0naFQgiiApjilh5DX0RV2IUgm4FJZxS3GrCxBDoQgzoHcSQid9TvAA" },
+
+    { song: "a dub techno arrangement", link:
+        "untitled/JUABPIZ5BwMcKBIZWBBBBjG-w8BZTKvPWY4uw8RKRwRJsDUWQQSxL2LkPGjHE5IlRPMxTwA" },
+
+    { song: "a 32 bar two step arrangement", link:
+        "untitled/JgYBN4b5h6oBULcZCCCGzwqEkFCBbUXbfg0V72LHz1oAgLfAjBWphFFX4BBAJdrErLyEb5JJRJVAoDALWBAhI8kmkByZVVoprGnn4kSkBYcs0RqbW3gCLmkqSA" },
+
+    { song: "a 64 bar drill and bass arrangement", link:
+        "untitled/J9AAmY_5htYoCCAImhWOL9cICQhhNTEuGBTQszLjv36cmILUJCQERFJMkCIK1qWpZ-eQCgiBBCRRAjjXAiCRSCAVFZjaWhcFV2e_nsVIbBIiCQkxIJRQiixxLEl4iJICCKCBFyOSZT1ASSGk0JiFx1q0misRcCIgTmdSiU0mRsgG8UlIoZ5wGwIiBCCCgi0YBjCOtVLx8hn4rr77_NYTG6rBEgQESKApNnvpKr_LPLPE4j6kA8Ag2ASR0iZrn2IlYuQflAFNAC5AiCT0VQxEhEz9UsA" },
+
+    { song: "a 60 bar rave with vocal one shots", link:
+        "untitled/JiABN5b5Rjh0Ly4VCVrXLHJWPgC5EFITj2MkfERYiEYJbQAjdd3La2UOJWiUSPgFYdPyVvMD4B2MXkeSt5gDAiYmdjD9k_gGBDbWxx9SXh-AMCC2biJP6TaAYABI0cZJ8UPzASwHMAEwWNbZ1kgKoOvPlnAMm1z4FNAdNvf1KT5akgYEBItgYij7Ps-zpD4BkJU_KeA" },
+
+    { song: "the longest song there can be", link:
+        "untitled/JhADHPGMeQR7_9ES_7Rj7oOEJwh2IiiSKfrLiV47_DAC9FjlfKfV0FABCRQgx_qc6hARZpxGhFoHooMQ99sdIMA5IgpL3MZuy3MZuyJAPiKgkespf1IsARpAemf_do3w" },
+
+    { song: "a hardcore stomp at the top of the range", link:
+        "untitled/LwyB_4J5CGMbwWiSjbY1kEAMN1h5CIF-gSQRDe4s" },
+
+    { song: "a doom crawl at the bottom of the range", link:
+        "untitled/IAAAAIB5SgOCKIWI5I4GolWA" },
+
+    { song: "a sixteen row percussion wall", link:
+        "untitled/I8ADBf-MeQR4XkBemSnP7TpWdL9FXot9F_0SPOSKPSBD0QedrW-kjHwiBFAes_EWvyRQ6y5JFE5qGox6wA" },
+
+    { song: "a phasing pulse of tiny patterns", link:
+        "untitled/JcADMAAK5mb_sBANZXt_yBABsgq3zpkDAWZJ6vEv4FAD5CEnxKcCAAT0RFTiV0EgIvSQOjxKKDQHJIHNV_VIiAnJASIl-4UAI0gKSP_YKgPiQGgofrPwI5oAU1Z2OnLr9A5XY_ASmABTVn7dPBjWNgA" },
+
+    { song: "a filtered acid techno stretch", link:
+        "untitled/JcABOlnoI8g5GOFIkOtAkgg1nfQeQYkBHKJC3RIESYE9I8RQM4uh8RLSZYNJsjExa6gerx4A" },
+
+    { song: "a 96 bar berlin techno arrangement", link:
+        "untitled/JdABO5J4hiJGpQ9GPfqJfg-IV0E8DNhRSI4QR6TSJXQeItJVqCawEkEENcS_GSvB8RKRYEi0RiOkTlvJlTUS2QsROKETPQAUiAEwr1J11OsPEWBIU4odEaPQSxj5ZS7H0BFEBShwYwgxEcjCNJlkj2xKTZTgSTYspmtpBNjFrDyCgFBEACks4paNfRFWUuhj1j5BImrXQTkgGrSSQfSQMHpLfRkgOY8PAEUQKV4k-Ty7LPPPAA" },
+
+    { song: "a 64 bar rap arrangement", link:
+        "untitled/IwOA5Yz5BQEclFuEGIhEEg5Shr0j59T03S9PQGIgi3DmtBECaPpzXPSPnlVr_0XfAjBX1oIgTZ8yXJEh9QwICRRhQEcmARCQODrKASQQatGIgi3DmtBEB76lapWPmFAwcnFsSDRWGJJlCmQA5TBDBTn1JHzBFEBS0KPV6ATkwKZGUt8ghAgN7-xeIimSSQR0T0yHJkzTvtkA" },
+
+    { song: "a shared two bar loop", link:
+        "untitled/JAAA5D-YB9dKDvi9AjBfCikRX6P_rABgdG9Eg1daAA" },
+
+    { song: "a 112 bar rock arrangement", link:
+        "untitled/JcAs5I75BOEcnF5PXPWob1IAu9Y-XeQRb60FAKK_HJlw-gsY9KGCTvIowJIIHVi8QRbhvILRH5Lky56pH1Cf1fBOTjaljSDMd0eFMxyR8IzF6BGgLcN1AGRD7k8880uQ-YsDB6MWhINBAXkmU4bqARCxTnmMHzBFEAa0J_V6ATkwKZGUt8gkB3vuSHhRDzz5Pk-T5LkXgIpkkkEbxLHMY8A" },
 ];

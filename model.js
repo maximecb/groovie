@@ -42,6 +42,45 @@ export const MIN_SWING = 50;
 export const MAX_SWING = 75;
 export const DEFAULT_SWING = 50;
 
+// How far the hits of a project are scattered off the grid and pulled down in
+// level, as an index into a range running from none to as loose as it goes.
+//
+// A sequencer puts every hit in exactly the same place at exactly the same
+// level, and that sameness is most of what makes a programmed pattern sound
+// programmed. This scatters both a little, redrawn for every hit, so that a
+// row playing the same step through a whole song doesn't play it identically
+// each time.
+//
+// An index rather than a quantity, like the resonance below: the amount has no
+// unit anybody thinks in, so what it means is set by the two spans under it
+// and the control itself is a feel to be found by ear.
+export const MIN_HUMANIZE = 0;
+export const MAX_HUMANIZE = 31;
+export const DEFAULT_HUMANIZE = 0;
+
+// How far a hit is moved off the grid at the top of the control, in seconds,
+// as the standard deviation of the offset rather than as a bound on it.
+//
+// A drummer's hits land within something like 5 to 10 ms of where they were
+// aimed, so the top of the range is already looser than a good player. Held in
+// seconds rather than in steps because the wobble in a human arm is a fixed
+// amount of time and not a fraction of a bar: a pattern played twice as fast
+// is not played twice as accurately.
+export const HUMANIZE_MAX_TIME = 0.010;
+
+// And how far it is pulled down at the top, in decibels, on the same terms.
+// Level is the half of this that carries: a kit whose hits all sit at exactly
+// one level reads as programmed even when its timing is loose.
+export const HUMANIZE_MAX_GAIN = 5;
+
+// How far into the next step a hit may ever be pushed, as a fraction of one.
+//
+// The spans above are in seconds, and a step is not: at 280 BPM a sixteenth
+// lasts 53 ms, where the tail of the timing spread would be most of the way to
+// the following step and a row would stop reading as being on the grid at all.
+// This is what keeps the fast end of the tempo range honest.
+export const HUMANIZE_MAX_STEPS = 0.4;
+
 // Stereo position of a row, in tenths from hard left to hard right. Zero is
 // the centre, which is where a row starts and where most of them stay: a kit
 // is mixed by moving a few rows off centre, not by placing every one of them.
@@ -581,6 +620,12 @@ export class Project
         // happens to be playing across it.
         this.swing = DEFAULT_SWING;
 
+        // How far the hits are scattered off the grid and in level (see
+        // above). It belongs to the project for the reason swing does, and
+        // for one of its own: it is a property of the hand the song is
+        // imagined as being played by, and a song is played by one player.
+        this.humanize = DEFAULT_HUMANIZE;
+
         // Delay time, as an index into DELAY_STEP_FRACTIONS, and how much of
         // the delay is fed back into itself, as a percentage.
         //
@@ -634,6 +679,15 @@ export class Project
         console.assert(swing >= MIN_SWING);
         console.assert(swing <= MAX_SWING);
         this.swing = swing;
+    }
+
+    // Set how far the hits are scattered, as an index into the range (see
+    // MIN_HUMANIZE)
+    set_humanize(humanize)
+    {
+        console.assert(humanize >= MIN_HUMANIZE);
+        console.assert(humanize <= MAX_HUMANIZE);
+        this.humanize = humanize;
     }
 
     // Set the delay time, as an index into DELAY_STEP_FRACTIONS
@@ -753,6 +807,32 @@ export class Project
     get swing_delay()
     {
         return 2 * this.swing / 100 - 1;
+    }
+
+    // How far a hit is moved off the grid, in seconds, and how far it is
+    // pulled down, in decibels. Both are the standard deviation of the spread
+    // the audio engine draws from rather than an amount any one hit gets.
+    //
+    // Linear in the control, unlike the filter's two spans below. Those are
+    // logarithmic because the ear hears frequency and resonance that way; a
+    // few milliseconds of slop is heard as the amount of time it is, and the
+    // decibel is already a logarithm of the thing it measures.
+    get humanize_time()
+    {
+        return HUMANIZE_MAX_TIME * this.humanize / MAX_HUMANIZE;
+    }
+
+    get humanize_gain()
+    {
+        return HUMANIZE_MAX_GAIN * this.humanize / MAX_HUMANIZE;
+    }
+
+    // The furthest into the next step a hit may be pushed, in seconds. Follows
+    // the tempo, the thing it is protecting being the grid rather than a
+    // duration (see HUMANIZE_MAX_STEPS).
+    get humanize_max_offs()
+    {
+        return HUMANIZE_MAX_STEPS / this.steps_per_sec;
     }
 
     // How long the delay holds a sound for, in seconds. The delay is set in
@@ -958,16 +1038,22 @@ export class Project
 // on it below. A version is stepped rather than a field quietly appended
 // because a reader that guessed wrong about which fields a link carries would
 // not fail, it would open the link as a different song.
-const ENCODING_VERSION = 1;
+const ENCODING_VERSION = 2;
 
 // Version that first carried the filter. A link older than this was written
 // before there was one, and is read as a project that leaves it alone.
 const FILTER_VERSION = 1;
 
+// Version that first carried the humanize setting, read on the same terms: a
+// link written before there was one opens as the project it always did, whose
+// hits all land exactly on the grid.
+const HUMANIZE_VERSION = 2;
+
 // Number of bits used for each field
 const VERSION_BITS = 4;
 const TEMPO_BITS = 8;
 const SWING_BITS = 5;
+const HUMANIZE_BITS = 5;
 const NUM_PATTERNS_BITS = 6;
 const NUM_STEPS_BITS = 6;
 const NUM_ROWS_BITS = 4;
@@ -1076,6 +1162,7 @@ const MAX_VAR_CHUNKS = Math.ceil(Math.log2(MAX_SONG_STEPS + 1) / VAR_CHUNK_BITS)
 
 console.assert(MAX_TEMPO - MIN_TEMPO < (1 << TEMPO_BITS));
 console.assert(MAX_SWING - MIN_SWING < (1 << SWING_BITS));
+console.assert(MAX_HUMANIZE - MIN_HUMANIZE < (1 << HUMANIZE_BITS));
 console.assert(MAX_PAN - MIN_PAN < (1 << PAN_BITS));
 console.assert(MAX_VOLUME - MIN_VOLUME < (1 << VOLUME_BITS));
 console.assert(MAX_SEND - MIN_SEND < (1 << SEND_BITS));
@@ -1803,6 +1890,14 @@ export function encode_project(project)
     writer.write(project.tempo - MIN_TEMPO, TEMPO_BITS);
     writer.write(project.swing - MIN_SWING, SWING_BITS);
 
+    // Written flat rather than behind a bit saying it was left alone, which is
+    // what the delay and the filter below get. Those each gate a pair of
+    // fields and buy back nine and thirteen bits with the one they spend. This
+    // is a single field five bits wide, so gating it would spend a bit on
+    // every project that uses it to save four on the ones that don't, and a
+    // link is base64url: its length only moves in sixes either way.
+    writer.write(project.humanize - MIN_HUMANIZE, HUMANIZE_BITS);
+
     // How the delay is set, which costs a single bit in a project that left it
     // where it started. Most projects do: a row has to be sent to the delay
     // before any of this is audible at all, so the settings are only worth
@@ -1917,6 +2012,12 @@ export function decode_project(b64_str)
     let project = new Project();
     project.set_tempo(MIN_TEMPO + reader.read(TEMPO_BITS));
     project.set_swing(MIN_SWING + reader.read(SWING_BITS));
+
+    // A link written before there was a humanize control carries nothing about
+    // it, and opens as the project it always did, whose hits are all exactly
+    // on the grid. That is the default, so there is nothing to set here.
+    if (version >= HUMANIZE_VERSION)
+        project.set_humanize(MIN_HUMANIZE + reader.read(HUMANIZE_BITS));
 
     // A project that left the delay where it started says so in one bit, and
     // is already holding the settings it would have written

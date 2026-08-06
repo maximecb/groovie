@@ -68,6 +68,7 @@ export default {
     name: 'a rolling psytrance loop',   // becomes the title in the link
     tempo: 145,
     swing: 50,                          // optional, 50 is straight
+    humanize: 0,                        // optional, 0 is dead on the grid
     delay_time: 19,                     // optional, index into DELAY_STEP_FRACTIONS
     delay_feedback: 35,                 // optional, multiples of 5
     song_bars: 16,
@@ -148,6 +149,7 @@ each round is a small edit rather than a fresh start.
 |---|---|---|
 | tempo | 40–280 | |
 | swing | 50–75 | 50 straight, 54–58 subtle, 60–66 a real shuffle |
+| humanize | 0–31 | 0 machine-tight, 6–12 a played feel, 20+ audibly loose |
 | pattern length | 1–64 steps | 16 steps = 1 bar |
 | rows per pattern | up to 16 | |
 | patterns | up to 64 | |

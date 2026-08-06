@@ -69,6 +69,12 @@ you can play it, take it apart and remix it.
   a three minute song laid out the way a rap single is, four bars of intro then
   sixteen bar verses that hand off to the hook on a fill, with a shaker three bars
   long drifting against the two bar kit underneath all of it.
+- [A rock arrangement](https://maximecb.github.io/groovie/#a_112_bar_rock_arrangement/JcAs5I75BOEcnF5PXPWob1IAu9Y-XeQRb60FAKK_HJlw-gsY9KGCTvIowJIIHVi8QRbhvILRH5Lky56pH1Cf1fBOTjaljSDMd0eFMxyR8IzF6BGgLcN1AGRD7k8880uQ-YsDB6MWhINBAXkmU4bqARCxTnmMHzBFEAa0J_V6ATkwKZGUt8gkB3vuSHhRDzz5Pk-T5LkXgIpkkkEbxLHMY8A) —
+  112 bars at 132 played straight, where the feel comes from the humanize control
+  rather than from swing: every hit lands a little late and a little down, drawn
+  afresh each time, with the kick held closer to the grid than the rest of the kit.
+  Verses and choruses closed off by tom fills, and a one bar crash dropped on each
+  section downbeat.
 
 ## Features
 
@@ -84,7 +90,9 @@ resetting every bar.
 - A tempo-synced delay set in fractions of a step, from slapback up to a full bar
 - A filter across the whole mix on one knob, low-pass below the centre and
   high-pass above it, the way a DJ mixer does it, with its own resonance control
-- Tempo from 40 to 280 BPM, plus a swing control
+- Tempo from 40 to 280 BPM, plus swing and humanize controls: swing shifts the
+  off-beats, humanize scatters every hit a little in time and level so a pattern
+  stops repeating itself exactly
 - Patterns can be switched while the music plays: the one you pick is queued and
   launches when the playing one comes around, the way a groovebox does it
 - MIDI clock output, to run a drum machine or synth in time with the page: start,
