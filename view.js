@@ -1,0 +1,831 @@
+import {
+    SORTED_SAMPLE_IDXS,
+    get_sample_name,
+    fetch_sample,
+    preview_sample,
+} from "./audio.js";
+import {
+    MAX_PAT_ROWS,
+    MAX_PATTERNS,
+    MAX_SONG_STEPS,
+    MIN_PAN,
+    MAX_PAN,
+    MIN_PAT_ROWS,
+    MIN_VOLUME,
+    MAX_VOLUME,
+    MIN_SEND,
+    MAX_SEND,
+    DELAY_STEP_FRACTIONS,
+    MAX_RESONANCE,
+    MAX_HUMANIZE,
+    STEPS_PER_BAR,
+} from "./model.js";
+
+//============================================================================
+// DOM rendering
+//
+// The views are a function of the model: rendering reads the project state and
+// never stores state of its own. That's what makes it possible to drop in a
+// project decoded from a URL and just re-render.
+//============================================================================
+
+// Colors of the 12-band rainbow, one per pattern. A pattern is drawn in its
+// color both on the timeline lane that places it and in the grid that edits
+// it, so that the two read as the same thing. A project can hold more patterns
+// than there are colors here, so the colors repeat.
+//
+// The bands at the violet end of the rainbow are much darker than the rest, so
+// they're lightened here to hold their own against the yellows against a dark
+// background. The hues are the ones the rainbow has.
+const PAT_COLORS = [
+    '#d926d3',
+    '#7433ff',
+    '#0551ff', // Bright blue
+    '#00d0d0',
+    '#00fa00',
+    '#cbfa00',
+    '#fefb00',
+    '#fec802',
+    '#ff9501',
+    '#ff5004',
+    '#fe2204',
+    '#d81d52'
+];
+
+// Give an element the color of a pattern. The cells inside it are painted from
+// this in the stylesheet, which keeps the palette out of the rules drawing them.
+function set_pat_color(div, pat_idx)
+{
+    div.style.setProperty('--pat_color', PAT_COLORS[pat_idx % PAT_COLORS.length]);
+}
+
+// Step column currently highlighted in the pattern grid, null if none
+let cur_highlight = null;
+
+// The cell divs the last render produced, indexed [row_idx][step_idx]. The
+// playback highlight looks cells up here rather than walking the grid DOM,
+// which keeps it independent of the per-row controls around the cells.
+let cell_divs = [];
+
+// Highlight the step being played in the pattern grid, or clear the highlight
+// when step_idx is null. This runs on every animation frame, so it only
+// touches the two columns that change instead of rebuilding the grid.
+export function highlight_step(step_idx)
+{
+    if (step_idx === cur_highlight)
+        return;
+
+    for (let row_cells of cell_divs)
+    {
+        // A column may be gone if the pattern got shorter
+        let old_cell = row_cells[cur_highlight];
+        if (old_cell)
+            old_cell.classList.remove('playing');
+
+        let new_cell = row_cells[step_idx];
+        if (new_cell)
+            new_cell.classList.add('playing');
+    }
+
+    cur_highlight = step_idx;
+}
+
+// The pattern tab divs the last render produced, indexed by pattern index
+let tab_divs = [];
+
+// Pattern indices the tab strip is currently showing as playing and as queued
+let cur_play_tab = null;
+let cur_queued_tab = null;
+
+// Mark which pattern is being heard, and which one is waiting to take over
+// from it. Like the step highlight, this runs on every animation frame, so it
+// only touches the strip when what it shows has gone stale.
+export function highlight_pat_tabs(play_idx, queued_idx)
+{
+    if (play_idx === cur_play_tab && queued_idx === cur_queued_tab)
+        return;
+
+    for (let pat_idx = 0; pat_idx < tab_divs.length; ++pat_idx)
+    {
+        tab_divs[pat_idx].classList.toggle('playing', pat_idx === play_idx);
+        tab_divs[pat_idx].classList.toggle('queued', pat_idx === queued_idx);
+    }
+
+    cur_play_tab = play_idx;
+    cur_queued_tab = queued_idx;
+}
+
+// Generate the DOM for the pattern tab strip, i.e. one numbered tab per
+// pattern, followed by the buttons that create new patterns.
+//
+// The strip is how patterns are switched between, which the handlers report
+// back: which pattern is being edited is a property of the editing session
+// rather than of the project, and so lives outside of the model.
+export function render_pat_tabs(tabs_div, project, cur_pat, handlers)
+{
+    // Create the tab selecting a given pattern. Tabs are numbered from 1,
+    // which is how patterns are referred to in the interface.
+    function make_tab(pat_idx)
+    {
+        let button = document.createElement('button');
+        button.className = 'pat_tab';
+        button.textContent = pat_idx + 1;
+        button.title = `Edit pattern ${pat_idx + 1}`;
+
+        if (pat_idx == cur_pat)
+            button.classList.add('selected');
+
+        button.onclick = () => handlers.select(pat_idx);
+
+        return button;
+    }
+
+    // Create one of the buttons that add a pattern at the end of the strip.
+    // They're dashed and dim, like the button that adds a row to a pattern, so
+    // that they read as patterns waiting to exist rather than as controls.
+    function make_add_button(label, title, on_click)
+    {
+        let button = document.createElement('button');
+        button.className = 'pat_tab add_pat';
+        button.textContent = label;
+        button.title = title;
+        button.onclick = on_click;
+
+        return button;
+    }
+
+    // The strip is rebuilt, so nothing carries the playback state anymore
+    cur_play_tab = null;
+    cur_queued_tab = null;
+    tab_divs = [];
+
+    tabs_div.replaceChildren();
+
+    for (let pat_idx = 0; pat_idx < project.num_patterns; ++pat_idx)
+    {
+        let tab = make_tab(pat_idx);
+        tab_divs.push(tab);
+        tabs_div.appendChild(tab);
+    }
+
+    // A project that can't hold any more patterns gets no add buttons
+    if (project.num_patterns < MAX_PATTERNS)
+    {
+        tabs_div.appendChild(make_add_button(
+            '+',
+            'Create a new empty pattern',
+            handlers.create
+        ));
+
+        tabs_div.appendChild(make_add_button(
+            'Copy',
+            'Create a copy of the current pattern',
+            handlers.copy
+        ));
+    }
+
+    // Deleting the pattern being edited belongs with the buttons that create
+    // patterns, but acts on one that already exists, so it doesn't take on
+    // their unbuilt look. It stays in place when the add buttons are gone: a
+    // full project is where deleting a pattern is most worth reaching for.
+    let del_button = document.createElement('button');
+    del_button.className = 'pat_tab del_pat';
+    del_button.textContent = 'Delete';
+    del_button.title = `Delete pattern ${cur_pat + 1}`;
+    del_button.onclick = handlers.delete;
+
+    // A project always holds at least one pattern
+    del_button.disabled = (project.num_patterns <= 1);
+
+    tabs_div.appendChild(del_button);
+}
+
+// A select element listing every sample, cloned once per pattern row. The
+// option list is built only once: there are a few hundred samples, and the
+// grid is rebuilt every time the pattern length changes.
+let sample_sel_template = null;
+
+// Get the sample selection template, building it on the first call
+function get_sample_sel_template()
+{
+    if (sample_sel_template)
+        return sample_sel_template;
+
+    sample_sel_template = document.createElement('select');
+    sample_sel_template.className = 'sample_sel';
+
+    // Samples are named without their directory or file extension, which is
+    // how they're referred to everywhere outside of the samples directory
+    for (let sample_idx of SORTED_SAMPLE_IDXS)
+    {
+        let option = document.createElement('option');
+        option.value = sample_idx;
+        option.textContent = get_sample_name(sample_idx);
+        sample_sel_template.appendChild(option);
+    }
+
+    return sample_sel_template;
+}
+
+// Tell a slider's track how much of it to fill, style.css drawing the color
+// from that. This is how far along its range the handle sits, which CSS can't
+// read off a range input by itself.
+//
+// This lives here rather than in main.js because the pan sliders are built
+// here, one per row, every time a pattern is rendered: a slider that arrives
+// after the page has loaded has to be given its fill by whatever made it.
+export function update_slider_fill(slider)
+{
+    let min = Number(slider.min);
+    let max = Number(slider.max);
+    let frac = (slider.valueAsNumber - min) / (max - min);
+    slider.style.setProperty('--val', `${100 * frac}%`);
+}
+
+// How a stereo position reads on a mixer: a side and how far towards it, as a
+// percentage, with the centre named rather than numbered. The model holds pan
+// in tenths, which is what makes these whole numbers.
+export function pan_label(pan)
+{
+    if (pan == 0)
+        return 'C';
+
+    return (pan < 0? 'L' : 'R') + Math.abs(10 * pan);
+}
+
+// How a level reads on a mixer: decibels below the sample as recorded, with
+// the bottom of the travel named rather than numbered, since a row down there
+// is off rather than very quiet.
+export function volume_label(volume)
+{
+    if (volume <= MIN_VOLUME)
+        return 'off';
+
+    return `${volume}dB`;
+}
+
+// How much of a row goes to the delay, read the same way its level is, the
+// bottom of the travel being a row that gets no echo at all rather than a very
+// quiet one
+export function send_label(send)
+{
+    if (send <= MIN_SEND)
+        return 'off';
+
+    return `${send}dB`;
+}
+
+// How a delay time reads: the fraction of a step it is set to, named the way a
+// musician would say it rather than as the milliseconds it currently works out
+// to, which change with the tempo.
+export function delay_time_label(delay_time)
+{
+    let [num, den] = DELAY_STEP_FRACTIONS[delay_time];
+    let steps = den == 1? `${num}` : `${num}/${den}`;
+
+    return `${steps} step${num == 1 && den == 1? '' : 's'}`;
+}
+
+// How the filter reads: which kind of filter the control is currently asking
+// for and where it is set, with the centre named rather than numbered the way
+// the centre of the pan control is, since a filter there is not a filter set
+// very wide, it is no filter at all.
+//
+// The kind is named in the readout rather than only by the ends of the travel,
+// so that what a sweep is doing has somewhere to be read off while it happens.
+// Frequencies are given to three figures at most: past a kilohertz nobody is
+// setting a filter to the Hz, and a readout that changed by single digits
+// during a sweep would be unreadable anyway.
+export function filter_label(project)
+{
+    let type = project.filter_type;
+
+    if (type === null)
+        return 'off';
+
+    let freq = project.filter_freq;
+    let name = type == 'lowpass'? 'LP' : 'HP';
+
+    if (freq >= 1000)
+        return `${name} ${(freq / 1000).toFixed(1)}kHz`;
+
+    return `${name} ${Math.round(freq)}Hz`;
+}
+
+// How the resonance reads: a percentage of the travel rather than the Q it
+// works out to. Q is the name of a number in a filter design, not of anything
+// somebody turning this up is looking for, and there is no unit here that
+// carries meaning the way decibels do on the level controls.
+export function resonance_label(resonance)
+{
+    return `${Math.round(100 * resonance / MAX_RESONANCE)}`;
+}
+
+// Humanize is an index into a range like the resonance is, and reads out as a
+// percentage of the range for the same reason: how far along its travel the
+// control sits is the only thing about it anybody can judge by ear.
+export function humanize_label(humanize)
+{
+    return `${Math.round(100 * humanize / MAX_HUMANIZE)}`;
+}
+
+// Generate the DOM for a pattern grid, replacing whatever the div held before.
+// The pattern index is what says which color the grid is drawn in, and is the
+// same one its timeline lane uses.
+export function render_pattern(pat_div, pattern, pat_idx)
+{
+    // Create the drop-down used to select the sample a row plays
+    function make_sample_sel(row_idx)
+    {
+        let select = get_sample_sel_template().cloneNode(true);
+
+        // A row can name a sample index that has no sample behind it, which no
+        // option matches. The select then shows up blank, and the row stays
+        // silent until a sample is picked, which is what playback does too.
+        select.value = pattern.sample_idxs[row_idx];
+
+        select.onchange = () =>
+        {
+            let sample_idx = Number(select.value);
+            pattern.set_row_sample(row_idx, sample_idx);
+
+            // Play the new sample once, so that picking a sample is a matter of
+            // hearing it rather than of recognizing its name. This loads it too,
+            // which is what the row needs to play it from here on.
+            preview_sample(sample_idx);
+        };
+
+        return select;
+    }
+
+    // Create the button that adds a row to the pattern. It's shaped like a row
+    // of its own and sits at the bottom of the grid, lined up under the sample
+    // selects, so that it reads as the next row waiting to exist.
+    function make_add_row()
+    {
+        let row_div = document.createElement('div');
+        row_div.className = 'pat_row';
+
+        // Stands in for the delete button the rows above have, so that this
+        // button still lines up with the sample selects it sits under
+        let spacer = document.createElement('div');
+        spacer.className = 'del_row_gap';
+        row_div.appendChild(spacer);
+
+        let button = document.createElement('button');
+        button.className = 'add_row';
+        button.textContent = '+ row';
+        button.title = 'Add a row to this pattern';
+
+        button.onclick = () =>
+        {
+            let sample_idx = pattern.next_row_sample();
+            pattern.add_row(sample_idx);
+
+            // Load the sample the new row starts out playing
+            fetch_sample(sample_idx);
+
+            // The grid has a row more than it's showing, so it gets rebuilt
+            render_pattern(pat_div, pattern, pat_idx);
+        };
+
+        row_div.appendChild(button);
+
+        return row_div;
+    }
+
+    // Create one of the mixer controls on the right of a row, i.e. a slider
+    // with the value it is set to written beside it. Sliders rather than the
+    // knobs design.md called for: the page is built out of sliders already,
+    // and a slider can be dragged, tabbed to and arrowed along without any of
+    // the pointer handling a knob would need to turn a drag into an angle.
+    //
+    // The readouts are small and a column of them is easy to lose track of, so
+    // each names the sample it belongs to in its tooltip, along with what the
+    // control does.
+    function make_row_ctl(row_idx, spec)
+    {
+        let ctl = document.createElement('div');
+        ctl.className = 'row_ctl';
+
+        let slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = spec.cls;
+        slider.min = spec.min;
+        slider.max = spec.max;
+        slider.step = 1;
+
+        let readout = document.createElement('span');
+        readout.className = 'row_ctl_val';
+
+        // Each readout is reserved at the width of the longest value its own
+        // control can show, so that the value changing doesn't shift what's
+        // beside it and no control carries a spare column it never fills
+        ctl.style.setProperty('--val_width', spec.val_width);
+
+        function show(val)
+        {
+            readout.textContent = spec.label(val);
+            slider.title = `${spec.title} of ${
+                get_sample_name(pattern.sample_idxs[row_idx])}: ${spec.label(val)}`;
+            update_slider_fill(slider);
+        }
+
+        function set(val)
+        {
+            slider.value = val;
+            spec.set(row_idx, val);
+            show(val);
+        }
+
+        slider.oninput = () => set(slider.valueAsNumber);
+
+        // Double-clicking a mixer control puts it back where it started, which
+        // on a touch screen is the only way to hit that value exactly
+        slider.ondblclick = () => set(spec.reset);
+
+        set(spec.get(row_idx));
+
+        ctl.appendChild(slider);
+        ctl.appendChild(readout);
+
+        return ctl;
+    }
+
+    // Where a row sits in the stereo field, then how loud it is
+    function make_volume_ctl(row_idx)
+    {
+        return make_row_ctl(row_idx, {
+            cls: 'vol_slider',
+            title: 'Level',
+            val_width: '5ch',   // '-30dB'
+            min: MIN_VOLUME,
+            max: MAX_VOLUME,
+            reset: MAX_VOLUME,
+            label: volume_label,
+            get: idx => pattern.volumes[idx],
+            set: (idx, val) => pattern.set_row_volume(idx, val),
+        });
+    }
+
+    function make_pan_ctl(row_idx)
+    {
+        return make_row_ctl(row_idx, {
+            cls: 'pan_slider ctr_slider',
+            title: 'Stereo position',
+            val_width: '4ch',   // 'L100'
+            min: MIN_PAN,
+            max: MAX_PAN,
+            reset: 0,
+            label: pan_label,
+            get: idx => pattern.pans[idx],
+            set: (idx, val) => pattern.set_row_pan(idx, val),
+        });
+    }
+
+    // How much of the row is fed to the delay, which comes after the two above
+    // because it is the one control here that isn't about where the row sits in
+    // the mix. It starts at the bottom of its travel, a row being dry until it
+    // is sent somewhere, so it's the one control whose reset is its minimum.
+    function make_send_ctl(row_idx)
+    {
+        return make_row_ctl(row_idx, {
+            cls: 'send_slider',
+            title: 'Delay send',
+            val_width: '5ch',   // '-30dB'
+            min: MIN_SEND,
+            max: MAX_SEND,
+            reset: MIN_SEND,
+            label: send_label,
+            get: idx => pattern.sends[idx],
+            set: (idx, val) => pattern.set_row_send(idx, val),
+        });
+    }
+
+    // Create the button that removes a row, at the left end of it. Destructive
+    // and one click away, so it stays quiet until pointed at, the way the
+    // button that adds a row does.
+    //
+    // A pattern always keeps one row, so on a pattern down to its last the
+    // button is disabled rather than left out: every row indents by the width
+    // of this, and a row without one would sit out of line with the rest.
+    function make_del_row(row_idx)
+    {
+        let button = document.createElement('button');
+        button.className = 'del_row';
+        button.textContent = '×';
+        button.title = `Remove the ${
+            get_sample_name(pattern.sample_idxs[row_idx])} row`;
+        button.disabled = (pattern.num_rows <= MIN_PAT_ROWS);
+
+        button.onclick = () =>
+        {
+            pattern.delete_row(row_idx);
+
+            // Every row below this one has moved up, and the handlers above
+            // close over the index a row had, so the grid gets rebuilt
+            render_pattern(pat_div, pattern, pat_idx);
+        };
+
+        return button;
+    }
+
+    // Create a div representing one cell
+    function make_cell(row_idx, step_idx)
+    {
+        // The outer cell div is the element reacting to clicks
+        // It's larger and therefore easier to click
+        let cell = document.createElement('div');
+        cell.className = 'cell_box';
+
+        // The inner div is the colored/highlighted element. The on/off classes
+        // are toggled individually so that they compose with the `playing`
+        // class the playback highlight adds.
+        let inner = document.createElement('div');
+        let cell_on = pattern.get_cell(row_idx, step_idx);
+        inner.className = cell_on? 'cell on':'cell off';
+        cell.appendChild(inner);
+
+        cell.onclick = (evt) =>
+        {
+            let cell_on = pattern.toggle_cell(row_idx, step_idx);
+            inner.classList.toggle('on', cell_on);
+            inner.classList.toggle('off', !cell_on);
+
+            evt.stopPropagation();
+        };
+
+        return cell;
+    }
+
+    // The grid is rebuilt, so nothing carries the highlight anymore
+    cur_highlight = null;
+    cell_divs = [];
+
+    set_pat_color(pat_div, pat_idx);
+    pat_div.replaceChildren();
+
+    // One row of cells per sample
+    for (let row_idx = 0; row_idx < pattern.num_rows; ++row_idx)
+    {
+        let row_div = document.createElement('div');
+        row_div.className = 'pat_row';
+        row_div.appendChild(make_del_row(row_idx));
+        row_div.appendChild(make_sample_sel(row_idx));
+
+        // The cells sit in their own div so that the beat separators, which are
+        // spaced off the position of a cell within its parent, don't have to
+        // account for the controls surrounding the cells
+        let cells_div = document.createElement('div');
+        cells_div.className = 'pat_cells';
+
+        let row_cells = [];
+
+        for (let step_idx = 0; step_idx < pattern.num_steps; ++step_idx)
+        {
+            let cell = make_cell(row_idx, step_idx);
+            cells_div.appendChild(cell);
+            row_cells.push(cell.firstElementChild);
+        }
+
+        cell_divs.push(row_cells);
+        row_div.appendChild(cells_div);
+        // The mixer controls are grouped so that they sit closer to each other
+        // than to the steps they belong to, rather than at the spacing the row
+        // puts between its own parts
+        let ctls_div = document.createElement('div');
+        ctls_div.className = 'row_ctls';
+        ctls_div.appendChild(make_pan_ctl(row_idx));
+        ctls_div.appendChild(make_volume_ctl(row_idx));
+        ctls_div.appendChild(make_send_ctl(row_idx));
+
+        row_div.appendChild(ctls_div);
+        pat_div.appendChild(row_div);
+    }
+
+    // A pattern that can't grow any further gets no button
+    if (pattern.num_rows < MAX_PAT_ROWS)
+        pat_div.appendChild(make_add_row());
+}
+
+//============================================================================
+// Timeline
+//
+// The timeline has one lane per pattern, and one cell per playthrough of that
+// pattern. Steps have a fixed duration, so a cell is drawn as wide as the
+// pattern is long: a cell is that much time, whatever lane it sits on, and
+// lanes of different lengths visibly phase against each other.
+//============================================================================
+
+// Width of one step of the timeline, in pixels
+const STEP_PX = 6;
+
+// How much room past the end of the song the timeline shows, and the smallest
+// extent it shows, both in steps. The song ends at the last pattern placed on
+// it, so there has to be somewhere past that end to place the next one.
+const TRAILING_STEPS = 2 * STEPS_PER_BAR;
+const MIN_VIEW_STEPS = 8 * STEPS_PER_BAR;
+
+// What the lane labels take up at the left of the timeline, in pixels: the
+// width the stylesheet gives .tl_label plus the gap after it. This is only
+// used to work out how many bars fit in the box, which is rounded down to
+// whole bars, so being a few pixels out costs nothing. Where the lanes
+// actually start, which the playhead has to land on exactly, is measured.
+const LABEL_PX = 44;
+
+// Playhead of the last timeline render, and the offset the lanes start at,
+// which is what the playhead is positioned against
+let playhead_div = null;
+let lanes_left = 0;
+
+// Song step the timeline is currently showing the playhead at, null if none
+let cur_song_step = null;
+
+// Move the timeline playhead to the song step being played, or hide it when
+// step_idx is null. Like the pattern grid highlight, this runs on every
+// animation frame, so it only moves the playhead instead of redrawing lanes.
+export function highlight_song_step(step_idx)
+{
+    if (step_idx === cur_song_step)
+        return;
+
+    if (playhead_div)
+    {
+        playhead_div.style.display = (step_idx === null)? 'none':'block';
+
+        if (step_idx !== null)
+            playhead_div.style.left = `${lanes_left + step_idx * STEP_PX}px`;
+    }
+
+    cur_song_step = step_idx;
+}
+
+// Generate the DOM for the timeline, i.e. the arrangement of patterns.
+//
+// Like the pattern tab strip, the timeline reports back which pattern was
+// picked for editing, which is a property of the editing session rather than
+// of the project.
+export function render_timeline(seq_div, project, cur_pat, handlers)
+{
+    // Create the label of a lane, which names the pattern the lane places and
+    // doubles as a way to open that pattern for editing
+    function make_label(pat_idx)
+    {
+        let pat = project.patterns[pat_idx];
+
+        let button = document.createElement('button');
+        button.className = 'tl_label';
+        button.textContent = pat_idx + 1;
+        button.title = `Edit pattern ${pat_idx + 1} (${pat.num_steps} steps)`;
+
+        if (pat_idx == cur_pat)
+            button.classList.add('selected');
+
+        button.onclick = () => handlers.select(pat_idx);
+
+        return button;
+    }
+
+    // Create one cell of a lane, i.e. one playthrough of that pattern
+    function make_cell(pat_idx, cell_idx)
+    {
+        let num_steps = project.patterns[pat_idx].num_steps;
+
+        let cell = document.createElement('div');
+        let cell_on = project.get_lane_cell(pat_idx, cell_idx);
+        cell.className = cell_on? 'tl_cell on':'tl_cell off';
+
+        // Cells are inset by a pixel on each side, so that a run of them reads
+        // as several playthroughs rather than as one long block
+        cell.style.width = `${num_steps * STEP_PX - 2}px`;
+
+        cell.onclick = () => handlers.toggle(pat_idx, cell_idx);
+
+        return cell;
+    }
+
+    // Create the lane placing a given pattern in the song
+    function make_lane(pat_idx, view_steps)
+    {
+        let lane_div = document.createElement('div');
+        lane_div.className = 'tl_lane';
+        set_pat_color(lane_div, pat_idx);
+        lane_div.appendChild(make_label(pat_idx));
+
+        let cells_div = document.createElement('div');
+        cells_div.className = 'tl_cells';
+
+        // Enough cells to cover the extent shown. A pattern whose length isn't
+        // a whole number of bars has its last cell reach past that extent,
+        // which is the same thing that happens at the end of the song.
+        let num_cells = Math.ceil(view_steps / project.patterns[pat_idx].num_steps);
+
+        for (let cell_idx = 0; cell_idx < num_cells; ++cell_idx)
+            cells_div.appendChild(make_cell(pat_idx, cell_idx));
+
+        lane_div.appendChild(cells_div);
+
+        return lane_div;
+    }
+
+    // Create the ruler above the lanes, numbering the bars of the song. Cells
+    // line up with bars only when their pattern is a whole number of bars long,
+    // so this is what tells you where you are in the song.
+    function make_ruler(view_steps)
+    {
+        let lane_div = document.createElement('div');
+        lane_div.className = 'tl_lane tl_ruler';
+
+        // Empty space above the lane labels, to line the bars up with the cells
+        let label_div = document.createElement('div');
+        label_div.className = 'tl_label tl_no_label';
+        lane_div.appendChild(label_div);
+
+        let bars_div = document.createElement('div');
+        bars_div.className = 'tl_cells';
+
+        for (let bar_idx = 0; bar_idx < view_steps / STEPS_PER_BAR; ++bar_idx)
+        {
+            let bar_div = document.createElement('div');
+            bar_div.className = 'tl_bar';
+            bar_div.textContent = bar_idx + 1;
+            bar_div.style.width = `${STEPS_PER_BAR * STEP_PX}px`;
+            bars_div.appendChild(bar_div);
+        }
+
+        // Clicking the ruler moves the song to that point. The ruler is where
+        // this goes because it's the one lane that stands for the song as a
+        // whole rather than for one pattern in it, and nothing else on it wants
+        // a click. It reports the step rather than acting, the way the rest of
+        // the timeline does.
+        bars_div.onclick = (evt) =>
+        {
+            // Where the click landed in the lanes, measured against the bars
+            // themselves: they start where the cells do, and reading their box
+            // at the click keeps this right however the timeline is scrolled.
+            let x = evt.clientX - bars_div.getBoundingClientRect().left;
+            handlers.seek(Math.max(0, Math.floor(x / STEP_PX)));
+        };
+
+        lane_div.appendChild(bars_div);
+
+        return lane_div;
+    }
+
+    // Create the marker showing where the song loops back to its start
+    function make_loop_marker(song_steps)
+    {
+        let marker = document.createElement('div');
+        marker.className = 'tl_loop';
+        marker.style.left = `${lanes_left + song_steps * STEP_PX}px`;
+        marker.title = `The song loops back to the start after ${song_steps} steps`;
+
+        return marker;
+    }
+
+    let song_steps = project.song_num_steps;
+
+    // Whole bars that fit in the box the timeline is drawn in. The page grows
+    // with the window, so how much timeline there is room for isn't a number
+    // that can be written down here: a short song on a wide screen would
+    // otherwise stop well short of the right edge, leaving the room to place
+    // the next pattern off the end of the lanes rather than on them.
+    let bar_px = STEPS_PER_BAR * STEP_PX;
+    let fit_steps = Math.floor((seq_div.clientWidth - LABEL_PX) / bar_px) * STEPS_PER_BAR;
+
+    // Extent shown, i.e. the song plus the room to make it longer, and never
+    // less than what fills the box or the few bars a narrow box still shows
+    let view_steps = Math.min(
+        Math.max(song_steps + TRAILING_STEPS, fit_steps, MIN_VIEW_STEPS),
+        MAX_SONG_STEPS
+    );
+
+    // The timeline is rebuilt, so nothing carries the playhead anymore
+    playhead_div = null;
+    cur_song_step = null;
+
+    // The lanes sit in a wrapper of their own so that the playhead and the
+    // loop marker, which span every lane, can be positioned against it
+    let tl_div = document.createElement('div');
+    tl_div.className = 'timeline';
+    tl_div.appendChild(make_ruler(view_steps));
+
+    for (let pat_idx = 0; pat_idx < project.num_patterns; ++pat_idx)
+        tl_div.appendChild(make_lane(pat_idx, view_steps));
+
+    seq_div.replaceChildren(tl_div);
+
+    // Where the lanes start, i.e. how far the labels push them in. This is
+    // measured rather than assumed, so that the playhead lines up with the
+    // cells whatever the labels end up being sized at.
+    lanes_left = tl_div.querySelector('.tl_cells').offsetLeft;
+
+    // A song that plays nothing has no loop point to show
+    if (song_steps > 0)
+        tl_div.appendChild(make_loop_marker(song_steps));
+
+    playhead_div = document.createElement('div');
+    playhead_div.className = 'tl_playhead';
+    playhead_div.style.display = 'none';
+    tl_div.appendChild(playhead_div);
+}

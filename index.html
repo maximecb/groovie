@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Search engines weigh the title above anything else on the page, and
+         they show it as the clickable line of the result. "Groovie" alone is a
+         made up word: it only finds the page for someone who already knows the
+         name. The words after the dash are what someone types when they don't. -->
+    <title>Groovie — Free online drum machine and beat sequencer</title>
+
+    <!-- Google rewrites this often and it isn't a ranking signal, but when it
+         does use it, it's the grey text under the title, cut off around 155
+         characters. The first sentence has to stand on its own. -->
+    <meta name="description" content="Groovie is a free, open source drum machine and beat sequencer that runs in your browser. Sketch a beat, arrange it into a song, and share the whole thing as a link. No ads, no account, nothing to install.">
+    <meta name="theme-color" content="#000000">
+
+    <!--
+        The one address this page wants to be indexed under. A search engine
+        that reaches the same page by another route — a mirror, a scraper, the
+        explicit /index.html rather than the bare directory, a link carrying
+        tracking parameters after a '?' — is told here that all of those are
+        the same document, and folds whatever they've earned back into this
+        URL instead of splitting it across near duplicates or picking a
+        favourite on its own.
+
+        Absolute for the same reason the og: URLs are.
+    -->
+    <link rel="canonical" href="https://maximecb.github.io/groovie/">
+
+    <!--
+        What a link to Groovie looks like when it's posted somewhere.
+
+        X, Facebook, Messenger, Signal and the rest all read these tags to
+        build the little card that shows up in place of a bare URL. They fetch
+        the page without running any of its JavaScript, so what they see is
+        this file exactly as it is served and nothing the app does later.
+
+        That is also why every Groovie link previews the same way. A shared
+        track lives in the fragment, after the '#', and a fragment is never
+        sent to the server: the crawler asking for the page doesn't receive
+        the track and couldn't say which one it was. Naming the song in the
+        card would mean moving the track out of the fragment and putting
+        something in front of the site that can write these tags per request,
+        which is a different kind of hosting than a folder of static files.
+
+        The URLs here are absolute because they have to be. A crawler resolves
+        them against nothing, so a relative path is either ignored or fetched
+        from the wrong host.
+    -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Groovie">
+    <meta property="og:title" content="Groovie — free browser-based drum machine / beat sequencer">
+    <meta property="og:description" content="Sketch a beat in the step sequencer, arrange your patterns into a song on the timeline, and share the whole project as a single link. No ads, no account, nothing to install.">
+    <meta property="og:url" content="https://maximecb.github.io/groovie/">
+    <meta property="og:image" content="https://maximecb.github.io/groovie/og_image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="The Groovie logo above a step sequencer grid playing a four to the floor beat">
+
+    <!-- X reads the tags above for the words and the picture, and this one to
+         decide how big to draw the card. Without it the picture is a thumbnail
+         off to the side rather than the width of the post. -->
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+    <!-- For the clients that won't take an SVG icon, which is most of the ones
+         that show a favicon beside a link rather than a card -->
+    <link rel="alternate icon" href="favicon.ico" sizes="any">
+
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="main.js"></script>
+</head>
+<body>
+
+    <h1><img class="logo" src="logo.svg" alt="Groovie"></h1>
+
+    <!-- The column everything below the logo is laid out in. It takes the width
+         of the window, up to the cap the stylesheet sets, so that how wide the
+         page runs is decided in one place and every box below lines up with
+         every other one. -->
+    <div class="page">
+
+        <div class="group">
+            <div class="label">Controls</div>
+            <div class="controls">
+                <!-- TODO: do we want an obvious play button at the top? -->
+                <div class="slider_ctl">
+                    <label>Tempo: <span class="num_val" id="tempo_val">120</span> BPM</label>
+                    <!-- Range is set in main.js, from MIN/MAX_TEMPO -->
+                    <input type="range" id="tempo_slider" value="120">
+                </div>
+                <div class="slider_ctl">
+                    <label>Swing: <span class="num_val" id="swing_val">50</span>%</label>
+                    <!-- Range is set in main.js, from MIN/MAX_SWING -->
+                    <input type="range" id="swing_slider" value="50">
+                </div>
+                <div class="slider_ctl">
+                    <label>Humanize: <span class="num_val" id="humanize_val">0</span>%</label>
+                    <input type="range" id="humanize_slider" value="0">
+                </div>
+                <div class="slider_ctl">
+                    <label>Volume: <span class="num_val" id="volume_val">45</span>%</label>
+                    <input type="range" id="volume_slider" min="0" max="100" value="45">
+                </div>
+            </div>
+        </div>
+
+        <div class="group">
+            <div class="label">Patterns</div>
+
+            <div class="pat_bar">
+                <!-- One tab per pattern, generated in view.js -->
+                <div class="pat_tabs" id="pat_tabs">
+                </div>
+            </div>
+
+            <div class="sequencer" id="pat_div">
+            </div>
+
+            <div class="bot_bar">
+                <button id="play_pat" class="play_btn">Play</button>
+
+                <!-- Swaps the steps above for where the rows sit in the mix, a
+                     narrow screen having room for one or the other. Shown by
+                     the stylesheet only at the widths that leave the mix out. -->
+                <button id="mixer_btn" class="mixer_btn" aria-pressed="false">Mixer</button>
+
+                <div class="bar_len">
+                Pattern length:
+                <!-- Options are generated in main.js, from MIN/MAX_PAT_STEPS -->
+                <select id="num_steps"></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="group">
+            <div class="label">Timeline</div>
+
+            <div class="sequencer" id="pat_seq">
+            </div>
+
+            <div class="bot_bar">
+                <button id="play_song" class="play_btn">Play</button>
+
+                <!-- Filled in by main.js, since it depends on the tempo too -->
+                <div class="bar_len" id="song_len"></div>
+            </div>
+        </div>
+
+        <!-- Shelf of the smaller groups, which stand side by side while there is
+             room for them and fall into a column when there isn't. What goes
+             here is what is done to a finished track rather than what it is made
+             with: sharing it today, exporting and effects later. -->
+        <div class="util_row">
+
+            <div class="group">
+                <div class="label">Delay</div>
+
+                <!-- How much of each row goes to the delay is set per row, on
+                     the sliders beside its steps. These are what the echoes it
+                     sends there sound like. -->
+                <div class="controls stretch_ctls">
+                    <div class="slider_ctl">
+                        <label>Time: <span class="wide_val" id="delay_time_val">3 steps</span></label>
+                        <!-- Range is set in main.js, from MIN/MAX_DELAY_TIME -->
+                        <input type="range" id="delay_time_slider">
+                    </div>
+                    <div class="slider_ctl">
+                        <label>Feedback: <span class="num_val" id="delay_fb_val">40</span>%</label>
+                        <!-- Range and step are set in main.js, from MIN/MAX_DELAY_FB -->
+                        <input type="range" id="delay_fb_slider">
+                    </div>
+                </div>
+
+                <div class="share_note">
+                    Set how much of a row is echoed with the
+                    delay slider beside its steps.
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="label">Filter</div>
+
+                <!-- One filter across the whole track, set with one control:
+                     the centre does nothing, left brings a low-pass down over
+                     it and right brings a high-pass up under it. -->
+                <div class="controls stretch_ctls">
+                    <div class="slider_ctl wide">
+                        <label>Cutoff: <span class="wide_val" id="filter_val">off</span></label>
+                        <!-- Range is set in main.js, from MIN/MAX_FILTER -->
+                        <input type="range" id="filter_slider" class="ctr_slider">
+                    </div>
+                    <div class="slider_ctl">
+                        <label>Resonance: <span class="num_val" id="resonance_val">0</span>%</label>
+                        <!-- Range is set in main.js, from MIN/MAX_RESONANCE -->
+                        <input type="range" id="resonance_slider">
+                    </div>
+                </div>
+
+                <div class="share_note">
+                    Sweep left for a low-pass, right for a high-pass.
+                    Double-click to centre.
+                </div>
+            </div>
+
+            <!-- Clock for outboard gear, so that a hardware box can be played
+                 in time with what this page is playing. Hidden until main.js
+                 finds that the browser can send MIDI at all: there is nothing
+                 behind these controls on one that can't. -->
+            <div class="group" id="midi_group" hidden>
+                <div class="label">MIDI</div>
+
+                <div class="share_row midi_row">
+                    <label class="check_ctl">
+                        <input type="checkbox" id="midi_clock">
+                        Broadcast MIDI clock
+                    </label>
+
+                    <span class="midi_rate">
+                        <label for="midi_rate">Rate:</label>
+                        <!-- Options are generated in main.js, from CLOCK_RATES -->
+                        <select id="midi_rate"></select>
+                    </span>
+                </div>
+
+                <div class="share_note">
+                    Sends MIDI start, stop and clock to every connected device.
+                    Lower the rate for gear that runs too fast.
+                </div>
+
+                <!-- What the clock is currently reaching, filled in by main.js -->
+                <div class="share_note" id="midi_status"></div>
+            </div>
+
+            <div class="group">
+                <div class="label">Share</div>
+
+                <div class="share_row">
+                    <label for="song_title">Title</label>
+                    <!-- Deliberately not length-capped: what a title has to be is
+                         checked in main.js when a link is made, where it can be said -->
+                    <input type="text" id="song_title"
+                           placeholder="untitled" spellcheck="false">
+                    <button id="share_btn">Copy link</button>
+                </div>
+
+                <!-- A link holds the whole project, so anyone who opens one can
+                     edit what it plays. That's worth saying before it's shared. -->
+                <div class="share_note">
+                    Generate a link to share this project.
+                    Anyone with this link can play and remix your track.
+                </div>
+
+                <!-- What the last copy did, filled in by main.js -->
+                <div class="share_note" id="share_status"></div>
+            </div>
+
+        </div>
+
+        <!-- Inside the page column like the groups above, so that the notice
+             sits under their left edge and the visit count under their right -->
+        <div class="footer">
+            <div class="foot_credits">
+                &copy; 2026
+                <!-- These all open in a new tab: the project being edited lives
+                     in this page's URL, so leaving the page would take it with
+                     it -->
+                <a href="https://pointersgonewild.com/about/"
+                   target="_blank" rel="noopener">Maxime Chevalier-Boisvert</a>
+                &middot;
+                <a href="https://github.com/maximecb/groovie"
+                   target="_blank" rel="noopener">Source on GitHub</a>
+            </div>
+
+            <!-- The commit the site was published from, linking to itself on
+                 GitHub. It reads as part of the credits beside it, and is a
+                 box of its own rather than words inside them so that it can
+                 leave that line and go down with the visit count on a screen
+                 too narrow to hold all of it at once.
+
+                 tools/publish.sh writes this in as it stages the file,
+                 separator and all, so that there is nothing here to be left
+                 stranded when there is no commit to name. A commit can't name
+                 itself in a file it contains, so this being empty is also what
+                 says the page is being served from a checkout rather than from
+                 something publish.sh put up. -->
+            <span class="commit"><a href="https://github.com/maximecb/groovie/commit/1997fc28e95753402b42592e335d085d959338d7" target="_blank" rel="noopener">1997fc2</a></span>
+
+            <!-- How many times the page has been opened, filled in by main.js.
+                 Empty until the count comes back, and left empty if it doesn't. -->
+            <div id="hit_count"></div>
+        </div>
+
+    </div>
+
+</body>
+</html>

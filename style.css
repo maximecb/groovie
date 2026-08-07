@@ -1,0 +1,1231 @@
+/* A sideways swipe that the page has no more room to scroll is taken as a
+   back gesture by the browser, which would drop the user out of the editor.
+   The grids below scroll sideways, so that is easy to do by accident. */
+html {
+    overscroll-behavior-x: none;
+
+    /* How wide the page is allowed to run. Everything below the logo is laid
+       out in a column of this width, and follows the window until it reaches
+       it.
+
+       Set to what the page has the contents to fill rather than to what the
+       grids could use: past this the boxes stretch further than what's in them,
+       and the lines of text under them run long. It leaves the pattern grid
+       showing 20 steps before it has to be scrolled, which covers the 16 most
+       patterns are written in.
+
+       Worth raising as the page gains more to hold. A 32-step row, with the
+       sample it plays and its place in the mix around its steps, measures
+       1145px, and about 50px of the page goes on the margins, borders and
+       padding between it and the window, so 1220px is where the longest pattern
+       anyone writes in fours stops having to be scrolled to be seen. */
+    --page_max: 1040px;
+
+    /* Width of the sample drop-down at the left of a pattern row, which the
+       button adding a row below the grid matches so that the two line up.
+       Named here because a narrow screen gives it less, and it has to be the
+       same number in both places for the column to stay straight. */
+    --sample_sel_width: 144px;
+
+    /* Fill behind a control that is switched on and stays that way: the pattern
+       being edited, its lane in the timeline, and the button holding the mix on
+       the screen on a phone. Named because those three have to agree, being the
+       same idea in three places, and because what the number has to clear isn't
+       local to any of them: every button on the page lightens to #2E2E2E under
+       the pointer and to #444 while it is held down, and a state that lasts
+       between clicks has to sit above both to read as more than a click. */
+    --on_fill: #555;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+
+    /* Centred, but never at the cost of pushing something off the left edge,
+       which is where it would go if anything here ever came out wider than the
+       window: the page only scrolls right, so what goes off that side can't be
+       reached at all. The plain value is left in front for the browsers that
+       don't understand the safe one, which then behave as they did before. */
+    align-items: center;
+    align-items: safe center;
+
+    background-color: #111;
+    color: #FFF;
+    margin: 0;
+
+    /* Less room above than at the other edges: the logo below carries clear
+       space of its own inside the image, for the glow around the letters to
+       have somewhere to fall off, and the page's own padding lands on top of
+       that. The sides and the bottom keep the full amount, being what holds
+       the contents off the edges of a phone screen. */
+    padding: 6px 20px 20px;
+}
+
+h1 {
+    margin: 4px 0 2px 0;
+}
+
+/* The hidden attribute only carries a display of none, which any display given
+   to the element beats. The groups are flex containers, so hiding one takes
+   this to hold. */
+[hidden] {
+    display: none !important;
+}
+
+.logo {
+    display: block;
+    width: 420px;
+
+    /* Shrink on narrow screens rather than overflowing */
+    max-width: 92vw;
+}
+
+/* The column the page is laid out in, holding everything below the logo. It
+   follows the width of the window up to the cap above, so the boxes inside it
+   grow on a wide screen and shrink onto a phone without any width of their
+   own. */
+.page {
+    display: flex;
+    flex-direction: column;
+
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--page_max);
+}
+
+.group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    /* No width of its own: a group fills the page column it sits in. Sized
+       with the border and padding included, so that a group placed in a row
+       with others below takes exactly the width it is given. */
+    box-sizing: border-box;
+    border: 1px solid #444;
+    margin: 10px;
+
+    /* The group label sits on the top border and hangs below it, so there is
+       more room at the top than at the other edges. Keeping that clearance
+       here rather than on whatever a group starts with is what makes every
+       section start the same distance below its own label. */
+    padding: 12px 8px 8px;
+
+    font-size: 12px;
+    font-family: monospace;
+    font-weight: normal;
+}
+
+.group .label {
+    text-align: left;
+
+    position: absolute;
+    top: -0.6em;
+    left: 20px;
+
+    margin: 0px;
+    padding: 0px;
+
+    color: #999;
+    font-size: 1.2em;
+    background: #111;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+/* A row of the smaller groups, standing side by side. Each one asks for a
+   share of the row and states the width below which it would rather be given a
+   line of its own, so the row holds as many as the page is wide enough for and
+   becomes a column on a phone, without a width being named anywhere.
+
+   The groups keep the margins they have in the column above, which is what
+   spaces them here as well: a row of them is separated by the same gap that
+   separates two stacked groups. */
+.util_row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.util_row > .group {
+    /* Two boxes to a row at most, however wide the page is allowed to get.
+       Three of them fit once --page_max is raised much past 1000px, and the
+       width is there rather than the room: these are boxes of controls with a
+       line of explanation under them, and at a third of the page each the
+       controls sit shoulder to shoulder and the text sets in a column too
+       narrow to read as a sentence.
+
+       The basis is the larger of a fixed width and just over a third of the
+       row. The third is what caps it at two without tying the cap to a
+       particular --page_max: three boxes of a third plus a pixel can never
+       share a line, whatever the page is widened to later. The 320px floor is
+       what still drops the shelf to one box a row on a phone, where a third of
+       the row is no width at all. */
+    flex: 1 1 max(320px, calc(33.34% + 1px));
+    min-width: 0;
+}
+
+.sequencer {
+    border: 1px solid #444;
+    margin: 4px 6px;
+    padding: 2px;
+
+    /* Fills the width of the group rather than shrinking to its contents, so
+       that the controls above it have a fixed edge to line up with */
+    align-self: stretch;
+
+    /* A pattern can be up to 64 steps long, which is wider than the group.
+       Scrolling keeps it inside its box instead of spilling onto the page. */
+    overflow-x: auto;
+
+    /* Swiping past the end of a grid stops there, rather than carrying on into
+       the page and the back gesture behind it */
+    overscroll-behavior-x: contain;
+}
+
+/* Bar above the pattern grid, holding the tabs that pick which pattern the
+   grid is showing */
+.pat_bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 20px;
+
+    align-self: stretch;
+
+    margin: 4px 0;
+
+    /* Indented by the margin, border and padding of the grid below, so that
+       the tabs start exactly where the sample selects inside the grid do */
+    padding: 0 9px;
+}
+
+/* Strip of pattern selection tabs, filling the bar. A project can hold many
+   patterns, so the strip wraps within the width of the group. */
+.pat_tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+
+    flex: 1;
+    min-width: 0;
+}
+
+/* Bar below a grid: the buttons acting on it, and how long what it holds is */
+.bot_bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+
+    align-self: stretch;
+    margin: 4px 0;
+
+    /* Indented like the bar above the grid, so that both line up with the
+       edges of the grid between them */
+    padding: 0 9px;
+}
+
+/* How long the grid above is, at the right end of the bar. The pattern editor
+   and the timeline each state their length here, in the same place. */
+.bar_len {
+    margin-left: auto;
+
+    flex-shrink: 0;
+    white-space: nowrap;
+
+    /* Dimmer than the body text: this is something to glance at, not one of
+       the controls the bar is otherwise made of */
+    color: #BBB;
+
+    /* Anchored on the right, so the digits would otherwise shuffle sideways as
+       the count changes */
+    font-variant-numeric: tabular-nums;
+}
+
+/* One tab, i.e. one pattern of the project */
+.pat_tab {
+    box-sizing: border-box;
+    min-width: 30px;
+    padding: 3px 5px;
+}
+
+/* The pattern currently open in the editor below. Marked out in neutral white
+   rather than a color of its own, which a pattern would read as its color. */
+.pat_tab.selected {
+    border-color: #FFF;
+    background-color: var(--on_fill);
+    color: #FFF;
+}
+
+/* Buttons that create patterns, at the end of the strip. Dashed and dim, like
+   the button that adds a row, so that they read as patterns not yet created. */
+.pat_tab.add_pat {
+    background-color: transparent;
+    color: #999;
+    border: 1px dashed #444;
+}
+.pat_tab.add_pat:hover {
+    background-color: transparent;
+    color: #FFF;
+    border-color: #B14BFF;
+}
+
+/* Deletes the pattern being edited, at the end of the strip. Dim until pointed
+   at, since it undoes work and shouldn't be the thing the eye lands on, and red
+   on hover to say what it's about to do. Both rules leave the disabled button
+   alone, so that the plainer disabled look at the end of the sheet still wins
+   over them: two classes would otherwise outrank it. */
+.pat_tab.del_pat:not(:disabled) {
+    color: #999;
+}
+.pat_tab.del_pat:not(:disabled):hover {
+    background-color: #2E2E2E;
+    border-color: #E22;
+    color: #E22;
+}
+
+/* The pattern currently being heard. This comes after the rules above so that
+   it wins over them: the pattern playing is usually also the one being edited,
+   and which one is playing is the more useful of the two to be able to see. */
+.pat_tab.playing {
+    background-color: #E22;
+    border-color: #E22;
+    color: #FFF;
+}
+
+/* A pattern waiting to take over at the end of the current pattern's cycle.
+   It blinks the color of the pattern playing, which is what it's about to
+   become, the way a groovebox shows a pattern queued for launch. */
+.pat_tab.queued {
+    animation: queued_blink 0.4s steps(1) infinite;
+}
+@keyframes queued_blink {
+    50% {
+        background-color: #E22;
+        border-color: #E22;
+        color: #FFF;
+    }
+}
+
+/* One row of steps, for one sample, with its per-row controls */
+.pat_row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The steps of a row */
+.pat_cells {
+    white-space: nowrap;
+}
+
+/* Sample selection drop-down, on the left of a row */
+.sample_sel {
+    /* Sized with the border and padding included, so that the button below the
+       grid can line up with these by asking for the same width */
+    box-sizing: border-box;
+    width: var(--sample_sel_width);
+    padding: 1px;
+
+    background-color: #000;
+    color: #FFF;
+    border: 1px solid #666;
+
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* The mixer controls of a row, taken together. They sit tighter to each other
+   than the row spaces its own parts, so that they read as one group of
+   settings belonging to the row rather than as two more things after the
+   steps. */
+.row_ctls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* One of those controls, i.e. a slider and the value it is set to. The sliders
+   themselves are styled down with the other sliders, being ones of those with
+   a track of their own. */
+.row_ctl {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Left-aligned and reserved at the width of the longest value its own control
+   can show, which each one gives as --val_width: a column of these has to line
+   up down the grid and not shift as the values change, but reserving the wider
+   control's width for both would leave the narrower one trailing a blank
+   column into whatever sits beside it. */
+.row_ctl_val {
+    display: inline-block;
+    min-width: var(--val_width, 5ch);
+
+    color: #999;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Button removing a row, at the left end of it, and the blank standing in for
+   it under the last row so that the button adding a row still lines up with
+   the sample selects above it. A square the height of a row, so that the
+   column of them reads as an edge to the grid rather than as a stack of
+   controls competing with the steps.
+
+   Quiet until pointed at, the way the button that adds a row is, since it
+   destroys work in one click and there is one of them on every row. The hover
+   rule leaves the disabled button alone so that the plainer disabled look at
+   the end of the sheet still wins over it. */
+.del_row,
+.del_row_gap {
+    box-sizing: border-box;
+    flex: none;
+    width: 22px;
+    height: 22px;
+}
+
+.del_row {
+    padding: 0;
+
+    background-color: transparent;
+    color: #777;
+    border: 1px solid #444;
+
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+.del_row:not(:disabled):hover {
+    background-color: #2E2E2E;
+    color: #E22;
+
+    /* The red the page marks a destructive control in */
+    border-color: #E22;
+}
+
+/* Button to add a row, at the bottom of the pattern grid. Dashed and dim, so
+   that it reads as an empty grid slot rather than as a control of its own. */
+.add_row {
+    box-sizing: border-box;
+    width: var(--sample_sel_width);
+    padding: 2px;
+
+    background-color: transparent;
+    color: #999;
+    border: 1px dashed #444;
+}
+.add_row:hover {
+    background-color: transparent;
+    color: #FFF;
+
+    /* Picks up the purple end of the logo */
+    border-color: #B14BFF;
+}
+
+/* Click target around a cell, larger than the cell itself */
+.cell_box {
+    display: inline-block;
+}
+
+/* Beat separator, a beat is 4 steps */
+.cell_box:nth-child(4n+1) {
+    margin-left: 6px;
+}
+.cell_box:first-child {
+    margin-left: 0px;
+}
+
+.cell {
+    width: 16px;
+    height: 16px;
+    margin: 2px;
+    cursor: pointer;
+    border: 1px solid #666;
+}
+/* A cell that plays is drawn in the color of its pattern, which is set on the
+   grid in view.js. The fallback is only there for a grid rendered without one. */
+.cell.on {
+    background-color: var(--pat_color, #E22);
+    border-color: var(--pat_color, #E22);
+}
+.cell.off {
+    background-color: #000;
+}
+
+/* Step currently being played. This comes after the on/off rules so that it
+   wins over them at equal specificity. */
+.cell.playing {
+    background-color: #222;
+}
+.cell.on.playing {
+    background-color: #FFF;
+}
+
+/* Wrapper around the timeline lanes. The playhead and the loop marker span
+   every lane, and are positioned against this. */
+.timeline {
+    position: relative;
+
+    /* Lanes are as wide as the song is long, which can be wider than the box
+       the timeline sits in. Shrinking to the box would squeeze the lanes out
+       of alignment with each other, so the box scrolls instead. */
+    display: inline-block;
+    min-width: 100%;
+}
+
+/* One lane, i.e. where one pattern plays in the song */
+.tl_lane {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+/* The pattern a lane places, on the left of the lane. Sized so that all the
+   lanes start at the same offset, which is what lines their cells up. */
+.tl_label {
+    box-sizing: border-box;
+    width: 36px;
+    padding: 2px;
+    margin: 1px 0;
+}
+
+/* The pattern currently open in the pattern editor above, marked out like its
+   tab */
+.tl_label.selected {
+    border-color: #FFF;
+    background-color: var(--on_fill);
+    color: #FFF;
+}
+
+/* Empty space where the ruler would have a label */
+.tl_no_label {
+    border: none;
+    background: none;
+}
+
+/* One playthrough of a pattern. These are sized in JS, from the length of the
+   pattern: a cell is as wide as the pattern takes to play, so that a cell is
+   the same amount of time on every lane. */
+.tl_cell {
+    display: inline-block;
+    height: 12px;
+    margin: 1px;
+    cursor: pointer;
+    box-sizing: border-box;
+    border: 1px solid #666;
+}
+/* A cell that plays is drawn in the color of its lane's pattern, matching the
+   cells of the grid that edits it. The color is set on the lane in view.js. */
+.tl_cell.on {
+    background-color: var(--pat_color, #E22);
+    border-color: var(--pat_color, #E22);
+}
+.tl_cell.off {
+    background-color: #000;
+}
+
+/* An empty cell outlines itself in the color it would take, so that pointing at
+   it says which pattern would land there */
+.tl_cell.off:hover {
+    background-color: #222;
+    border-color: var(--pat_color, #B14BFF);
+}
+
+/* Ruler above the lanes, numbering the bars of the song */
+.tl_ruler {
+    color: #999;
+}
+
+/* While the song plays, clicking the ruler moves playback to that point. The
+   class is set on the timeline box in main.js, since it's playback that decides
+   whether there is anything to move. */
+.seekable .tl_ruler .tl_cells {
+    cursor: pointer;
+}
+
+/* One bar of the ruler. Cells only line up with bars when their pattern is a
+   whole number of bars long, so the ticks are what locate the rest. */
+.tl_bar {
+    display: inline-block;
+    box-sizing: border-box;
+    padding-left: 3px;
+    border-left: 1px solid #444;
+    overflow: hidden;
+}
+
+/* Where the song loops back to its start */
+.tl_loop {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px dashed #888;
+    pointer-events: none;
+}
+
+/* Position of the song currently being heard */
+.tl_playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px solid #FFF;
+    pointer-events: none;
+}
+
+/* The tempo and volume row at the top of the page. It sits a little higher
+   under its label than the other groups' contents do: this is a row of plain
+   text and sliders, with none of the boxed edges that need clearance to read
+   as separate from the label above them. */
+.controls {
+    margin: 2px 4px 4px;
+    display: flex;
+
+    /* Three controls side by side need more width than a phone has, so the row
+       falls onto as many lines as it takes. The lines sit closer together than
+       the controls on one line do, so that a wrapped row still reads as a
+       column of controls rather than as three separate rows. */
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 20px;
+
+    align-items: center;
+}
+
+/* A slider and the label reading out its value. Boxed together so the pair can
+   sit tighter than the gap that separates one control from the next. */
+.slider_ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Controls given the whole width of their group instead of the 120px the
+   sliders otherwise take, which is what the two effects boxes use.
+
+   Precision on a slider is travel: what decides how easy a setting is to land
+   on is how many pixels it is spread over. That matters most on the filter
+   cutoff, which has 127 settings either side of its centre and is the one
+   control here meant to be swept by hand while the track runs. The delay's
+   sliders are laid out the same way because the two boxes stand side by side
+   on the same shelf, and one box of full-width controls next to a box of short
+   ones reads as one of them having gone wrong.
+
+   Each control takes a line of the row to itself and its slider takes whatever
+   the label beside it leaves, rather than a fixed width. The label stays where
+   labels are everywhere else on the page: above the track it reads as a
+   caption on the box rather than as the name of the control under it, which is
+   the one thing worth more here than the handful of pixels it costs. */
+.controls.stretch_ctls {
+    /* The group centres what it holds, and this wants its full width */
+    align-self: stretch;
+}
+
+.stretch_ctls > .slider_ctl {
+    /* A line of the controls row to itself, so that the slider on it has the
+       width of the group to spread over rather than a share of a row */
+    flex: 1 0 100%;
+}
+
+/* The labels are held to a common width so that the tracks below one another
+   start at the same place. They are different lengths -- one names a longer
+   control and reserves a wider readout -- and left to themselves they would
+   step the two sliders sideways against each other, which reads as a mistake
+   rather than as two controls of the same kind.
+
+   Wide enough for the longest of them, which is 'Feedback: ' and the readout
+   after it, and for 'Cutoff: ' and the ten characters its readout is reserved
+   at. Shared across both boxes rather than set per box, so that the four
+   controls on the shelf line up with each other and not just within their
+   own group. */
+.stretch_ctls > .slider_ctl > label {
+    min-width: 18ch;
+}
+
+.stretch_ctls > .slider_ctl > input[type="range"] {
+    /* Takes whatever the label leaves rather than a width of its own */
+    flex: 1;
+
+    /* A flex item refuses to shrink below its contents by default, which on a
+       narrow phone is what would push the group wider than the screen */
+    width: auto;
+    min-width: 0;
+}
+
+/* Numeric readout inside a control label. Reserved at its widest value (3
+   digits) and right-aligned, so that the slider next to it doesn't shift as
+   the number gains or loses digits. */
+.num_val {
+    display: inline-block;
+    min-width: 3ch;
+    text-align: right;
+
+    /* Arial's digits are already equal width, but a fallback sans-serif may
+       use proportional figures, which would make the readout itself jitter */
+    font-variant-numeric: tabular-nums;
+}
+
+/* Readout of a control whose value is named rather than numbered, i.e. the
+   delay time. Reserved at the width of the longest name it can show, which is
+   a fraction over two digits and the word after it, e.g. '3/16 steps'. Left
+   aligned rather than right, the values being words. */
+.wide_val {
+    display: inline-block;
+    min-width: 10ch;
+
+    font-variant-numeric: tabular-nums;
+}
+
+/* The sliders are drawn from scratch rather than left to the browser, which
+   would bring a rounded handle and a blue of its own to a page made of squares
+   in two colors. The part of the track behind the handle is lit, the way the
+   travelled part of a fader is on a mixer, so that how far up a control is set
+   reads across the room.
+
+   That lit part is one flat color rather than a ramp, and the color is the
+   whole track's to give: it crosses from the purple of the logo to its red as
+   the value climbs, so a control near the bottom of its range is purple down
+   its whole length and only one at the top is red. The handle takes the same
+   color, being the head of the same bar.
+
+   How far along the handle is has to come from main.js as --val, CSS having no
+   way of its own to read a range input's value. The fallback matters: it's what
+   the sliders look like if a script error keeps that from being set. */
+input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+
+    /* The color the track has reached. The two ends are the purple and the red
+       of the logo taken to full strength, rather than the softer shades it
+       shades between: a lit bar is a small thing to read a value off, and it
+       has none of the glow around the logo to carry it. */
+    --slider_color: color-mix(in oklab, #B400FF, #FF0000 var(--val, 50%));
+
+    width: 120px;
+
+    /* Room for the handle, which stands proud of the track */
+    height: 20px;
+
+    background: transparent;
+    cursor: pointer;
+
+    /* Dragging a handle on a touch screen should move it, not scroll the page */
+    touch-action: none;
+}
+
+/* The track. WebKit and Firefox each only understand their own name for it, and
+   a selector either of them can't parse takes the whole rule down with it, so
+   the two are written out separately here and for the handle below. */
+input[type="range"]::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    height: 8px;
+
+    background: linear-gradient(90deg,
+        var(--slider_color) var(--val, 50%), #000 var(--val, 50%));
+
+    border: 1px solid #666;
+}
+input[type="range"]::-moz-range-track {
+    box-sizing: border-box;
+    height: 8px;
+
+    background: linear-gradient(90deg,
+        var(--slider_color) var(--val, 50%), #000 var(--val, 50%));
+
+    border: 1px solid #666;
+}
+
+/* The handle: a cap standing across the track, taller than it is wide so that
+   it reads as the thing that slides along rather than as another step cell, and
+   narrow enough to point at one spot on the track. It is grey rather than a
+   color of its own: the color along the track is what the value is being read
+   off, and a handle holding that color too would only take the eye off it. The
+   edge is darker than the face, which gives a cap sitting above the track
+   rather than a flat block, and keeps the grey off the white the page marks
+   the pattern being edited in.
+
+   WebKit lays the handle out from the top of the track's content box, so it is
+   pulled up by half the difference between the two to sit centered on the
+   track. Firefox centers it on its own. */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    width: 8px;
+    height: 18px;
+    margin-top: -6px;
+
+    background-color: #DDD;
+    border: 1px solid #888;
+}
+input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 8px;
+    height: 18px;
+
+    background-color: #DDD;
+    border: 1px solid #888;
+
+    /* Firefox rounds the handle unless told not to */
+    border-radius: 0;
+}
+
+/* Pointing at a slider or tabbing to it brightens the edge of its track, which
+   is what the text field does to say the same thing */
+input[type="range"]:hover::-webkit-slider-runnable-track,
+input[type="range"]:focus-visible::-webkit-slider-runnable-track {
+    border-color: #999;
+}
+input[type="range"]:hover::-moz-range-track,
+input[type="range"]:focus-visible::-moz-range-track {
+    border-color: #999;
+}
+
+/* The track edge above already marks the focused slider, so the ring the
+   browser would draw around the whole control is left off */
+input[type="range"]:focus-visible {
+    outline: none;
+}
+
+/* The pan slider, which is one of the sliders above with two things changed.
+   Every rule here has to name the element as well as the class: `input[...]`
+   counts for as much as a class does, so a rule saying only `.pan_slider`
+   would lose to the ones above it rather than override them.
+
+   It is much narrower than the sliders at the top of the page. There is one
+   per row, and it sits beside the steps, so the width it takes is width the
+   grid doesn't get.
+
+   Its track is lit from the centre out rather than from the left, the centre
+   being where the value means "not panned" and either side of it a move away
+   from that. A row panned left lights up purple and one panned right lights up
+   red, so which way a row has been moved reads off the color without having to
+   find the handle. The other sliders cross between those same two colors as
+   they climb; this one puts one at each end of the travel instead.
+
+   The track is two layers rather than one gradient, since CSS has no way to
+   ask which side of the centre a value fell on. The layer underneath is
+   painted purple over its left half and red over its right, and the layer on
+   top blacks out everything the value hasn't reached. The lit part is always
+   on one side of the centre, so it only ever uncovers one of the two colors.
+   min() and max() sort the two ends of that part, the handle being either left
+   of the centre or right of it. */
+/* The level slider is one of the sliders above with nothing changed but its
+   width: it fills from the left the way they do, and takes the same color ramp,
+   which puts a row near the top of its range at the red end. */
+input[type="range"].vol_slider {
+    width: 60px;
+}
+
+/* The delay send slider, which is the level slider again: it fills from the
+   left and takes the same color ramp, a row sent hard to the delay lighting up
+   at the red end the way a row at full level does. */
+input[type="range"].send_slider {
+    width: 60px;
+}
+
+/* The filter cutoff slider, which is the pan slider's track on one of the
+   full-width sliders at the top of the page. It is lit from the centre out for
+   the same reason: the centre is where the value means "doing nothing", and
+   either side of it is a move away from that, one way into a low-pass and the
+   other into a high-pass. Which way it has been swept reads off the colour
+   without having to find the handle, which is what a control meant to be
+   grabbed mid-song needs.
+
+   It shares .ctr_slider with the pan slider rather than repeating the track,
+   and adds nothing but the width it doesn't override. */
+input[type="range"].ctr_slider {
+    /* The purple and the red of the logo, at the full strength the other
+       sliders take them to */
+    --pan_left_color: #B400FF;
+    --pan_right_color: #FF0000;
+}
+
+input[type="range"].pan_slider {
+    width: 60px;
+}
+input[type="range"].ctr_slider::-webkit-slider-runnable-track {
+    background:
+        linear-gradient(90deg,
+            #000 min(50%, var(--val, 50%)),
+            transparent min(50%, var(--val, 50%)),
+            transparent max(50%, var(--val, 50%)),
+            #000 max(50%, var(--val, 50%))),
+        linear-gradient(90deg,
+            var(--pan_left_color) 50%, var(--pan_right_color) 50%);
+}
+input[type="range"].ctr_slider::-moz-range-track {
+    background:
+        linear-gradient(90deg,
+            #000 min(50%, var(--val, 50%)),
+            transparent min(50%, var(--val, 50%)),
+            transparent max(50%, var(--val, 50%)),
+            #000 max(50%, var(--val, 50%))),
+        linear-gradient(90deg,
+            var(--pan_left_color) 50%, var(--pan_right_color) 50%);
+}
+
+/* The title of the composition and the button that puts it in a link. These
+   sit as close together as a label sits to its own field: the button acts on
+   the field beside it, rather than being a separate control of its own. */
+.share_row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    /* Wraps like the controls at the top of the page, for the same reason: the
+       label, the field and the button don't all fit on one line of a phone.
+       It takes the width of the group and centres what's on it, rather than
+       shrinking to what it holds: a row sized to its contents is a row that
+       decides to wrap while there is still room beside it. */
+    align-self: stretch;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    /* A little more room below than a group's contents usually get, so that
+       the text under the field doesn't crowd it */
+    margin: 4px 4px 6px;
+}
+
+/* Title of the composition, which travels in the link. It takes the room the
+   label and the button leave, up to the width a title needs, rather than a
+   fixed width that would push the button off a narrow screen. */
+#song_title {
+    flex: 0 1 240px;
+    min-width: 0;
+    padding: 3px 5px;
+
+    background-color: #000;
+    color: #FFF;
+    border: 1px solid #666;
+
+    font-family: inherit;
+    font-size: inherit;
+}
+#song_title:focus {
+    outline: none;
+    border-color: #999;
+}
+
+/* The clock switch and the rate it runs at. These are two controls rather than
+   one phrase, and at the spacing the share row puts between a label and the
+   field it belongs to they run together into "Broadcast clock Rate", so they
+   are held further apart than that. */
+.midi_row {
+    gap: 18px;
+}
+
+/* The rate and its label, which do belong together and keep the closer
+   spacing between them */
+.midi_rate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* A checkbox and what ticking it does, which read as the one control: the
+   words are part of the same target as the box, both because a box on its own
+   is a small thing to hit and because they are what says what it means. */
+.check_ctl {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+
+    /* Ticked in the color the sliders run through, rather than in the
+       browser's own blue, which is the one color on the page that belongs to
+       nothing else on it */
+    accent-color: #B400FF;
+}
+
+/* What sharing a link means, and what the last copy did. Dimmer than the
+   controls above, being something to read once rather than to operate. */
+.share_note {
+    margin: 4px;
+    color: #BBB;
+    text-align: center;
+}
+
+/* A note line carrying something that went wrong rather than something to
+   read once: what stopped a link from being made, or what stopped the MIDI
+   clock from being switched on. Marked rather than dim, being something to act
+   on before the control above it will do anything. */
+.share_error {
+    color: #E22;
+}
+
+/* Below the last group: who made this on the left, how many times the page has
+   been opened on the right. Both are smaller and dimmer than anything in the
+   groups above, being page furniture rather than part of the editor. */
+.footer {
+    display: flex;
+    align-items: baseline;
+
+    /* The credits and the visit count together are about as wide as a phone,
+       so they're allowed to fall onto two lines rather than the credits
+       breaking mid-line against a count pinned beside them.
+
+       What spaces them is what puts the count in the right place on either
+       layout: side by side it holds the two apart, so the count sits against
+       the right edge as before, and once the count is on a line of its own it
+       falls to the left with nothing to be spaced against. A count stranded
+       out on the right of its own row is what this avoids, and it does it
+       without a width to break at, which the count doesn't have: how wide it
+       runs depends on how many digits the number has grown to. */
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 4px;
+    column-gap: 6px;
+
+    /* Sits in the page column with the groups and carries their side margins,
+       which is what lines the two ends of the footer up with the edges of the
+       boxes above it, whatever width the page is being shown at */
+    box-sizing: border-box;
+    margin: 4px 10px 10px;
+
+    color: #888;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+/* The commit is a box of its own beside the credits rather than words inside
+   them, so that it can come off that line when there isn't room for it. This
+   is what keeps it reading as part of them anyway: an automatic margin eats
+   the space that would otherwise be spread between the two, leaving the pair
+   together on the left with the visit count against the right edge.
+
+   Where the commit isn't there to hold that space, the spacing above puts the
+   count back against the right edge on its own, which is where it used to be. */
+.commit {
+    margin-right: auto;
+}
+
+/* What joins the commit to the credits it follows. It is drawn here rather
+   than written into the page because it only makes sense while the two are on
+   the same line: once the commit drops onto a line of its own it would lead
+   that line with a separator separating nothing. */
+.commit::before {
+    content: "\00B7";
+    margin-right: 6px;
+}
+
+/* A page with no commit written into it was not published by tools/publish.sh.
+   It carries its own separator, so an empty one leaves nothing behind: no
+   hash, and no punctuation trailing off the end of the source link. */
+.commit:empty {
+    display: none;
+}
+
+/* Links here are dim like the text around them, rather than taking the
+   browser's blue, which no other color on the page is near */
+.footer a {
+    color: #888;
+}
+.footer a:hover {
+    color: #FFF;
+}
+
+/* Buttons inherit the surrounding monospace font, so that they sit with the
+   labels and drop-downs around them instead of looking like page furniture */
+button {
+    padding: 4px 14px;
+
+    background-color: #222;
+    color: #DDD;
+    border: 1px solid #666;
+
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #2E2E2E;
+    border-color: #999;
+    color: #FFF;
+}
+button:active {
+    background-color: #444;
+}
+
+/* The two buttons that start playback. Every control on the page is the same
+   grey box, which leaves someone opening Groovie for the first time nothing to
+   tell them where to begin, so these carry a colored outline. Full brightness,
+   to stand against the grey of everything around it. The purple is the one the
+   logo and the pattern strip are already in, which keeps the page to the colors
+   it has: it draws the eye by being the only outline that isn't grey, rather
+   than by being a color from somewhere else.
+
+   The fill and the text are left alone. A colored box among grey ones would be
+   a louder thing than the page wants, and the outline is enough. The fill and
+   the text are also what's left for hover to move, which the rule for every
+   button already does: the outline is at its brightest here, so there is
+   nowhere for it to go on the way in. */
+.play_btn:not(:disabled) {
+    border-color: #B400FF;
+}
+
+/* What the outline can't say on its own is what the button does, purple having
+   no meaning here the way green would have. The transport symbols do say it,
+   and they say it to someone who has never read the page.
+
+   Drawn here rather than put in the label, since the label is replaced whenever
+   playback starts or stops and would carry the glyph off with it. The escapes
+   are the triangle and the square, each followed by the variation selector that
+   asks for the text form of it: left alone, both arrive as color emoji on Apple
+   systems, which is a picture of a button inside a button. */
+.play_btn::after {
+    content: "\25B6\FE0E";
+    margin-left: 7px;
+
+    /* Both glyphs sit low against the word beside them: they're drawn to center
+       on the middle of a line of text, which is below the middle of a word in
+       capitals and lowercase with no descender in it. Nudged up by eye to sit
+       with the word instead. Shifted rather than laid out differently, so that
+       the button keeps the height it has, and in em so that the correction
+       stays with the glyph if the text around it is ever set larger. */
+    position: relative;
+    top: -0.08em;
+}
+
+/* Playing, i.e. the button now says Stop. Red is what the rest of the page
+   already uses for the pattern being heard, so a red button is the same fact
+   said in the same color. Placed after the rules above so that it wins over
+   them at equal specificity. */
+.play_btn.playing::after {
+    content: "\25A0\FE0E";
+}
+.play_btn.playing:not(:disabled) {
+    border-color: #E22;
+    color: #E22;
+}
+.play_btn.playing:not(:disabled):hover {
+    background-color: #2E2E2E;
+    border-color: #E22;
+    color: #E22;
+}
+
+/* An action that isn't available right now, e.g. deleting the last pattern of
+   a project. These rules come last so that they win over the hover ones. */
+button:disabled,
+button:disabled:hover {
+    background-color: #191919;
+    border-color: #333;
+    color: #555;
+    cursor: default;
+}
+
+/* The button that swaps a row's steps for where it sits in the mix. There is
+   nothing for it to do while both are on the screen already, so it only exists
+   at the widths that can't hold both, below. */
+.mixer_btn {
+    display: none;
+}
+
+/* Held down, i.e. the mix is what the grid is showing. Marked out the way the
+   selected pattern tab is, that being what a control already stands in on this
+   page, and in the same fill: all three are a control left switched on. */
+.mixer_btn[aria-pressed="true"] {
+    background-color: var(--on_fill);
+    border-color: #FFF;
+    color: #FFF;
+}
+
+/* Narrow screens, i.e. phones held upright.
+
+   A pattern row is a sample, its steps, and where it sits in the mix. All
+   three don't fit across a phone, so the row shows the steps and the button
+   below the grid swaps them for the mix. One or the other rather than both:
+   the steps of a pattern are already wider than the screen and scroll
+   sideways, so controls kept past the end of them would be controls nobody
+   could find. Swapping puts the mix of every row on the screen at once, which
+   is how it is read anyway.
+
+   The other rows of controls on the page wrap on their own; what's left here is
+   winning back the width that the margins around the boxes take, which a phone
+   can't spare as easily as a desktop can. */
+@media (max-width: 700px) {
+    /* As narrow as a sample name goes before it starts being cut off. Set
+       where it was defined, so that the drop-downs and the button below the
+       grid all pick the new width up together. */
+    html {
+        --sample_sel_width: 120px;
+    }
+
+    body {
+        padding: 6px 8px 20px;
+    }
+
+    .group {
+        margin: 10px 4px;
+    }
+
+    .mixer_btn {
+        display: block;
+    }
+
+    /* The credits are about as wide as a phone on their own, so they take the
+       first line to themselves and the commit and the visit count go on the
+       second. Both sit at the left of it: a footer this narrow reads as a list
+       rather than as two ends held apart, and holding them apart is what would
+       strand the count out on the right of a line of its own on the builds
+       that have no commit to put beside it. */
+    .foot_credits {
+        flex-basis: 100%;
+    }
+
+    .footer {
+        justify-content: flex-start;
+    }
+
+    .commit {
+        margin-right: 0;
+    }
+
+    /* Nothing to join it to any more, the credits being a line above */
+    .commit::before {
+        content: none;
+    }
+
+    /* Written against the grid rather than the rows, so that the button can
+       swap the two by marking the grid it belongs to */
+    .sequencer .row_ctls {
+        display: none;
+    }
+
+    .sequencer.show_mixer .row_ctls {
+        display: flex;
+    }
+
+    .sequencer.show_mixer .pat_cells {
+        display: none;
+    }
+
+    /* The mix of a row has to fit across the screen without scrolling, which is
+       the whole point of showing it on its own, and these are what there is to
+       give: a slider this size still has room to be dragged. Three of them and
+       their readouts is most of the width of a phone, which is what these are
+       narrower than the level and pan sliders once were. */
+    input[type="range"].pan_slider,
+    input[type="range"].vol_slider,
+    input[type="range"].send_slider {
+        width: 44px;
+    }
+
+    /* On the narrowest phones that still leaves the row a few pixels over. The
+       sample name is what can give them up, and it only gives up what the row
+       is short: a phone with the room for it keeps the width that the button
+       below the grid lines up with. */
+    .sequencer.show_mixer .sample_sel {
+        min-width: 0;
+    }
+
+    /* Three controls where the wider screen has two */
+    .bot_bar {
+        flex-wrap: wrap;
+        gap: 6px 12px;
+    }
+}
