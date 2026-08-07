@@ -3,9 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Groovie</title>
-    <meta name="description" content="Free, open source drum and beat sequencer that runs in your browser. Sketch a beat, arrange it into a song, and share the whole thing as a link. No ads, no account, nothing to install.">
+    <!-- Search engines weigh the title above anything else on the page, and
+         they show it as the clickable line of the result. "Groovie" alone is a
+         made up word: it only finds the page for someone who already knows the
+         name. The words after the dash are what someone types when they don't. -->
+    <title>Groovie — Free online drum machine and beat sequencer</title>
+
+    <!-- Google rewrites this often and it isn't a ranking signal, but when it
+         does use it, it's the grey text under the title, cut off around 155
+         characters. The first sentence has to stand on its own. -->
+    <meta name="description" content="Groovie is a free, open source drum machine and beat sequencer that runs in your browser. Sketch a beat, arrange it into a song, and share the whole thing as a link. No ads, no account, nothing to install.">
     <meta name="theme-color" content="#000000">
+
+    <!--
+        The one address this page wants to be indexed under. A search engine
+        that reaches the same page by another route — a mirror, a scraper, the
+        explicit /index.html rather than the bare directory, a link carrying
+        tracking parameters after a '?' — is told here that all of those are
+        the same document, and folds whatever they've earned back into this
+        URL instead of splitting it across near duplicates or picking a
+        favourite on its own.
+
+        Absolute for the same reason the og: URLs are.
+    -->
+    <link rel="canonical" href="https://maximecb.github.io/groovie/">
 
     <!--
         What a link to Groovie looks like when it's posted somewhere.
