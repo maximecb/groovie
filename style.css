@@ -26,6 +26,15 @@ html {
        Named here because a narrow screen gives it less, and it has to be the
        same number in both places for the column to stay straight. */
     --sample_sel_width: 144px;
+
+    /* Fill behind a control that is switched on and stays that way: the pattern
+       being edited, its lane in the timeline, and the button holding the mix on
+       the screen on a phone. Named because those three have to agree, being the
+       same idea in three places, and because what the number has to clear isn't
+       local to any of them: every button on the page lightens to #2E2E2E under
+       the pointer and to #444 while it is held down, and a state that lasts
+       between clicks has to sit above both to read as more than a click. */
+    --on_fill: #555;
 }
 
 body {
@@ -246,7 +255,7 @@ h1 {
    rather than a color of its own, which a pattern would read as its color. */
 .pat_tab.selected {
     border-color: #FFF;
-    background-color: #3A3A3A;
+    background-color: var(--on_fill);
     color: #FFF;
 }
 
@@ -489,7 +498,7 @@ h1 {
    tab */
 .tl_label.selected {
     border-color: #FFF;
-    background-color: #3A3A3A;
+    background-color: var(--on_fill);
     color: #FFF;
 }
 
@@ -1118,9 +1127,9 @@ button:disabled:hover {
 
 /* Held down, i.e. the mix is what the grid is showing. Marked out the way the
    selected pattern tab is, that being what a control already stands in on this
-   page. */
+   page, and in the same fill: all three are a control left switched on. */
 .mixer_btn[aria-pressed="true"] {
-    background-color: #3A3A3A;
+    background-color: var(--on_fill);
     border-color: #FFF;
     color: #FFF;
 }
